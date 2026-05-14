@@ -282,25 +282,10 @@ void Odometry::integrateRungeKutta2(
 void Odometry::integrateExact(
   double linear_x, double linear_y, double angular)
 {
-  // Use RK2 for very small angular motions
-  if (fabs(angular) < 1e-6)
-  {
-    integrateRungeKutta2(linear_x, linear_y, angular);
-  }
-  else
-  {
-    // Exact integration for larger angular motions
-    const double heading_old = heading_;
-    const double r = sqrt(linear_x * linear_x + linear_y * linear_y) / angular;
-    heading_ += angular;
-
-    // Calculate the angle of the linear velocity vector
-    const double vel_angle = atan2(linear_y, linear_x);
-
-    // Transform from robot frame to world frame
-    x_ += r * (sin(heading_ + vel_angle) - sin(heading_old + vel_angle));  // meters
-    y_ += -r * (cos(heading_ + vel_angle) - cos(heading_old + vel_angle)); // meters
-  }
+  // Holonomic platforms decouple translation from rotation — circular-arc integration
+  // (correct for differential drive) is wrong here. RK2 with midpoint heading is
+  // sufficient accuracy for all angular rates on a holonomic platform.
+  integrateRungeKutta2(linear_x, linear_y, angular);
 }
 
 /**

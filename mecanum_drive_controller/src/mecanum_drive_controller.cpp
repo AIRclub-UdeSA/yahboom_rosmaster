@@ -82,7 +82,7 @@ controller_interface::CallbackReturn MecanumDriveController::on_init()
   }
   catch (const std::exception & e)
   {
-    fprintf(stderr, "Exception thrown during init stage with message: %s \n", e.what());
+    RCLCPP_ERROR(get_node()->get_logger(), "Exception during init: %s", e.what());
     return controller_interface::CallbackReturn::ERROR;
   }
 
@@ -349,10 +349,20 @@ controller_interface::CallbackReturn MecanumDriveController::on_configure(
     RCLCPP_INFO(logger, "Parameters were updated");
   }
 
-  // Check wheel radius parameter
+  // Validate required physical dimensions
   if (params_.wheel_radius <= 0.0)
   {
     RCLCPP_ERROR(logger, "Wheel radius must be positive.");
+    return controller_interface::CallbackReturn::ERROR;
+  }
+  if (params_.wheel_separation <= 0.0)
+  {
+    RCLCPP_ERROR(logger, "Wheel separation must be positive.");
+    return controller_interface::CallbackReturn::ERROR;
+  }
+  if (params_.wheel_base <= 0.0)
+  {
+    RCLCPP_ERROR(logger, "Wheel base must be positive.");
     return controller_interface::CallbackReturn::ERROR;
   }
 
@@ -411,12 +421,7 @@ controller_interface::CallbackReturn MecanumDriveController::on_configure(
       std::make_shared<realtime_tools::RealtimePublisher<Twist>>(limited_velocity_publisher_);
   }
 
-  const Twist empty_twist;
   received_velocity_msg_ptr_.set(std::make_shared<Twist>());
-
-  // Fill last two commands with default constructed commands
-  previous_commands_.emplace(empty_twist);
-  previous_commands_.emplace(empty_twist);
 
   // Initialize command subscriber
   velocity_command_subscriber_ = get_node()->create_subscription<Twist>(
@@ -609,9 +614,13 @@ bool MecanumDriveController::reset()
 {
   odometry_.resetOdometry();
 
-  // Release the old queue
+  // Release the old queue and repopulate with two zero-velocity sentinels so
+  // update() can always call previous_commands_.front()/.back() safely
   std::queue<Twist> empty;
   std::swap(previous_commands_, empty);
+  const Twist zero_twist;
+  previous_commands_.emplace(zero_twist);
+  previous_commands_.emplace(zero_twist);
 
   // Reset all wheel handles
   wheel_handles_ = std::array<WheelHandle, 4>();

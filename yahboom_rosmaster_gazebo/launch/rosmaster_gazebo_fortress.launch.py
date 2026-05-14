@@ -12,9 +12,11 @@ from launch.actions import (
     DeclareLaunchArgument,
     ExecuteProcess,
     IncludeLaunchDescription,
+    RegisterEventHandler,
     TimerAction,
     OpaqueFunction,
 )
+from launch.event_handlers import OnProcessStart
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, Command
 from launch_ros.actions import Node
@@ -67,7 +69,6 @@ def generate_launch_description():
             "robot_description": ParameterValue(Command([
                 "xacro", " ", default_xacro,
                 " use_gazebo:=true",
-                " use_ignition:=true",
                 " robot_name:=rosmaster_x3",
                 " prefix:=",
             ]), value_type=str),
@@ -88,13 +89,17 @@ def generate_launch_description():
         launch_arguments=[("gz_args", "-g")],
     )
 
-    # Spawn robot from robot_description topic
+    # Spawn robot from robot_description topic.
+    # z=0.0325 offsets base_footprint so wheel centres sit at wheel_radius above
+    # ground — without this the sphere collisions penetrate the ground plane by
+    # one full wheel radius (32.5 mm), causing violent jitter.
     spawn = Node(
         package="ros_gz_sim",
         executable="create",
         arguments=[
             "-topic", "robot_description",
             "-name", "rosmaster_x3",
+            "-z", "0.0325",
             "-allow_renaming", "true",
         ],
         output="screen",
@@ -116,26 +121,27 @@ def generate_launch_description():
         remappings=[("/cam_1/image", "/cam_1/color/image_raw")],
     )
 
-    joint_state_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "joint_state_broadcaster",
-            "--controller-manager", "/controller_manager",
-            "--param-file", ros2_control_config,
-        ],
+    # Load and atomically configure+activate each controller.
+    # --set-state active handles load→configure→activate in one call, avoiding the async
+    # race that causes set_controller_state inactive to fail in Humble.
+    load_joint_state_broadcaster = ExecuteProcess(
+        cmd=["ros2", "control", "load_controller", "--set-state", "active",
+             "joint_state_broadcaster"],
         output="screen",
     )
 
-    mecanum_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "mecanum_drive_controller",
-            "--controller-manager", "/controller_manager",
-            "--param-file", ros2_control_config,
-        ],
+    load_mecanum_controller = ExecuteProcess(
+        cmd=["ros2", "control", "load_controller", "--set-state", "active",
+             "mecanum_drive_controller"],
         output="screen",
+    )
+
+    # Start mecanum controller 2s after broadcaster begins activating.
+    load_mecanum_after_broadcaster = RegisterEventHandler(
+        event_handler=OnProcessStart(
+            target_action=load_joint_state_broadcaster,
+            on_start=[TimerAction(period=2.0, actions=[load_mecanum_controller])],
+        )
     )
 
     # Convert /cmd_vel (Twist) → /mecanum_drive_controller/cmd_vel (TwistStamped)
@@ -149,13 +155,16 @@ def generate_launch_description():
         declare_world,
         declare_rviz,
         AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
-        robot_state_publisher,
         gazebo_server,
         gazebo_client,
+        # Delay RSP until after Gazebo publishes /clock (~1s). Without this delay, RSP
+        # starts with use_sim_time=true but no clock exists, falls back to wall-clock time
+        # (~1.778e9 s), and permanently poisons the TF2 buffer with a future timestamp.
+        TimerAction(period=2.0, actions=[robot_state_publisher]),
         TimerAction(period=3.0, actions=[spawn]),
         TimerAction(period=5.0, actions=[ros_gz_bridge, ros_gz_image_bridge]),
-        TimerAction(period=8.0, actions=[joint_state_broadcaster_spawner]),
-        TimerAction(period=9.0, actions=[mecanum_controller_spawner]),
         TimerAction(period=10.0, actions=[twist_converter]),
+        TimerAction(period=12.0, actions=[load_joint_state_broadcaster]),
+        load_mecanum_after_broadcaster,
         OpaqueFunction(function=_launch_rviz),
     ])
