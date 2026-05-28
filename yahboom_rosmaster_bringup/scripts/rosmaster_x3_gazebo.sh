@@ -10,12 +10,16 @@ cleanup() {
 }
 
 # Kill any stale Gazebo/ROS processes from a previous session before starting.
-# Without this, a lingering Gazebo instance can cause the new launch to find
-# an already-populated world (the old robot), or DDS ghost nodes can make the
-# create-entity node pick up a cached robot_description from the old RSP.
+# A lingering Gazebo server means the new launch connects to an already-populated
+# world; ghost DDS RSP nodes (alive for ~5 min after Ctrl+C) can deliver stale
+# TRANSIENT_LOCAL robot_description to the create node → double robot spawn.
 echo "Killing any stale simulation processes..."
-pkill -KILL -f "ruby.*ign|gz sim|gz_ros2_control" 2>/dev/null || true
-sleep 1
+pkill -KILL -f "ruby.*ign"          2>/dev/null || true   # Gazebo server/client
+pkill -KILL -f "ign gazebo"         2>/dev/null || true   # alternate invocation
+pkill -KILL -f "gz_ros2_control"    2>/dev/null || true   # hardware plugin
+pkill -KILL -f "robot_state_publisher" 2>/dev/null || true # clears ghost DDS RSP
+pkill -KILL -f "controller_manager" 2>/dev/null || true
+sleep 3   # wait for DDS participant cleanup (fast enough to not block startup)
 
 trap 'cleanup; exit' SIGINT SIGTERM
 

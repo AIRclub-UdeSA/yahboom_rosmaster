@@ -89,10 +89,28 @@ def generate_launch_description():
         launch_arguments=[("gz_args", "-g")],
     )
 
+    # Delete any stale rosmaster_x3 entity left by a previous session.
+    # Without this, a ghost robot_state_publisher (DDS TRANSIENT_LOCAL cache,
+    # alive for ~5 min after Ctrl+C) can deliver a second robot_description to
+    # the create node → two robots spawn → duplicate TF → broken simulation.
+    # --timeout 1000ms; fails silently if the entity doesn't exist.
+    delete_stale_robot = ExecuteProcess(
+        cmd=["gz", "service",
+             "-s", "/world/empty_world/remove",
+             "--reqtype", "gz.msgs.Entity",
+             "--reptype", "gz.msgs.Boolean",
+             "--timeout", "1000",
+             "--req", "name: 'rosmaster_x3' type: MODEL"],
+        output="log",
+    )
+
     # Spawn robot from robot_description topic.
     # z=0.0325 offsets base_footprint so wheel centres sit at wheel_radius above
     # ground — without this the sphere collisions penetrate the ground plane by
     # one full wheel radius (32.5 mm), causing violent jitter.
+    # -allow_renaming is intentionally absent: a second spawn attempt (from a
+    # ghost RSP's cached robot_description) should fail loudly, not silently
+    # create rosmaster_x3_0.
     spawn = Node(
         package="ros_gz_sim",
         executable="create",
@@ -100,7 +118,6 @@ def generate_launch_description():
             "-topic", "robot_description",
             "-name", "rosmaster_x3",
             "-z", "0.0325",
-            "-allow_renaming", "true",
         ],
         output="screen",
     )
@@ -157,14 +174,19 @@ def generate_launch_description():
         AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
         gazebo_server,
         gazebo_client,
-        # Delay RSP until after Gazebo publishes /clock (~1s). Without this delay, RSP
-        # starts with use_sim_time=true but no clock exists, falls back to wall-clock time
-        # (~1.778e9 s), and permanently poisons the TF2 buffer with a future timestamp.
-        TimerAction(period=2.0, actions=[robot_state_publisher]),
-        TimerAction(period=3.0, actions=[spawn]),
-        TimerAction(period=5.0, actions=[ros_gz_bridge, ros_gz_image_bridge]),
-        TimerAction(period=10.0, actions=[twist_converter]),
-        TimerAction(period=12.0, actions=[load_joint_state_broadcaster]),
+        # t=2s: delete any stale entity (from a previous session) before spawning.
+        # This runs early so the gz service call can complete before t=5s spawn.
+        TimerAction(period=2.0, actions=[delete_stale_robot]),
+        # t=4s: RSP starts. Using 4s (not 2s) ensures the new RSP's TRANSIENT_LOCAL
+        # robot_description message is the MOST RECENT on the DDS network before the
+        # spawn node subscribes at t=5s — ghost RSPs from a previous session (alive
+        # for ~5 min) would otherwise deliver their cached description first, causing
+        # a second robot entity to be created (rosmaster_x3_0).
+        TimerAction(period=4.0, actions=[robot_state_publisher]),
+        TimerAction(period=5.0, actions=[spawn]),
+        TimerAction(period=7.0, actions=[ros_gz_bridge, ros_gz_image_bridge]),
+        TimerAction(period=12.0, actions=[twist_converter]),
+        TimerAction(period=14.0, actions=[load_joint_state_broadcaster]),
         load_mecanum_after_broadcaster,
         OpaqueFunction(function=_launch_rviz),
     ])
