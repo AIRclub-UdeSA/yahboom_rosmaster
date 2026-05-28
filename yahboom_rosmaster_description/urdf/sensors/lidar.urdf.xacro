@@ -87,19 +87,18 @@
         <diffuse>${gazebo_material_diffuse}</diffuse>
         <specular>${gazebo_material_specular}</specular>
       </material>
-      <sensor name="${prefix}lidar_sensor" type="ray">
-        <plugin name="${prefix}lidar_plugin" filename="libgazebo_ros_ray_sensor.so">
-          <ros>
-            <namespace>${prefix}</namespace>
-            <remapping>~/out:=${topic_name}</remapping>
-          </ros>
-          <output_type>sensor_msgs/LaserScan</output_type>
-          <frame_name>${prefix}${frame_id}</frame_name>
-        </plugin>
+      <!-- Fortress-native GPU LiDAR. type="ray" (CPU LIDAR) is not supported in Fortress;
+           type="gpu_lidar" uses the ogre2 render pipeline (enabled in empty.world).
+           libgazebo_ros_ray_sensor.so is Classic-only and must not be used here.
+           Data flows via ros_gz_bridge (gz.msgs.LaserScan → sensor_msgs/LaserScan). -->
+      <sensor name="${prefix}lidar_sensor" type="gpu_lidar">
         <update_rate>${update_rate}</update_rate>
         <always_on>${always_on}</always_on>
         <visualize>${visualize}</visualize>
-        <ray>
+        <!-- Short topic name so ros_gz_bridge.yaml 'scan' entry matches -->
+        <topic>${topic_name}</topic>
+        <gz_frame_id>${prefix}${frame_id}</gz_frame_id>
+        <lidar>
           <scan>
             <horizontal>
               <samples>${ray_count}</samples>
@@ -119,13 +118,11 @@
             <max>${max_range}</max>
             <resolution>${range_resolution}</resolution>
           </range>
-          <noise>
-            <type>gaussian</type>
+          <noise type="gaussian">
             <mean>${noise_mean}</mean>
             <stddev>${noise_stddev}</stddev>
           </noise>
-        </ray>
-        <gz_frame_id>${prefix}${frame_id}</gz_frame_id>
+        </lidar>
       </sensor>
     </gazebo>
   </xacro:macro>
