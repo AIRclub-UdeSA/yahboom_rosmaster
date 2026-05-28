@@ -114,7 +114,46 @@ ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {y: 0.3}}"
 ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{angular: {z: 0.5}}"
 ```
 
-## Known Remaining Issues (as of 2026-05-14)
-- TF_OLD_DATA: partially fixed (spawn z-offset done, RSP delay still needs implementation)
-- Controller loading: current bash script approach still has async race; needs `--set-state active`
-- Odometry integration: uses circular-arc formula (wrong for holonomic); needs rotate-and-integrate
+## TF Diagnostics
+
+When TF_OLD_DATA appears, run these to identify the source:
+```bash
+# How many publishers on /joint_states? (should be exactly 1)
+ros2 topic info /joint_states --verbose
+
+# How many publishers on /tf? (should be robot_state_publisher + mecanum controller)
+ros2 topic info /tf --verbose
+
+# Live TF tree — check odom→base_footprint→base_link→wheel_links are all connected
+ros2 run tf2_tools view_frames
+
+# Monitor a specific frame for TF_OLD_DATA source
+ros2 run tf2_ros tf2_monitor front_left_wheel_link
+
+# Check /clock publisher (should be exactly 1: Gazebo's internal bridge)
+ros2 topic info /clock --verbose
+```
+
+If more than one publisher appears on `/joint_states` or `/tf` for wheel frames,
+that second publisher is the root cause of TF_OLD_DATA (conflicting timestamps).
+
+## Known Issues — Status as of 2026-05-28
+
+All previously documented blocking issues are fixed on branch `fix/fortress-simulator`:
+
+| Issue | Status | Where |
+|-------|--------|--------|
+| TF_OLD_DATA (RSP wall-clock poisoning) | **FIXED** | `TimerAction(period=2.0)` wraps RSP in fortress launch |
+| TF_OLD_DATA (Fast DDS 50 Hz reordering) | **FIXED** | `update_rate: 30`, `publish_rate: 30.0` in `ros2_control.yaml` |
+| Controller loading async race | **FIXED** | `--set-state active` (atomic) in fortress launch |
+| Odometry circular-arc (wrong for holonomic) | **FIXED** | RK2 integration in `odometry.cpp` |
+| Wheel spawn underground | **FIXED** | `-z 0.0325` in spawn args |
+| Dual `/clock` publishers | **FIXED** | `/clock` removed from `ros_gz_bridge.yaml` |
+| Wrong fdir1 vectors (unnormalized) | **FIXED** | `0.707107 ±0.707107 0` in `mecanum_wheel.urdf.xacro` |
+| `mu2=0.0` contact instability | **FIXED** | `mu2=0.1`, `kp=200000`, `kd=2000` |
+| Camera Classic plugin in Fortress | **FIXED** | Removed `libgazebo_ros_camera.so`; use native Fortress sensor |
+| Sensors system plugin missing | **FIXED** | `gz-sim-sensors-system` + `gz-sim-imu-system` added to `empty.world` |
+| RViz fixed frame wrong (`base_footprint`) | **FIXED** | Changed to `odom` in `gazebo.rviz` |
+
+Branch `fix/fortress-simulator` has been built but not yet runtime-verified.
+Merge to `main` after confirming the simulator runs cleanly.

@@ -136,19 +136,11 @@
     </joint>
     <link name="${prefix}${camera_name}_color_optical_frame"/>
 
+    <!-- Fortress sensor: uses the gz-sim Sensors system (loaded in the world SDF).
+         Data is bridged to ROS via ros_gz_bridge + ros_gz_image_bridge.
+         libgazebo_ros_camera.so is Classic-only and must NOT be used in Fortress. -->
     <gazebo reference="${prefix}${camera_name}_link">
-      <sensor name="${prefix}${camera_name}" type="depth">
-        <plugin name="${prefix}${camera_name}_plugin" filename="libgazebo_ros_camera.so">
-          <ros>
-            <namespace>${prefix}</namespace>
-            <remapping>~/out:=${camera_name}</remapping>
-          </ros>
-          <camera_name>${camera_name}</camera_name>
-          <frame_name>${prefix}${camera_name}_depth_optical_frame</frame_name>
-          <hack_baseline>0.07</hack_baseline>
-          <min_depth>${clip_near}</min_depth>
-          <max_depth>${clip_far}</max_depth>
-        </plugin>
+      <sensor name="${prefix}${camera_name}" type="depth_camera">
         <camera>
           <horizontal_fov>${horizontal_fov}</horizontal_fov>
           <image>
@@ -164,6 +156,7 @@
         <always_on>${always_on}</always_on>
         <update_rate>${update_rate}</update_rate>
         <visualize>${visualize}</visualize>
+        <topic>${prefix}${camera_name}</topic>
         <gz_frame_id>${prefix}${camera_name}_depth_optical_frame</gz_frame_id>
       </sensor>
     </gazebo>

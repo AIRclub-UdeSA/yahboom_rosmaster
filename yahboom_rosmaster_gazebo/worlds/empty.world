@@ -18,6 +18,13 @@
             name="gz::sim::systems::SceneBroadcaster"/>
     <plugin filename="gz-sim-contact-system"
             name="gz::sim::systems::Contact"/>
+    <!-- Required for camera/depth/IMU sensors defined in the robot URDF -->
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system"
+            name="gz::sim::systems::Imu"/>
 
     <!-- Inline directional light (replaces model://sun which is Classic-only) -->
     <light type="directional" name="sun">

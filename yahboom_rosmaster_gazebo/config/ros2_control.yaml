@@ -1,6 +1,10 @@
 controller_manager:
   ros__parameters:
-    update_rate: 50  # Hz
+    # 30 Hz balances control responsiveness with TF message volume.
+    # At 50 Hz, Fast DDS can deliver consecutive /joint_states messages slightly
+    # out of order under CPU load, causing robot_state_publisher to emit TF with
+    # a decreasing timestamp → continuous TF_OLD_DATA spam in any TF listener.
+    update_rate: 30  # Hz
     use_sim_time: true
 
     joint_state_broadcaster:
@@ -8,6 +12,14 @@ controller_manager:
 
     mecanum_drive_controller:
       type: mecanum_drive_controller/MecanumDriveController
+
+joint_state_broadcaster:
+  ros__parameters:
+    # Explicit rate cap — prevents publishing faster than the controller loop.
+    # Some gz_ros2_control versions call update() at the physics rate (1 kHz)
+    # regardless of update_rate above; this cap stops the broadcaster from
+    # flooding /joint_states at that rate.
+    publish_rate: 30.0
 
 mecanum_drive_controller:
   ros__parameters:
@@ -46,7 +58,7 @@ mecanum_drive_controller:
     cmd_vel_timeout: 0.5
     publish_limited_velocity: false
     velocity_rolling_window_size: 10
-    publish_rate: 50.0
+    publish_rate: 30.0
 
     # Velocity and acceleration limits matching real ROSMASTER X3
     # Max linear speed ~0.5 m/s (520-motor gearbox at 6V), max angular ~1.5 rad/s
