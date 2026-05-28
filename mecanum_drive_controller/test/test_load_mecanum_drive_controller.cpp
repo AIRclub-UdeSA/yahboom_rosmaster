@@ -42,13 +42,15 @@
  */
 TEST(TestLoadMecanumDriveController, load_controller)
 {
-  // Create a single-threaded executor for running the controller
   std::shared_ptr<rclcpp::Executor> executor =
     std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
-  
-  // Create the controller manager with a minimal robot description
+
+  // Humble API requires a ResourceManager to pass the URDF
+  auto resource_manager = std::make_unique<hardware_interface::ResourceManager>(
+    ros2_control_test_assets::minimal_robot_urdf);
+
   controller_manager::ControllerManager cm(
-    executor, ros2_control_test_assets::minimal_robot_urdf, true, "test_controller_manager");
+    std::move(resource_manager), executor, "test_controller_manager");
   
   // Set parameters before loading
   cm.set_parameter(

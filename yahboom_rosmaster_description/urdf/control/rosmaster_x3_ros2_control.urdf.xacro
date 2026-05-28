@@ -1,15 +1,10 @@
 <?xml version="1.0" ?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro">
 
-    <xacro:macro name="yahboom_rosmaster_ros2_control" params="prefix use_gazebo use_ignition:='false'">
+    <xacro:macro name="yahboom_rosmaster_ros2_control" params="prefix use_gazebo">
         <ros2_control name="RobotSystem" type="system">
             <hardware>
-                <xacro:if value="${use_ignition}">
-                    <plugin>gz_ros2_control/GazeboSimSystem</plugin>
-                </xacro:if>
-                <xacro:unless value="${use_ignition}">
-                    <plugin>gazebo_ros2_control/GazeboSystem</plugin>
-                </xacro:unless>
+                <plugin>gz_ros2_control/GazeboSimSystem</plugin>
             </hardware>
 
             <joint name="${prefix}front_left_wheel_joint">

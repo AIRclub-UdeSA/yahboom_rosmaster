@@ -6,7 +6,6 @@
   <xacro:arg name="robot_name" default="rosmaster_x3"/>
   <xacro:arg name="prefix" default=""/>
   <xacro:arg name="use_gazebo" default="false"/>
-  <xacro:arg name="use_ignition" default="false"/>
 
   <xacro:include filename="$(find yahboom_rosmaster_description)/urdf/mech/rosmaster_x3_base.urdf.xacro"/>
   <xacro:include filename="$(find yahboom_rosmaster_description)/urdf/mech/mecanum_wheel.urdf.xacro"/>
@@ -16,37 +15,36 @@
 
   <xacro:rosmaster_x3_base prefix="$(arg prefix)"/>
 
+  <!-- fdir1 defines the roller axis direction (locked to chassis frame via gz:expressed_in).
+       FL/BR diagonal: rollers at -45° to forward  →  (1, -1, 0) normalized
+       FR/BL diagonal: rollers at +45° to forward  →  (1,  1, 0) normalized -->
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
     side="front_left"
     x_reflect="1"
     y_reflect="1"
-    fdir1="1 -1 0"
-    use_ignition="$(arg use_ignition)"/>
+    fdir1="0.707107 -0.707107 0"/>
 
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
     side="front_right"
     x_reflect="1"
     y_reflect="-1"
-    fdir1="1 1 0"
-    use_ignition="$(arg use_ignition)"/>
+    fdir1="0.707107 0.707107 0"/>
 
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
     side="back_left"
     x_reflect="-1"
     y_reflect="1"
-    fdir1="1 1 0"
-    use_ignition="$(arg use_ignition)"/>
+    fdir1="0.707107 0.707107 0"/>
 
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
     side="back_right"
     x_reflect="-1"
     y_reflect="-1"
-    fdir1="1 -1 0"
-    use_ignition="$(arg use_ignition)"/>
+    fdir1="0.707107 -0.707107 0"/>
 
   <xacro:rgbd_camera
     prefix="$(arg prefix)"
@@ -73,29 +71,19 @@
     update_rate="15.0"
     topic_name="imu/data"/>
 
-  <!-- Gazebo ros2_control plugin — Fortress (gz_ros2_control) or Classic (gazebo_ros2_control) -->
+  <!-- Gazebo Fortress ros2_control plugin (gz_ros2_control) -->
   <xacro:if value="$(arg use_gazebo)">
-    <xacro:if value="$(arg use_ignition)">
-      <gazebo>
-        <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
-          <parameters>$(find yahboom_rosmaster_gazebo)/config/ros2_control.yaml</parameters>
-        </plugin>
-      </gazebo>
-    </xacro:if>
-    <xacro:unless value="$(arg use_ignition)">
-      <gazebo>
-        <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
-          <parameters>$(find yahboom_rosmaster_gazebo)/config/ros2_control.yaml</parameters>
-        </plugin>
-      </gazebo>
-    </xacro:unless>
+    <gazebo>
+      <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+        <parameters>$(find yahboom_rosmaster_gazebo)/config/ros2_control.yaml</parameters>
+      </plugin>
+    </gazebo>
   </xacro:if>
 
   <!-- ros2_control joints/interfaces for the robot -->
   <xacro:include filename="$(find yahboom_rosmaster_description)/urdf/control/rosmaster_x3_ros2_control.urdf.xacro" />
   <xacro:yahboom_rosmaster_ros2_control
     prefix="$(arg prefix)"
-    use_gazebo="$(arg use_gazebo)"
-    use_ignition="$(arg use_ignition)"/>
+    use_gazebo="$(arg use_gazebo)"/>
 
 </robot>

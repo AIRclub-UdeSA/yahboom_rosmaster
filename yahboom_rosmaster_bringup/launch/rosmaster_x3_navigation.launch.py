@@ -31,7 +31,7 @@ def generate_launch_description():
 
     # Launch and config file paths
     apriltag_launch_file_path = 'launch/apriltag_dock_pose_publisher.launch.py'
-    gazebo_launch_file_path = 'launch/yahboom_rosmaster.gazebo.launch.py'
+    gazebo_launch_file_path = 'launch/rosmaster_gazebo_fortress.launch.py'
     ekf_launch_file_path = 'launch/ekf_gazebo.launch.py'
     ekf_config_file_path = 'config/ekf.yaml'
     map_file_path = 'maps/cafe_world_map.yaml'

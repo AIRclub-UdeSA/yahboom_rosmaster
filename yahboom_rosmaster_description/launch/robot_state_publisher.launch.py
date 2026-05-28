@@ -157,7 +157,7 @@ def generate_launch_description():
         'xacro', ' ', urdf_model, ' ',
         'robot_name:=', LaunchConfiguration('robot_name'), ' ',
         'prefix:=', LaunchConfiguration('prefix'), ' ',
-        'use_gazebo:=', LaunchConfiguration('use_gazebo')
+        'use_gazebo:=', LaunchConfiguration('use_gazebo'), ' ',
     ]), value_type=str)
 
     # Subscribe to the joint states of the robot, and publish the 3D pose of each link.

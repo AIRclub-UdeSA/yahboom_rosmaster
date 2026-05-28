@@ -2,8 +2,8 @@
 <sdf version="1.6">
   <world name="empty_world">
 
-    <!-- Fortress physics: type="ignored" lets Fortress use DART (default).
-         Required for gz:expressed_in="base_link" to work on mecanum fdir1. -->
+    <!-- DART physics (Fortress default). type="ignored" defers solver selection to Fortress,
+         which chooses DART and correctly honours gz:expressed_in on fdir1 vectors. -->
     <physics name="1ms" type="ignored">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1.0</real_time_factor>
@@ -48,8 +48,9 @@
           <surface>
             <friction>
               <ode>
+                <!-- Equal mu in both axes avoids traction bias during holonomic strafing -->
                 <mu>100</mu>
-                <mu2>50</mu2>
+                <mu2>100</mu2>
               </ode>
             </friction>
           </surface>

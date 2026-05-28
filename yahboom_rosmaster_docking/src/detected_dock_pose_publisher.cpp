@@ -129,8 +129,9 @@ private:
       dock_pose_pub_->publish(dock_pose);
     }
     catch (const tf2::TransformException & ex) {
-      // If we can't get the transform, log it at debug level to avoid spamming
-      RCLCPP_DEBUG(this->get_logger(), "Could not get transform: %s", ex.what());
+      RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+        "Waiting for TF from '%s' to '%s': %s",
+        parent_frame_.c_str(), child_frame_.c_str(), ex.what());
       return;
     }
   }

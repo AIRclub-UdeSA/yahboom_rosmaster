@@ -8,7 +8,7 @@
   <xacro:property name="wheel_xoff" value="0.08" />
   <xacro:property name="wheel_yoff" value="-0.01" />
 
-  <xacro:macro name="mecanum_wheel" params="prefix side x_reflect y_reflect fdir1:='1 0 0' use_ignition:='false'">
+  <xacro:macro name="mecanum_wheel" params="prefix side x_reflect y_reflect fdir1:='0.707107 0 0'">
     <link name="${prefix}${side}_wheel_link">
       <visual>
         <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
@@ -20,32 +20,23 @@
         </material>
       </visual>
 
-      <!-- Fortress: sphere gives a single contact point, required for gz:expressed_in to work -->
-      <xacro:if value="${use_ignition}">
-        <collision>
-          <origin xyz="0 0 0" rpy="0 0 0"/>
-          <geometry>
-            <sphere radius="${wheel_radius}"/>
-          </geometry>
-        </collision>
-      </xacro:if>
-      <!-- Classic: cylinder collision (unchanged) -->
-      <xacro:unless value="${use_ignition}">
-        <collision>
-          <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
-          <geometry>
-            <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
-          </geometry>
-        </collision>
-      </xacro:unless>
+      <!-- Sphere gives a single contact point, required for gz:expressed_in to lock fdir1 to chassis frame -->
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="${wheel_radius}"/>
+        </geometry>
+      </collision>
 
+      <!-- Sphere inertia: I = (2/5) * m * r^2 on all axes -->
       <inertial>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <mass value="${wheel_mass}"/>
+        <xacro:property name="I_sphere" value="${(2.0/5.0) * wheel_mass * wheel_radius * wheel_radius}"/>
         <inertia
-          ixx="${(wheel_mass/12.0) * (3*wheel_radius*wheel_radius + wheel_width*wheel_width)}" ixy="0" ixz="0"
-          iyy="${(wheel_mass/2.0) * (wheel_radius*wheel_radius)}" iyz="0"
-          izz="${(wheel_mass/12.0) * (3*wheel_radius*wheel_radius + wheel_width*wheel_width)}"/>
+          ixx="${I_sphere}" ixy="0" ixz="0"
+          iyy="${I_sphere}" iyz="0"
+          izz="${I_sphere}"/>
       </inertial>
     </link>
 
@@ -62,19 +53,18 @@
         <friction>
           <ode>
               <mu>1.0</mu>
-              <mu2>0.0</mu2>
-              <xacro:if value="${use_ignition}">
-                <fdir1 gz:expressed_in="${prefix}base_link">${fdir1}</fdir1>
-              </xacro:if>
-              <xacro:unless value="${use_ignition}">
-                <fdir1>${fdir1}</fdir1>
-              </xacro:unless>
+              <!-- mu2 small but non-zero to avoid contact instability at zero lateral friction -->
+              <mu2>0.1</mu2>
+              <!-- Lock fdir1 to chassis frame so roller direction stays correct as wheel spins -->
+              <fdir1 gz:expressed_in="${prefix}base_link">${fdir1}</fdir1>
           </ode>
         </friction>
         <contact>
           <ode>
-            <kp>1000000.0</kp>
-            <kd>100.0</kd>
+            <!-- Softer contact (was 1e6) reduces oscillations for 50g wheels -->
+            <kp>200000.0</kp>
+            <!-- kd/kp ≈ 0.01 prevents bounce -->
+            <kd>2000.0</kd>
             <min_depth>0.001</min_depth>
           </ode>
         </contact>
