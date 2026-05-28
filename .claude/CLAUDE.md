@@ -137,9 +137,32 @@ ros2 topic info /clock --verbose
 If more than one publisher appears on `/joint_states` or `/tf` for wheel frames,
 that second publisher is the root cause of TF_OLD_DATA (conflicting timestamps).
 
-## Known Issues — Status as of 2026-05-28
+## Mecanum Wheel Physics Notes (DART / Fortress)
 
-All previously documented blocking issues are fixed on branch `fix/fortress-simulator`:
+### Why `gz:expressed_in` was removed from fdir1
+`gz:expressed_in="base_link"` on `<fdir1>` is NOT supported in gz-physics 5.x (Fortress).
+When present, DART applies fdir1 in the **local wheel-link frame**, which rotates with
+the spinning wheel → rapidly changing friction direction → robot stays still (forces average
+to zero). Without `gz:expressed_in`, DART applies fdir1 in the **world frame** (same
+convention as ODE), which is correct at the robot's initial orientation (+x facing).
+
+### Current friction model (mecanum_wheel.urdf.xacro)
+```xml
+<mu>1.0</mu>     <!-- high friction along fdir1 (roller axis) -->
+<mu2>0.0</mu2>   <!-- zero friction perpendicular (roller rolls freely) -->
+<fdir1>${fdir1}</fdir1>   <!-- world-frame, no gz:expressed_in -->
+<slip1>0.0</slip1>
+<slip2>1.0</slip2>        <!-- compliance in roller direction -->
+```
+
+### Limitation
+fdir1 is world-frame (not body-frame). Strafing is correct when robot faces +x (initial
+spawn orientation). After large rotations the effective roller axis drifts from the true
+chassis-relative direction. For Nav2 holonomic navigation this is acceptable (controller
+compensates). If precision post-rotation strafing is needed, investigate gz:expressed_in
+support in gz-physics 6.x (Harmonic) or a Bullet physics backend.
+
+## Known Issues — Status as of 2026-05-28
 
 | Issue | Status | Where |
 |-------|--------|--------|
@@ -150,10 +173,46 @@ All previously documented blocking issues are fixed on branch `fix/fortress-simu
 | Wheel spawn underground | **FIXED** | `-z 0.0325` in spawn args |
 | Dual `/clock` publishers | **FIXED** | `/clock` removed from `ros_gz_bridge.yaml` |
 | Wrong fdir1 vectors (unnormalized) | **FIXED** | `0.707107 ±0.707107 0` in `mecanum_wheel.urdf.xacro` |
-| `mu2=0.0` contact instability | **FIXED** | `mu2=0.1`, `kp=200000`, `kd=2000` |
+| `gz:expressed_in` on fdir1 (wheel-frame rotation) | **FIXED** | Removed attribute; fdir1 now world-frame in DART |
+| `mu2=0.0` contact instability | **FIXED** | `slip2=1.0` replaces mu2 for roller compliance |
+| Double-robot spawn (ghost DDS RSP) | **FIXED** | `create -string` bypasses DDS topic subscription |
 | Camera Classic plugin in Fortress | **FIXED** | Removed `libgazebo_ros_camera.so`; use native Fortress sensor |
 | Sensors system plugin missing | **FIXED** | `gz-sim-sensors-system` + `gz-sim-imu-system` added to `empty.world` |
-| RViz fixed frame wrong (`base_footprint`) | **FIXED** | Changed to `odom` in `gazebo.rviz` |
+| RViz fixed frame wrong | **FIXED** | Changed to `odom` in `gazebo.rviz` |
 
-Branch `fix/fortress-simulator` has been built but not yet runtime-verified.
-Merge to `main` after confirming the simulator runs cleanly.
+## TODO — Verify on next session
+
+**On the other machine, run these in order to confirm the branch is merge-ready:**
+
+```bash
+# 1. Build
+cd ~/rosmaster_ws
+colcon build --symlink-install --packages-select \
+  mecanum_drive_controller yahboom_rosmaster_description \
+  yahboom_rosmaster_gazebo yahboom_rosmaster_bringup
+source ~/rosmaster_ws/install/setup.bash
+
+# 2. Launch
+bash ~/rosmaster_ws/src/yahboom_rosmaster/yahboom_rosmaster_bringup/scripts/rosmaster_x3_gazebo.sh
+
+# 3. After ~15s: verify one robot, two controllers
+ros2 control list_controllers | sed 's/\x1b\[[0-9;]*m//g'
+# Expected: joint_state_broadcaster[active], mecanum_drive_controller[active]
+
+# 4. Test all three axes — each should produce actual Gazebo motion:
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.3}}"   # forward
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {y: 0.3}}"   # strafe right
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{angular: {z: 0.5}}"  # rotate
+
+# 5. Restart test (double-spawn fix): Ctrl+C, wait 5s, relaunch immediately
+#    → should still spawn ONE rosmaster_x3 in Entity Tree
+
+# 6. If all pass: merge to main
+git checkout main
+git merge --ff-only fix/fortress-simulator
+git push origin main
+```
+
+**Known observation from last session:** First strafe command after fresh launch may show
+brief erratic motion before settling. If robot strafes cleanly after ~1s, the fix is working.
+If it continues to spin/not strafe, open Claude Code and continue from this branch.
