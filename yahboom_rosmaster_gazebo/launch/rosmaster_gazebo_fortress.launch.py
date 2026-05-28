@@ -5,6 +5,7 @@ Launch Gazebo Fortress simulation for ROSMASTER X3 with physics-based mecanum dr
 Uses gz_ros2_control + fdir1 gz:expressed_in="base_link" for correct holonomic strafing.
 """
 import os
+import subprocess
 
 from launch import LaunchDescription
 from launch.actions import (
@@ -18,9 +19,8 @@ from launch.actions import (
 )
 from launch.event_handlers import OnProcessStart
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, Command
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -55,6 +55,17 @@ def generate_launch_description():
     ros2_control_config = os.path.join(pkg_gz, "config", "ros2_control.yaml")
     twist_script = os.path.join(pkg_gz, "scripts", "twist_to_stamped.py")
 
+    # Expand xacro once at launch-description time and share the string with both RSP
+    # and the spawn node. Using -string (not -topic) for spawn means the create node
+    # never opens a TRANSIENT_LOCAL DDS subscriber, so ghost RSP nodes from a previous
+    # session cannot deliver a second robot_description and cause a double spawn.
+    robot_description_str = subprocess.check_output([
+        "xacro", default_xacro,
+        "use_gazebo:=true",
+        "robot_name:=rosmaster_x3",
+        "prefix:=",
+    ]).decode()
+
     declare_use_sim_time = DeclareLaunchArgument("use_sim_time", default_value="true")
     declare_world = DeclareLaunchArgument("world", default_value=default_world)
     declare_rviz = DeclareLaunchArgument(
@@ -66,12 +77,7 @@ def generate_launch_description():
         output="screen",
         parameters=[{
             "use_sim_time": use_sim_time,
-            "robot_description": ParameterValue(Command([
-                "xacro", " ", default_xacro,
-                " use_gazebo:=true",
-                " robot_name:=rosmaster_x3",
-                " prefix:=",
-            ]), value_type=str),
+            "robot_description": robot_description_str,
         }],
     )
 
@@ -89,33 +95,15 @@ def generate_launch_description():
         launch_arguments=[("gz_args", "-g")],
     )
 
-    # Delete any stale rosmaster_x3 entity left by a previous session.
-    # Without this, a ghost robot_state_publisher (DDS TRANSIENT_LOCAL cache,
-    # alive for ~5 min after Ctrl+C) can deliver a second robot_description to
-    # the create node → two robots spawn → duplicate TF → broken simulation.
-    # --timeout 1000ms; fails silently if the entity doesn't exist.
-    delete_stale_robot = ExecuteProcess(
-        cmd=["gz", "service",
-             "-s", "/world/empty_world/remove",
-             "--reqtype", "gz.msgs.Entity",
-             "--reptype", "gz.msgs.Boolean",
-             "--timeout", "1000",
-             "--req", "name: 'rosmaster_x3' type: MODEL"],
-        output="log",
-    )
-
-    # Spawn robot from robot_description topic.
+    # Spawn robot directly from the pre-expanded URDF string.
     # z=0.0325 offsets base_footprint so wheel centres sit at wheel_radius above
     # ground — without this the sphere collisions penetrate the ground plane by
     # one full wheel radius (32.5 mm), causing violent jitter.
-    # -allow_renaming is intentionally absent: a second spawn attempt (from a
-    # ghost RSP's cached robot_description) should fail loudly, not silently
-    # create rosmaster_x3_0.
     spawn = Node(
         package="ros_gz_sim",
         executable="create",
         arguments=[
-            "-topic", "robot_description",
+            "-string", robot_description_str,
             "-name", "rosmaster_x3",
             "-z", "0.0325",
         ],
@@ -174,17 +162,12 @@ def generate_launch_description():
         AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
         gazebo_server,
         gazebo_client,
-        # t=2s: delete any stale entity (from a previous session) before spawning.
-        # This runs early so the gz service call can complete before t=5s spawn.
-        TimerAction(period=2.0, actions=[delete_stale_robot]),
-        # t=4s: RSP starts. Using 4s (not 2s) ensures the new RSP's TRANSIENT_LOCAL
-        # robot_description message is the MOST RECENT on the DDS network before the
-        # spawn node subscribes at t=5s — ghost RSPs from a previous session (alive
-        # for ~5 min) would otherwise deliver their cached description first, causing
-        # a second robot entity to be created (rosmaster_x3_0).
-        TimerAction(period=4.0, actions=[robot_state_publisher]),
-        TimerAction(period=5.0, actions=[spawn]),
-        TimerAction(period=7.0, actions=[ros_gz_bridge, ros_gz_image_bridge]),
+        # t=2s: RSP starts after /clock is available (avoids wall-clock TF poisoning).
+        TimerAction(period=2.0, actions=[robot_state_publisher]),
+        # t=3s: spawn using pre-expanded URDF string — no DDS topic subscription,
+        # so ghost RSP nodes from a previous session are harmless.
+        TimerAction(period=3.0, actions=[spawn]),
+        TimerAction(period=5.0, actions=[ros_gz_bridge, ros_gz_image_bridge]),
         TimerAction(period=12.0, actions=[twist_converter]),
         TimerAction(period=14.0, actions=[load_joint_state_broadcaster]),
         load_mecanum_after_broadcaster,
