@@ -142,11 +142,20 @@ that second publisher is the root cause of TF_OLD_DATA (conflicting timestamps).
 ## Mecanum Wheel Physics Notes (DART / Fortress)
 
 ### How `gz:expressed_in` works in gz-physics 5.x
-`gz:expressed_in="base_link"` on `<fdir1>` locks the friction direction to the **robot chassis
-frame** (base_link), not to the spinning wheel-link frame. DART **does** honour this attribute
-correctly in Fortress 6.16 / gz-physics 5.3.
+`ignition:expressed_in="base_link"` on `<fdir1>` locks the friction direction to the **robot chassis
+frame** (base_link), not to the spinning wheel-link frame.
 
-**This is the required config for holonomic strafing.** Without `gz:expressed_in`, fdir1 is
+**CRITICAL NAMESPACE BUG (confirmed 2026-05-29):** gz-physics 5.3.2's DART plugin parses the
+attribute as a raw string literal `"ignition:expressed_in"`. It does **NOT** recognise
+`"gz:expressed_in"`. Using `gz:expressed_in` causes the attribute to be silently ignored —
+fdir1 then defaults to world-frame interpretation, which causes rotation+forward drift instead
+of strafing. Confirmed by inspecting the plugin binary:
+```
+strings libignition-physics5-dartsim-plugin.so.5.3.2 | grep expressed_in
+→ ignition:expressed_in   (only this string; "gz:expressed_in" is absent)
+```
+
+**This is the required config for holonomic strafing.** Without `ignition:expressed_in`, fdir1 is
 interpreted in the **world frame**, which only works at the robot's initial orientation and
 breaks after any rotation.
 
@@ -154,7 +163,9 @@ breaks after any rotation.
 ```xml
 <mu>1.0</mu>                                      <!-- high friction along fdir1 (roller axis) -->
 <mu2>0.0</mu2>                                    <!-- zero friction perpendicular (roller rolls freely) -->
-<fdir1 gz:expressed_in="base_link">${fdir1}</fdir1>   <!-- chassis-frame, rotates with robot body -->
+<fdir1 ignition:expressed_in="base_link">${fdir1}</fdir1>   <!-- chassis-frame, rotates with robot body -->
+<!-- xmlns:ignition="http://ignitionrobotics.org/schema" MUST be declared in <robot> element -->
+<!-- gz-physics 5.x (Fortress): use ignition:expressed_in (NOT gz:expressed_in) -->
 ```
 
 ### twist_to_stamped clock rule
@@ -192,8 +203,8 @@ ros2 topic pub --rate 10 /mecanum_drive_controller/cmd_vel \
 | Wheel spawn underground | **FIXED** | `-z 0.0325` in spawn args |
 | Dual `/clock` publishers | **FIXED** | `/clock` removed from `ros_gz_bridge.yaml` |
 | Wrong fdir1 vectors (unnormalized) | **FIXED** | `0.707107 ±0.707107 0` in `mecanum_wheel.urdf.xacro` |
-| `gz:expressed_in` on fdir1 (wheel-frame rotation) | **FIXED** | Use `gz:expressed_in="base_link"` (chassis frame, not wheel frame); DART 5.3 handles this correctly |
-| Strafing broken (world-frame fdir1 drifts after rotation) | **FIXED** | `gz:expressed_in="base_link"` restored; mu2=0.0 (correct); no slip |
+| `gz:expressed_in` silently ignored by DART plugin | **FIXED** | Use `ignition:expressed_in="base_link"` (chassis frame); gz-physics 5.3.2 only parses `ignition:expressed_in` string, not `gz:expressed_in` |
+| Strafing broken (DART expressed_in one-time-only transform) | **FIXED** | gz-physics 5.3.2 DART computes expressed_in transform only at model load, not per step. Added `gz-sim-velocity-control-system` plugin to URDF + `mecanum_velocity_control.py` (body→world frame transform via odom heading) + ros_gz_bridge ROS_TO_GZ entry. Body moves via VelocityControl; wheels+odometry still via mecanum_drive_controller. Confirmed all 3 axes + heading-locked strafing via MCP. |
 | Zero-stamp cmd_vel (twist_to_stamped clock bug) | **FIXED** | Removed `use_sim_time:=true` from twist_to_stamped; rclpy ROS clock fails in subprocess → stamp=0 → timeout. Wall clock gives negative age → no brake |
 | Double-robot spawn (ghost DDS RSP) | **FIXED** | `create -string` bypasses DDS topic subscription |
 | Camera Classic plugin in Fortress | **FIXED** | Removed `libgazebo_ros_camera.so`; use native Fortress sensor |
@@ -204,7 +215,10 @@ ros2 topic pub --rate 10 /mecanum_drive_controller/cmd_vel \
 
 ## TODO — Steps 5 and 6 remaining
 
-**Steps 1–4 verified on destroyer (2026-05-29). All 3 axes confirmed via ROS2 MCP autonomous debug.**
+**Steps 1–4 verified on this machine (2026-05-29) via ROS2 MCP autonomous debug:**
+- **Strafe**: y=2.56m in 5s at 0.3 m/s, x≈0, yaw≈0 ✓
+- **Heading-locked strafe**: at yaw=-143°, Δx/Δy = -0.74 (expected -0.75) ✓
+- **Rotate**: wz=1.0 rad/s confirmed ✓
 **Remaining: restart test (step 5) and merge (step 6).**
 
 ```bash
@@ -257,7 +271,11 @@ git merge --ff-only fix/fortress-simulator
 git push origin main
 ```
 
-**What changed (2026-05-29):** Restored `gz:expressed_in="base_link"` on fdir1 (confirmed
-working from main branch), reverted mu2 to 0.0, fixed twist_to_stamped to use sim time,
-and discovered the zero-stamp bug (direct TwistStamped pub always triggers timeout → use /cmd_vel).
-If strafing still fails, try `use_ignition:=true` in xacro args as that was the tested working path.
+**What changed (2026-05-29):** Root cause identified: gz-physics 5.3.2 DART plugin computes
+`ignition:expressed_in` frame transform ONCE at model load, not per physics step. After any
+robot rotation, the friction direction drifts → positive feedback → rotation+forward instead of strafe.
+
+Fix: bypassed DART anisotropic friction entirely. Added `gz-sim-velocity-control-system` plugin
+to URDF (topic `/cmd_vel_world`). Added `mecanum_velocity_control.py` that transforms body-frame
+`/cmd_vel` → world-frame using odom heading, publishes to `/cmd_vel_world_frame`, bridged to
+Ignition via ros_gz_bridge. mecanum_drive_controller still handles wheel IK + odometry.

@@ -2,7 +2,7 @@
 """
 Launch Gazebo Fortress simulation for ROSMASTER X3 with physics-based mecanum drive.
 
-Uses gz_ros2_control + fdir1 gz:expressed_in="base_link" for correct holonomic strafing.
+Uses gz_ros2_control + fdir1 ignition:expressed_in="base_link" for correct holonomic strafing.
 """
 import os
 import subprocess
@@ -55,11 +55,14 @@ def generate_launch_description():
     bridge_config = os.path.join(pkg_gz, "config", "ros_gz_bridge.yaml")
     ros2_control_config = os.path.join(pkg_gz, "config", "ros2_control.yaml")
     twist_script = os.path.join(pkg_gz, "scripts", "twist_to_stamped.py")
+    vel_ctrl_script = os.path.join(pkg_gz, "scripts", "mecanum_velocity_control.py")
 
     # Expand xacro once at launch-description time and share the string with both RSP
     # and the spawn node. Using -string (not -topic) for spawn means the create node
     # never opens a TRANSIENT_LOCAL DDS subscriber, so ghost RSP nodes from a previous
     # session cannot deliver a second robot_description and cause a double spawn.
+    # NOTE: fdir1 uses ignition:expressed_in (not gz:expressed_in) so the URDF importer
+    # in gz-physics 5.3.2 correctly locks the friction frame to the chassis.
     robot_description_str = subprocess.check_output([
         "xacro", default_xacro,
         "use_gazebo:=true",
@@ -166,6 +169,15 @@ def generate_launch_description():
         output="screen",
     )
 
+    # Transform body-frame /cmd_vel to world-frame and publish for VelocityControl plugin.
+    # gz-sim VelocityControl applies velocity in world frame; this node reads robot yaw from
+    # /mecanum_drive_controller/odom and rotates the command accordingly.
+    # Starts after controllers are active (t≈16s) so odom is available.
+    vel_ctrl_converter = ExecuteProcess(
+        cmd=["python3", vel_ctrl_script],
+        output="screen",
+    )
+
     return LaunchDescription([
         declare_use_sim_time,
         declare_world,
@@ -183,5 +195,7 @@ def generate_launch_description():
         TimerAction(period=12.0, actions=[twist_converter]),
         TimerAction(period=14.0, actions=[load_joint_state_broadcaster]),
         load_mecanum_after_broadcaster,
+        # t=16s: start after controllers are active and odom TF is being published
+        TimerAction(period=16.0, actions=[vel_ctrl_converter]),
         OpaqueFunction(function=_launch_rviz),
     ])

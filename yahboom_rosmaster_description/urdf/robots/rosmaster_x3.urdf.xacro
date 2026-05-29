@@ -79,6 +79,17 @@
         <parameters>$(find yahboom_rosmaster_gazebo)/config/ros2_control.yaml</parameters>
       </plugin>
     </gazebo>
+    <!-- VelocityControl: directly applies world-frame velocity to the robot body,
+         bypassing the DART anisotropic-friction-expressed_in issue.
+         A ROS node (mecanum_velocity_control.py) transforms body-frame /cmd_vel
+         to world-frame before publishing to /cmd_vel_world_frame, which is bridged
+         to this plugin's Ignition topic /cmd_vel_world via ros_gz_bridge. -->
+    <gazebo>
+      <plugin filename="gz-sim-velocity-control-system"
+              name="gz::sim::systems::VelocityControl">
+        <topic>/cmd_vel_world</topic>
+      </plugin>
+    </gazebo>
   </xacro:if>
 
   <!-- ros2_control joints/interfaces for the robot -->

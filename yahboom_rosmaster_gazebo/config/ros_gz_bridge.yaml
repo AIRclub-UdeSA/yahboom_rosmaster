@@ -33,3 +33,12 @@
 # Bridging it here too creates two publishers on /clock which causes
 # RViz to detect spurious "jump back in time" loops.
 
+# VelocityControl bridge: world-frame Twist → gz VelocityControl plugin.
+# mecanum_velocity_control.py transforms body-frame /cmd_vel to world-frame
+# and publishes to /cmd_vel_world_frame; this bridges that to Ignition.
+- ros_topic_name: "/cmd_vel_world_frame"
+  gz_topic_name: "/cmd_vel_world"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
