@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "ros2": {
+      "command": "/bin/bash",
+      "args": [
+        "-c",
+        "export PATH=\"$HOME/.local/bin:$PATH\" && source /opt/ros/humble/setup.bash && source /home/juan/Documents/rosmaster_ws/install/setup.bash && mcp_ros_2_server"
+      ],
+      "env": {
+        "ROS_DOMAIN_ID": "0"
+      }
+    }
+  }
+}

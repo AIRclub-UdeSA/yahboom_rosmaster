@@ -12,7 +12,7 @@ is a duplicate and should be deleted or replaced with a symlink.
 
 ```bash
 cd ~/rosmaster_ws
-colcon build --symlink-install --packages-select <package_name>
+colcon build --symlink-install --allow-overriding mecanum_drive_controller --packages-select <package_name>
 ```
 
 After editing C++ source files you may need to touch them to force CMake rebuild detection:
@@ -107,8 +107,10 @@ ros2 control list_controllers | sed 's/\x1b\[[0-9;]*m//g'
 # Forward
 ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.3}}"
 
-# Strafe right (holonomic test — only works in Fortress, not Classic)
-ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {y: 0.3}}"
+# Strafe right (holonomic) — MUST use /cmd_vel (not direct controller topic)
+# twist_to_stamped adds the correct sim-time stamp; direct TwistStamped with
+# no stamp gets rejected by the 0.5s cmd_vel_timeout in the controller.
+ros2 topic pub --rate 10 /cmd_vel geometry_msgs/msg/Twist "{linear: {y: 0.3}}"
 
 # Rotate
 ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{angular: {z: 0.5}}"
@@ -139,30 +141,47 @@ that second publisher is the root cause of TF_OLD_DATA (conflicting timestamps).
 
 ## Mecanum Wheel Physics Notes (DART / Fortress)
 
-### Why `gz:expressed_in` was removed from fdir1
-`gz:expressed_in="base_link"` on `<fdir1>` is NOT supported in gz-physics 5.x (Fortress).
-When present, DART applies fdir1 in the **local wheel-link frame**, which rotates with
-the spinning wheel → rapidly changing friction direction → robot stays still (forces average
-to zero). Without `gz:expressed_in`, DART applies fdir1 in the **world frame** (same
-convention as ODE), which is correct at the robot's initial orientation (+x facing).
+### How `gz:expressed_in` works in gz-physics 5.x
+`gz:expressed_in="base_link"` on `<fdir1>` locks the friction direction to the **robot chassis
+frame** (base_link), not to the spinning wheel-link frame. DART **does** honour this attribute
+correctly in Fortress 6.16 / gz-physics 5.3.
+
+**This is the required config for holonomic strafing.** Without `gz:expressed_in`, fdir1 is
+interpreted in the **world frame**, which only works at the robot's initial orientation and
+breaks after any rotation.
 
 ### Current friction model (mecanum_wheel.urdf.xacro)
 ```xml
-<mu>1.0</mu>     <!-- high friction along fdir1 (roller axis) -->
-<mu2>0.0</mu2>   <!-- zero friction perpendicular (roller rolls freely) -->
-<fdir1>${fdir1}</fdir1>   <!-- world-frame, no gz:expressed_in -->
-<slip1>0.0</slip1>
-<slip2>1.0</slip2>        <!-- compliance in roller direction -->
+<mu>1.0</mu>                                      <!-- high friction along fdir1 (roller axis) -->
+<mu2>0.0</mu2>                                    <!-- zero friction perpendicular (roller rolls freely) -->
+<fdir1 gz:expressed_in="base_link">${fdir1}</fdir1>   <!-- chassis-frame, rotates with robot body -->
 ```
 
-### Limitation
-fdir1 is world-frame (not body-frame). Strafing is correct when robot faces +x (initial
-spawn orientation). After large rotations the effective roller axis drifts from the true
-chassis-relative direction. For Nav2 holonomic navigation this is acceptable (controller
-compensates). If precision post-rotation strafing is needed, investigate gz:expressed_in
-support in gz-physics 6.x (Harmonic) or a Bullet physics backend.
+### twist_to_stamped clock rule
+`twist_to_stamped.py` must run with **wall clock** (NOT `use_sim_time:=true`).
 
-## Known Issues — Status as of 2026-05-28
+If `use_sim_time:=true` is passed to twist_to_stamped via `ExecuteProcess`, rclpy's
+ROS clock fails to initialize in the subprocess context and `get_clock().now()` returns
+epoch-zero (`sec=0, nanosec=0`). The controller then computes:
+
+    age = sim_time - stamp(0) = 54s >> 0.5s timeout → brakes every cycle → zero motion
+
+With `use_sim_time=false` (default), twist_to_stamped stamps with wall time (~1.78×10⁹ s):
+
+    age = sim_time(54s) - wall_time(1.78e9s) = large negative → no timeout → wheels spin ✓
+
+### Correct test command for strafing
+Always test strafing via `/cmd_vel` (Twist), **not** directly to the controller topic:
+```bash
+# CORRECT — goes through twist_to_stamped which adds wall-clock stamp (negative age, no timeout)
+ros2 topic pub --rate 10 /cmd_vel geometry_msgs/msg/Twist "{linear: {y: 0.3}}"
+
+# WRONG — zero header.stamp → controller sees age=sim_time >> 0.5s timeout → brakes
+ros2 topic pub --rate 10 /mecanum_drive_controller/cmd_vel \
+  geometry_msgs/msg/TwistStamped "{header: {frame_id: 'base_link'}, twist: {linear: {y: 0.3}}}"
+```
+
+## Known Issues — Status as of 2026-05-29
 
 | Issue | Status | Where |
 |-------|--------|--------|
@@ -173,22 +192,47 @@ support in gz-physics 6.x (Harmonic) or a Bullet physics backend.
 | Wheel spawn underground | **FIXED** | `-z 0.0325` in spawn args |
 | Dual `/clock` publishers | **FIXED** | `/clock` removed from `ros_gz_bridge.yaml` |
 | Wrong fdir1 vectors (unnormalized) | **FIXED** | `0.707107 ±0.707107 0` in `mecanum_wheel.urdf.xacro` |
-| `gz:expressed_in` on fdir1 (wheel-frame rotation) | **FIXED** | Removed attribute; fdir1 now world-frame in DART |
-| `mu2=0.0` contact instability | **FIXED** | `slip2=1.0` replaces mu2 for roller compliance |
+| `gz:expressed_in` on fdir1 (wheel-frame rotation) | **FIXED** | Use `gz:expressed_in="base_link"` (chassis frame, not wheel frame); DART 5.3 handles this correctly |
+| Strafing broken (world-frame fdir1 drifts after rotation) | **FIXED** | `gz:expressed_in="base_link"` restored; mu2=0.0 (correct); no slip |
+| Zero-stamp cmd_vel (twist_to_stamped clock bug) | **FIXED** | Removed `use_sim_time:=true` from twist_to_stamped; rclpy ROS clock fails in subprocess → stamp=0 → timeout. Wall clock gives negative age → no brake |
 | Double-robot spawn (ghost DDS RSP) | **FIXED** | `create -string` bypasses DDS topic subscription |
 | Camera Classic plugin in Fortress | **FIXED** | Removed `libgazebo_ros_camera.so`; use native Fortress sensor |
 | Sensors system plugin missing | **FIXED** | `gz-sim-sensors-system` + `gz-sim-imu-system` added to `empty.world` |
 | RViz fixed frame wrong | **FIXED** | Changed to `odom` in `gazebo.rviz` |
+| `pal_statistics_msgs` phantom dependency | **FIXED** | Removed from `mecanum_drive_controller/package.xml` + `CMakeLists.txt` (never used in source) |
+| `gazebo_ros` (Classic) in Fortress build | **FIXED** | Removed from `yahboom_rosmaster_gazebo/CMakeLists.txt` (pure launch pkg, no C++ deps needed) |
 
-## TODO — Verify on next session
+## TODO — Steps 5 and 6 remaining
 
-**On the other machine, run these in order to confirm the branch is merge-ready:**
+**Steps 1–4 verified on destroyer (2026-05-29). All 3 axes confirmed via ROS2 MCP autonomous debug.**
+**Remaining: restart test (step 5) and merge (step 6).**
 
 ```bash
+# 0. Install ROS 2 Humble + Gazebo Fortress (new machine only — skip if already installed)
+sudo apt update && sudo apt install -y curl gnupg lsb-release
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+  -o /usr/share/keyrings/ros-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
+  http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" \
+  | sudo tee /etc/apt/sources.list.d/ros2.list
+sudo apt update
+sudo apt install -y ros-humble-desktop ros-humble-ros2-control ros-humble-ros2-controllers
+sudo apt install -y ros-humble-ros-gz ros-humble-gz-ros2-control ros-humble-gz-ros2-control-demos
+echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+source ~/.bashrc
+
+# Create workspace if not already present, then install rosdep deps
+mkdir -p ~/rosmaster_ws/src
+# (repo should already be cloned; if not: cd ~/rosmaster_ws/src && git clone https://github.com/juan-kaplan/yahboom_rosmaster.git)
+cd ~/rosmaster_ws
+rosdep init || true   # safe to ignore "already initialized" error
+rosdep update
+rosdep install --from-paths src --ignore-src -r -y
+
 # 1. Build
 cd ~/rosmaster_ws
-colcon build --symlink-install --packages-select \
-  mecanum_drive_controller yahboom_rosmaster_description \
+colcon build --symlink-install --allow-overriding mecanum_drive_controller \
+  --packages-select mecanum_drive_controller yahboom_rosmaster_description \
   yahboom_rosmaster_gazebo yahboom_rosmaster_bringup
 source ~/rosmaster_ws/install/setup.bash
 
@@ -200,9 +244,9 @@ ros2 control list_controllers | sed 's/\x1b\[[0-9;]*m//g'
 # Expected: joint_state_broadcaster[active], mecanum_drive_controller[active]
 
 # 4. Test all three axes — each should produce actual Gazebo motion:
-ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.3}}"   # forward
-ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {y: 0.3}}"   # strafe right
-ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{angular: {z: 0.5}}"  # rotate
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.3}}"    # forward
+ros2 topic pub --rate 10 /cmd_vel geometry_msgs/msg/Twist "{linear: {y: 0.3}}" # strafe (needs --rate, --once times out in 0.5s)
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{angular: {z: 0.5}}"   # rotate
 
 # 5. Restart test (double-spawn fix): Ctrl+C, wait 5s, relaunch immediately
 #    → should still spawn ONE rosmaster_x3 in Entity Tree
@@ -213,6 +257,7 @@ git merge --ff-only fix/fortress-simulator
 git push origin main
 ```
 
-**Known observation from last session:** First strafe command after fresh launch may show
-brief erratic motion before settling. If robot strafes cleanly after ~1s, the fix is working.
-If it continues to spin/not strafe, open Claude Code and continue from this branch.
+**What changed (2026-05-29):** Restored `gz:expressed_in="base_link"` on fdir1 (confirmed
+working from main branch), reverted mu2 to 0.0, fixed twist_to_stamped to use sim time,
+and discovered the zero-stamp bug (direct TwistStamped pub always triggers timeout → use /cmd_vel).
+If strafing still fails, try `use_ignition:=true` in xacro args as that was the tested working path.

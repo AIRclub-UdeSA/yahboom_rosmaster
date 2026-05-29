@@ -17,6 +17,7 @@ from launch.actions import (
     TimerAction,
     OpaqueFunction,
 )
+from launch.conditions import UnlessCondition
 from launch.event_handlers import OnProcessStart
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
@@ -70,6 +71,10 @@ def generate_launch_description():
     declare_world = DeclareLaunchArgument("world", default_value=default_world)
     declare_rviz = DeclareLaunchArgument(
         "rviz", default_value="true", description="Launch RViz (true/false)")
+    declare_headless = DeclareLaunchArgument(
+        "headless", default_value="false",
+        description="Skip Gazebo GUI client — server-only for autonomous/CI debugging")
+    headless = LaunchConfiguration("headless")
 
     robot_state_publisher = Node(
         package="robot_state_publisher",
@@ -88,11 +93,12 @@ def generate_launch_description():
         launch_arguments=[("gz_args", ["-r -s -v 4 ", world])],
     )
 
-    # Gazebo Fortress GUI
+    # Gazebo Fortress GUI — skipped when headless:=true
     gazebo_client = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_gz_sim, "launch", "gz_sim.launch.py")),
         launch_arguments=[("gz_args", "-g")],
+        condition=UnlessCondition(headless),
     )
 
     # Spawn robot directly from the pre-expanded URDF string.
@@ -149,7 +155,12 @@ def generate_launch_description():
         )
     )
 
-    # Convert /cmd_vel (Twist) → /mecanum_drive_controller/cmd_vel (TwistStamped)
+    # Convert /cmd_vel (Twist) → /mecanum_drive_controller/cmd_vel (TwistStamped).
+    # IMPORTANT: do NOT use use_sim_time here. When use_sim_time=true the rclpy clock
+    # often fails to initialise in ExecuteProcess subprocesses, returning stamp=0 which
+    # triggers the controller's 0.5s cmd_vel_timeout (age = sim_time - 0 >> timeout).
+    # With use_sim_time=false the stamp is wall-clock (~1.78e9 s) and the age becomes
+    # negative (sim_time - wall_time < 0), safely bypassing the timeout check.
     twist_converter = ExecuteProcess(
         cmd=["python3", twist_script],
         output="screen",
@@ -159,6 +170,7 @@ def generate_launch_description():
         declare_use_sim_time,
         declare_world,
         declare_rviz,
+        declare_headless,
         AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
         gazebo_server,
         gazebo_client,

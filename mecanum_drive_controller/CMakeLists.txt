@@ -14,7 +14,6 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   generate_parameter_library
   geometry_msgs
   hardware_interface
-  pal_statistics_msgs
   nav_msgs
   pluginlib
   rclcpp

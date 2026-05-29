@@ -53,18 +53,14 @@
         <friction>
           <ode>
               <mu>1.0</mu>
-              <!-- mu2=0: roller direction is frictionless; slip2 replaces the stability role of mu2 -->
+              <!-- mu2=0.0: roller axis is free (no friction perpendicular to fdir1).
+                   gz:expressed_in keeps fdir1 in the robot body frame so the LCP
+                   always has a well-defined primary direction even with mu2=0. -->
               <mu2>0.0</mu2>
-              <!-- fdir1 in world frame (no gz:expressed_in) so DART parses it correctly.
-                   At spawn (robot facing +x) world frame == base_link frame, so directions
-                   are correct. For rotation-then-strafe, gz:expressed_in would be needed
-                   but is not currently supported in Fortress DART without bugs. -->
-              <fdir1>${fdir1}</fdir1>
-              <!-- slip1=0: full grip along fdir1 (roller axis — no sliding along roller) -->
-              <slip1>0.0</slip1>
-              <!-- slip2=1: roller rolling direction is compliant (1 m/s slip per Newton)
-                   — directly simulates free roller spin in DART LCP solver -->
-              <slip2>1.0</slip2>
+              <!-- gz:expressed_in="base_link" locks fdir1 to the chassis frame.
+                   Without this the vector is in world frame and drifts after rotation.
+                   With it DART correctly applies fdir1 relative to the robot body. -->
+              <fdir1 gz:expressed_in="${prefix}base_link">${fdir1}</fdir1>
           </ode>
         </friction>
         <contact>
