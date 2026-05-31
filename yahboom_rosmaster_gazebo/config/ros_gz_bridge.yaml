@@ -1,3 +1,12 @@
+# MecanumDrive command input. /cmd_vel_gz is an internal watchdog output; users
+# and Nav2 continue publishing to /cmd_vel.
+- ros_topic_name: "cmd_vel_gz"
+  gz_topic_name: "/model/rosmaster_x3/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+  lazy: false
+
 # RGBD Camera topics
 - ros_topic_name: "cam_1/color/camera_info"
   gz_topic_name: "cam_1/camera_info"

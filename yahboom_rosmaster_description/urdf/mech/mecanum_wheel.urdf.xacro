@@ -6,17 +6,14 @@
     mu=1.0  along fdir1 (roller grip direction — high friction)
     mu2=0.0 perpendicular to fdir1 (roller free-rolling direction — zero friction)
 
-  fdir1 is expressed in the robot base_link frame via ignition:expressed_in so
-  the friction direction rotates with the chassis at any heading.
-
-  With Bullet physics (ignition-physics5-bullet-plugin), expressed_in is
-  re-evaluated every physics step → correct holonomic motion at any heading.
-  With DART, expressed_in is computed once at model load (one-shot bug) → correct
-  strafing at initial yaw=0 only.
+  fdir1 is expressed in the robot base_footprint frame via ignition:expressed_in
+  to match the native Gazebo mecanum demo's chassis-frame friction directions.
+  Locomotion is commanded by the Gazebo MecanumDrive system; this collision and
+  friction model remains the wheel-ground contact model that DART resolves.
 
   fdir1 values per wheel (set by caller in rosmaster_x3.urdf.xacro):
-    FL, BR: "0.707107 -0.707107 0"
-    FR, BL: "0.707107  0.707107 0"
+    FL, BR: "1 -1 0"
+    FR, BL: "1  1 0"
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro"
        xmlns:ignition="http://ignitionrobotics.org/schema">
@@ -28,7 +25,7 @@
   <xacro:property name="wheel_xoff"      value="0.08"    />
   <xacro:property name="wheel_yoff"      value="-0.01"   />
 
-  <xacro:macro name="mecanum_wheel" params="prefix side x_reflect y_reflect fdir1:='0.707107 0 0'">
+  <xacro:macro name="mecanum_wheel" params="prefix side x_reflect y_reflect fdir1:='1 0 0'">
     <link name="${prefix}${side}_wheel_link">
       <visual>
         <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
@@ -70,31 +67,31 @@
     </joint>
 
     <gazebo reference="${prefix}${side}_wheel_link">
-      <surface>
-        <friction>
-          <ode>
-            <!-- High friction along fdir1 (roller grip axis) -->
-            <mu>1.0</mu>
-            <!-- Zero friction perpendicular (roller free-rolling direction) -->
-            <mu2>0.0</mu2>
-            <!-- ignition:expressed_in locks fdir1 to the chassis frame.
-                 base_footprint is the root free-body of the URDF (parent of all wheels),
-                 equivalent to "chassis" in the official Gazebo mecanum demo which uses
-                 expressed_in="chassis". DART requires the canonical root body. -->
-            <fdir1 ignition:expressed_in="${prefix}base_footprint">${fdir1}</fdir1>
-            <slip1>0.0</slip1>
-            <!-- slip2=1: roller rolling direction compliance (1 m/s slip per Newton) -->
-            <slip2>1.0</slip2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>200000.0</kp>
-            <kd>2000.0</kd>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+      <collision>
+        <surface>
+          <friction>
+            <ode>
+              <!-- High friction along fdir1 (roller grip axis) -->
+              <mu>1.0</mu>
+              <!-- Zero friction perpendicular (roller free-rolling direction) -->
+              <mu2>0.0</mu2>
+              <!-- ignition:expressed_in locks fdir1 to the chassis frame.
+                   base_footprint is the model root frame, equivalent to "chassis"
+                   in the official Gazebo mecanum demo. -->
+              <fdir1 ignition:expressed_in="${prefix}base_footprint">${fdir1}</fdir1>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>200000.0</kp>
+              <kd>2000.0</kd>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
       <visual>
         <material>
           <ambient>0.2 0.2 0.2 1.0</ambient>

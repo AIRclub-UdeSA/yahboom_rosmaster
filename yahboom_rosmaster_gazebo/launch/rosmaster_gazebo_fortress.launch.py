@@ -2,8 +2,8 @@
 """
 Launch Gazebo Fortress simulation for ROSMASTER X3 with physics-based mecanum drive.
 
-Uses gz_ros2_control + passive cylinder rollers for correct holonomic strafing.
-Roller geometry provides anisotropic friction — no fdir1/expressed_in needed.
+Uses the native Gazebo MecanumDrive system for wheel velocity commands, with
+gz_ros2_control kept read-only for joint states and wheel-link TF.
 """
 import os
 import subprocess
@@ -14,13 +14,11 @@ from launch.actions import (
     DeclareLaunchArgument,
     ExecuteProcess,
     IncludeLaunchDescription,
-    RegisterEventHandler,
     SetEnvironmentVariable,
     TimerAction,
     OpaqueFunction,
 )
 from launch.conditions import UnlessCondition
-from launch.event_handlers import OnProcessStart
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -55,7 +53,8 @@ def generate_launch_description():
     default_world = os.path.join(pkg_gz, "worlds", "empty.world")
     default_xacro = os.path.join(pkg_desc, "urdf", "robots", "rosmaster_x3.urdf.xacro")
     bridge_config = os.path.join(pkg_gz, "config", "ros_gz_bridge.yaml")
-    twist_script = os.path.join(pkg_gz, "scripts", "twist_to_stamped.py")
+    cmd_vel_watchdog_script = os.path.join(pkg_gz, "scripts", "cmd_vel_watchdog.py")
+    wheel_odometry_script = os.path.join(pkg_gz, "scripts", "wheel_state_odometry.py")
 
     # Expand xacro once at launch-description time and share the string with both RSP
     # and the spawn node. Using -string (not -topic) for spawn means the create node
@@ -118,7 +117,7 @@ def generate_launch_description():
         output="screen",
     )
 
-    # Bridge sensor topics: camera info, point cloud, LiDAR, IMU
+    # Bridge Gazebo command input and sensor topics.
     ros_gz_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
@@ -134,37 +133,32 @@ def generate_launch_description():
         remappings=[("/cam_1/image", "/cam_1/color/image_raw")],
     )
 
-    # Load and atomically configure+activate each controller.
-    # --set-state active handles load→configure→activate in one call, avoiding the async
-    # race that causes set_controller_state inactive to fail in Humble.
+    # Load and activate the read-only joint state broadcaster. The spawner waits
+    # longer than `ros2 control load_controller`, which helps GUI starts on busy
+    # machines where the controller manager is late to answer service calls.
     load_joint_state_broadcaster = ExecuteProcess(
-        cmd=["ros2", "control", "load_controller", "--set-state", "active",
-             "joint_state_broadcaster"],
+        cmd=[
+            "ros2", "run", "controller_manager", "spawner",
+            "joint_state_broadcaster",
+            "--controller-manager", "/controller_manager",
+            "--controller-manager-timeout", "60",
+            "--service-call-timeout", "60",
+        ],
         output="screen",
     )
 
-    load_mecanum_controller = ExecuteProcess(
-        cmd=["ros2", "control", "load_controller", "--set-state", "active",
-             "mecanum_drive_controller"],
+    # Native MecanumDrive has no command timeout in Fortress 6.16, so keep the
+    # public /cmd_vel contract and publish zero to the internal bridge topic when
+    # commands stop.
+    cmd_vel_watchdog = ExecuteProcess(
+        cmd=["python3", cmd_vel_watchdog_script],
         output="screen",
     )
 
-    # Start mecanum controller 2s after broadcaster begins activating.
-    load_mecanum_after_broadcaster = RegisterEventHandler(
-        event_handler=OnProcessStart(
-            target_action=load_joint_state_broadcaster,
-            on_start=[TimerAction(period=2.0, actions=[load_mecanum_controller])],
-        )
-    )
-
-    # Convert /cmd_vel (Twist) → /mecanum_drive_controller/cmd_vel (TwistStamped).
-    # IMPORTANT: do NOT use use_sim_time here. When use_sim_time=true the rclpy clock
-    # often fails to initialise in ExecuteProcess subprocesses, returning stamp=0 which
-    # triggers the controller's 0.5s cmd_vel_timeout (age = sim_time - 0 >> timeout).
-    # With use_sim_time=false the stamp is wall-clock (~1.78e9 s) and the age becomes
-    # negative (sim_time - wall_time < 0), safely bypassing the timeout check.
-    twist_converter = ExecuteProcess(
-        cmd=["python3", twist_script],
+    # Encoder-style odometry from wheel joint states. This avoids Gazebo's
+    # ground-truth OdometryPublisher while preserving /odom and odom->base TF.
+    wheel_state_odometry = ExecuteProcess(
+        cmd=["python3", wheel_odometry_script],
         output="screen",
     )
 
@@ -183,9 +177,14 @@ def generate_launch_description():
         # t=3s: spawn using pre-expanded URDF string — no DDS topic subscription,
         # so ghost RSP nodes from a previous session are harmless.
         TimerAction(period=3.0, actions=[spawn]),
-        TimerAction(period=5.0, actions=[ros_gz_bridge, ros_gz_image_bridge]),
-        TimerAction(period=12.0, actions=[twist_converter]),
-        TimerAction(period=14.0, actions=[load_joint_state_broadcaster]),
-        load_mecanum_after_broadcaster,
+        TimerAction(period=5.0, actions=[
+            ros_gz_bridge,
+            ros_gz_image_bridge,
+            cmd_vel_watchdog,
+        ]),
+        TimerAction(period=12.0, actions=[
+            load_joint_state_broadcaster,
+            wheel_state_odometry,
+        ]),
         OpaqueFunction(function=_launch_rviz),
     ])

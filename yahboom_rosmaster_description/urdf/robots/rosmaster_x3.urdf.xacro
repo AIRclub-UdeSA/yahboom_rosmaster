@@ -20,35 +20,35 @@
 
   <!-- fdir1 = roller grip direction in base_footprint frame via ignition:expressed_in.
        Matches the official Gazebo mecanum demo (expressed_in="chassis", same topology).
-       FL/BR: grip along (0.707, -0.707, 0) — "A"-type rollers
-       FR/BL: grip along (0.707,  0.707, 0) — "B"-type rollers -->
+       FL/BR: grip along (1, -1, 0) — "A"-type rollers
+       FR/BL: grip along (1,  1, 0) — "B"-type rollers -->
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
     side="front_left"
     x_reflect="1"
     y_reflect="1"
-    fdir1="0.707107 -0.707107 0"/>
+    fdir1="1 -1 0"/>
 
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
     side="front_right"
     x_reflect="1"
     y_reflect="-1"
-    fdir1="0.707107 0.707107 0"/>
+    fdir1="1 1 0"/>
 
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
     side="back_left"
     x_reflect="-1"
     y_reflect="1"
-    fdir1="0.707107 0.707107 0"/>
+    fdir1="1 1 0"/>
 
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
     side="back_right"
     x_reflect="-1"
     y_reflect="-1"
-    fdir1="0.707107 -0.707107 0"/>
+    fdir1="1 -1 0"/>
 
   <xacro:rgbd_camera
     prefix="$(arg prefix)"
@@ -76,11 +76,25 @@
     update_rate="15.0"
     topic_name="imu/data"/>
 
-  <!-- Gazebo Fortress ros2_control plugin (gz_ros2_control) -->
+  <!-- Gazebo Fortress simulation plugins. gz_ros2_control is read-only for
+       wheel state; native MecanumDrive owns wheel velocity commands. -->
   <xacro:if value="$(arg use_gazebo)">
     <gazebo>
       <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
         <parameters>$(find yahboom_rosmaster_gazebo)/config/ros2_control.yaml</parameters>
+      </plugin>
+
+      <plugin filename="ignition-gazebo-mecanum-drive-system"
+              name="ignition::gazebo::systems::MecanumDrive">
+        <front_left_joint>$(arg prefix)front_left_wheel_joint</front_left_joint>
+        <front_right_joint>$(arg prefix)front_right_wheel_joint</front_right_joint>
+        <back_left_joint>$(arg prefix)back_left_wheel_joint</back_left_joint>
+        <back_right_joint>$(arg prefix)back_right_wheel_joint</back_right_joint>
+        <wheelbase>0.16</wheelbase>
+        <wheel_separation>0.149</wheel_separation>
+        <wheel_radius>0.0325</wheel_radius>
+        <min_acceleration>-1.0</min_acceleration>
+        <max_acceleration>1.0</max_acceleration>
       </plugin>
     </gazebo>
   </xacro:if>

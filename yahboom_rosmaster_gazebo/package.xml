@@ -11,7 +11,10 @@
 
   <depend>controller_manager</depend>
 
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
   <depend>python3-numpy</depend>
+  <exec_depend>rclpy</exec_depend>
   <depend>rclcpp</depend>
   <depend>ros2_control</depend>
   <exec_depend>gz_ros2_control</exec_depend>
@@ -19,6 +22,8 @@
   <exec_depend>ros_gz_bridge</exec_depend>
   <exec_depend>ros_gz_image</exec_depend>
   <depend>ros2_controllers</depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
   <depend>trajectory_msgs</depend>
   <depend>xacro</depend>
   <exec_depend>topic_tools</exec_depend>

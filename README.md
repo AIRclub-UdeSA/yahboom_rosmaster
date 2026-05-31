@@ -14,10 +14,11 @@ ROS 2 Humble support for the **ROSMASTER X3** mecanum wheel robot by Yahboom.
 ## Features
 
 - **Mecanum wheel robot** with holonomic (omnidirectional) movement
-- **Gazebo Fortress 6** — physics-based mecanum drive using DART engine with sphere wheel
-  collisions and `gz:expressed_in="base_link"` friction direction locking for correct holonomic strafing
+- **Gazebo Fortress 6** — physics-based mecanum drive using the native Gazebo
+  `MecanumDrive` system, DART, sphere wheel collisions, and chassis-frame
+  `fdir1` friction directions
 - **Sensors**: RGB-D Camera, 2D LiDAR, IMU
-- **ROS 2 Control** integration via `gz_ros2_control`
+- **ROS 2 Control** joint-state integration via read-only `gz_ros2_control`
 - **Nav2 & SLAM** ready configuration
 - Multiple world files for testing
 
@@ -70,7 +71,6 @@ Verify the controllers loaded successfully (~10 seconds after launch):
 ros2 control list_controllers
 # Expected output:
 #   joint_state_broadcaster[joint_state_broadcaster/JointStateBroadcaster] active
-#   mecanum_drive_controller[mecanum_drive_controller/MecanumDriveController] active
 ```
 
 ### Teleoperation
@@ -93,22 +93,27 @@ Use keys: `u i o`, `j k l`, `m , .` to move. **Shift+J / Shift+L** strafes left/
 
 | Topic | Type | Description |
 |-------|------|-------------|
-| `/cmd_vel` | `geometry_msgs/Twist` | Velocity commands (converted to TwistStamped internally) |
+| `/cmd_vel` | `geometry_msgs/Twist` | Velocity commands for the simulator watchdog |
+| `/cmd_vel_gz` | `geometry_msgs/Twist` | Internal watchdog output bridged to Gazebo MecanumDrive |
+| `/odom` | `nav_msgs/Odometry` | Wheel-state odometry |
 | `/scan` | `sensor_msgs/LaserScan` | LiDAR data |
 | `/imu/data` | `sensor_msgs/Imu` | IMU readings |
 | `/cam_1/color/image_raw` | `sensor_msgs/Image` | RGB camera |
 | `/cam_1/depth/image_raw` | `sensor_msgs/Image` | Depth image |
-| `/mecanum_drive_controller/odom` | `nav_msgs/Odometry` | Odometry |
 
 ## Physics Notes
 
 The simulation uses the DART physics engine with:
-- **Sphere wheel collisions** — required for a single contact point so that `gz:expressed_in="base_link"` locks the friction direction to the chassis frame as the wheel spins
-- **Normalized fdir1 vectors** — FL/BR diagonal: `(0.707, -0.707, 0)`, FR/BL diagonal: `(0.707, 0.707, 0)`
+- **Native Gazebo MecanumDrive** — computes wheel velocity commands from `/cmd_vel_gz`; the robot still moves through wheel-ground contact forces
+- **Read-only gz_ros2_control** — publishes wheel joint states without competing for joint velocity command ownership
+- **Wheel-state odometry** — integrates `/joint_states` into `/odom` and `odom -> base_footprint`, avoiding Gazebo ground-truth odometry
+- **Sphere wheel collisions** — required for a single contact point so that `ignition:expressed_in="base_footprint"` locks the friction direction to the chassis frame
+- **Chassis-frame fdir1 vectors** — FL/BR diagonal: `(1, -1, 0)`, FR/BL diagonal: `(1, 1, 0)`
 - **Tuned contact parameters** — `kp=200 000`, `kd=2000` (reduces contact oscillations for 50 g wheels)
-- **Symmetric ground friction** — `mu=mu2=100` (avoids traction bias between strafing and forward motion)
 
-Odometry is computed from wheel encoder velocities in closed-loop mode. To model real-world slip and noise for navigation tuning, adjust `pose_covariance_diagonal` and `twist_covariance_diagonal` in `yahboom_rosmaster_gazebo/config/ros2_control.yaml`.
+Odometry is computed from wheel joint positions. To model additional real-world
+noise for navigation tuning, adjust the covariance constants in
+`yahboom_rosmaster_gazebo/scripts/wheel_state_odometry.py`.
 
 ## Packages
 
