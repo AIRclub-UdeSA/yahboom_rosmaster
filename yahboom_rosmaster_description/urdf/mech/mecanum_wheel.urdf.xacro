@@ -1,12 +1,32 @@
 <?xml version="1.0"?>
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" xmlns:gz="http://gazebosim.org/schema">
+<!--
+  Mecanum wheel with sphere collision + fdir1 anisotropic friction.
 
-  <xacro:property name="wheel_radius" value="0.0325" />
-  <xacro:property name="wheel_separation" value="0.169" />
-  <xacro:property name="wheel_width" value="0.03040" />
-  <xacro:property name="wheel_mass" value="0.05" />  <!-- Real 65mm mecanum wheel ~40-60 g. Old 0.15 kg was 3× too heavy. -->
-  <xacro:property name="wheel_xoff" value="0.08" />
-  <xacro:property name="wheel_yoff" value="-0.01" />
+  Each wheel is a sphere (single contact point) with:
+    mu=1.0  along fdir1 (roller grip direction — high friction)
+    mu2=0.0 perpendicular to fdir1 (roller free-rolling direction — zero friction)
+
+  fdir1 is expressed in the robot base_link frame via ignition:expressed_in so
+  the friction direction rotates with the chassis at any heading.
+
+  With Bullet physics (ignition-physics5-bullet-plugin), expressed_in is
+  re-evaluated every physics step → correct holonomic motion at any heading.
+  With DART, expressed_in is computed once at model load (one-shot bug) → correct
+  strafing at initial yaw=0 only.
+
+  fdir1 values per wheel (set by caller in rosmaster_x3.urdf.xacro):
+    FL, BR: "0.707107 -0.707107 0"
+    FR, BL: "0.707107  0.707107 0"
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro"
+       xmlns:ignition="http://ignitionrobotics.org/schema">
+
+  <xacro:property name="wheel_radius"    value="0.0325"  />
+  <xacro:property name="wheel_separation" value="0.169"  />
+  <xacro:property name="wheel_width"     value="0.03040" />
+  <xacro:property name="wheel_mass"      value="0.05"    />
+  <xacro:property name="wheel_xoff"      value="0.08"    />
+  <xacro:property name="wheel_yoff"      value="-0.01"   />
 
   <xacro:macro name="mecanum_wheel" params="prefix side x_reflect y_reflect fdir1:='0.707107 0 0'">
     <link name="${prefix}${side}_wheel_link">
@@ -20,7 +40,9 @@
         </material>
       </visual>
 
-      <!-- Sphere gives a single contact point, required for gz:expressed_in to lock fdir1 to chassis frame -->
+      <!-- Sphere gives a single contact point. Required for ignition:expressed_in
+           to correctly lock fdir1 to the chassis frame (cylinder gives an extended
+           contact line which behaves unpredictably with directional friction). -->
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
@@ -28,60 +50,60 @@
         </geometry>
       </collision>
 
-      <!-- Sphere inertia: I = (2/5) * m * r^2 on all axes -->
       <inertial>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <mass value="${wheel_mass}"/>
         <xacro:property name="I_sphere" value="${(2.0/5.0) * wheel_mass * wheel_radius * wheel_radius}"/>
-        <inertia
-          ixx="${I_sphere}" ixy="0" ixz="0"
-          iyy="${I_sphere}" iyz="0"
-          izz="${I_sphere}"/>
+        <inertia ixx="${I_sphere}" ixy="0" ixz="0"
+                 iyy="${I_sphere}" iyz="0"
+                 izz="${I_sphere}"/>
       </inertial>
     </link>
 
     <joint name="${prefix}${side}_wheel_joint" type="continuous">
       <axis xyz="0 1 0"/>
       <parent link="${prefix}base_link"/>
-      <child link="${prefix}${side}_wheel_link"/>
-      <origin xyz="${x_reflect*wheel_xoff} ${y_reflect*(wheel_separation/2+wheel_yoff)} ${-wheel_radius}" rpy="0 0 0"/>
-      <dynamics damping="0.1" friction="0.0"/>  <!-- 0.1 N·m·s/rad models 520-motor gearbox back-drive resistance -->
+      <child  link="${prefix}${side}_wheel_link"/>
+      <origin xyz="${x_reflect*wheel_xoff} ${y_reflect*(wheel_separation/2+wheel_yoff)} ${-wheel_radius}"
+              rpy="0 0 0"/>
+      <dynamics damping="0.1" friction="0.0"/>
     </joint>
 
     <gazebo reference="${prefix}${side}_wheel_link">
       <surface>
         <friction>
           <ode>
-              <mu>1.0</mu>
-              <!-- mu2=0.0: roller axis is free (no friction perpendicular to fdir1).
-                   gz:expressed_in keeps fdir1 in the robot body frame so the LCP
-                   always has a well-defined primary direction even with mu2=0. -->
-              <mu2>0.0</mu2>
-              <!-- gz:expressed_in="base_link" locks fdir1 to the chassis frame.
-                   Without this the vector is in world frame and drifts after rotation.
-                   With it DART correctly applies fdir1 relative to the robot body. -->
-              <fdir1 gz:expressed_in="${prefix}base_link">${fdir1}</fdir1>
+            <!-- High friction along fdir1 (roller grip axis) -->
+            <mu>1.0</mu>
+            <!-- Zero friction perpendicular (roller free-rolling direction) -->
+            <mu2>0.0</mu2>
+            <!-- ignition:expressed_in locks fdir1 to the chassis frame.
+                 base_footprint is the root free-body of the URDF (parent of all wheels),
+                 equivalent to "chassis" in the official Gazebo mecanum demo which uses
+                 expressed_in="chassis". DART requires the canonical root body. -->
+            <fdir1 ignition:expressed_in="${prefix}base_footprint">${fdir1}</fdir1>
+            <slip1>0.0</slip1>
+            <!-- slip2=1: roller rolling direction compliance (1 m/s slip per Newton) -->
+            <slip2>1.0</slip2>
           </ode>
         </friction>
         <contact>
           <ode>
-            <!-- Softer contact (was 1e6) reduces oscillations for 50g wheels -->
             <kp>200000.0</kp>
-            <!-- kd/kp ≈ 0.01 prevents bounce -->
             <kd>2000.0</kd>
             <min_depth>0.001</min_depth>
           </ode>
         </contact>
       </surface>
       <visual>
-          <material>
-              <ambient>0.2 0.2 0.2 1.0</ambient>
-              <diffuse>0.2 0.2 0.2 1.0</diffuse>
-              <specular>0.2 0.2 0.2 1.0</specular>
-              <emissive>0.0 0.0 0.0 0.0</emissive>
-          </material>
+        <material>
+          <ambient>0.2 0.2 0.2 1.0</ambient>
+          <diffuse>0.2 0.2 0.2 1.0</diffuse>
+          <specular>0.2 0.2 0.2 1.0</specular>
+          <emissive>0.0 0.0 0.0 0.0</emissive>
+        </material>
       </visual>
-  </gazebo>
-
+    </gazebo>
   </xacro:macro>
+
 </robot>

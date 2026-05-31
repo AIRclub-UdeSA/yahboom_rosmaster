@@ -2,8 +2,6 @@
 <sdf version="1.6">
   <world name="empty_world">
 
-    <!-- type="ignored" lets Fortress pick DART (the default). DART correctly honours
-         gz:expressed_in on fdir1 when pointed at base_link (not a spinning wheel link). -->
     <physics name="1ms" type="ignored">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1.0</real_time_factor>

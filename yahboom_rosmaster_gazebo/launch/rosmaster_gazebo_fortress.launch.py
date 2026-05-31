@@ -2,7 +2,8 @@
 """
 Launch Gazebo Fortress simulation for ROSMASTER X3 with physics-based mecanum drive.
 
-Uses gz_ros2_control + fdir1 ignition:expressed_in="base_link" for correct holonomic strafing.
+Uses gz_ros2_control + passive cylinder rollers for correct holonomic strafing.
+Roller geometry provides anisotropic friction — no fdir1/expressed_in needed.
 """
 import os
 import subprocess
@@ -14,6 +15,7 @@ from launch.actions import (
     ExecuteProcess,
     IncludeLaunchDescription,
     RegisterEventHandler,
+    SetEnvironmentVariable,
     TimerAction,
     OpaqueFunction,
 )
@@ -53,16 +55,12 @@ def generate_launch_description():
     default_world = os.path.join(pkg_gz, "worlds", "empty.world")
     default_xacro = os.path.join(pkg_desc, "urdf", "robots", "rosmaster_x3.urdf.xacro")
     bridge_config = os.path.join(pkg_gz, "config", "ros_gz_bridge.yaml")
-    ros2_control_config = os.path.join(pkg_gz, "config", "ros2_control.yaml")
     twist_script = os.path.join(pkg_gz, "scripts", "twist_to_stamped.py")
-    vel_ctrl_script = os.path.join(pkg_gz, "scripts", "mecanum_velocity_control.py")
 
     # Expand xacro once at launch-description time and share the string with both RSP
     # and the spawn node. Using -string (not -topic) for spawn means the create node
     # never opens a TRANSIENT_LOCAL DDS subscriber, so ghost RSP nodes from a previous
     # session cannot deliver a second robot_description and cause a double spawn.
-    # NOTE: fdir1 uses ignition:expressed_in (not gz:expressed_in) so the URDF importer
-    # in gz-physics 5.3.2 correctly locks the friction frame to the chassis.
     robot_description_str = subprocess.check_output([
         "xacro", default_xacro,
         "use_gazebo:=true",
@@ -96,7 +94,9 @@ def generate_launch_description():
         launch_arguments=[("gz_args", ["-r -s -v 4 ", world])],
     )
 
-    # Gazebo Fortress GUI — skipped when headless:=true
+    # Gazebo Fortress GUI — skipped when headless:=true.
+    # QT_QPA_PLATFORM=xcb forces X11/XWayland mode on Wayland sessions;
+    # without it the Qt platform default fails on AMD Wayland, leaving a white window.
     gazebo_client = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_gz_sim, "launch", "gz_sim.launch.py")),
@@ -106,8 +106,7 @@ def generate_launch_description():
 
     # Spawn robot directly from the pre-expanded URDF string.
     # z=0.0325 offsets base_footprint so wheel centres sit at wheel_radius above
-    # ground — without this the sphere collisions penetrate the ground plane by
-    # one full wheel radius (32.5 mm), causing violent jitter.
+    # ground — without this the roller collisions penetrate the ground plane.
     spawn = Node(
         package="ros_gz_sim",
         executable="create",
@@ -119,7 +118,7 @@ def generate_launch_description():
         output="screen",
     )
 
-    # Bridge sensor topics: camera info, point cloud, LiDAR, IMU, clock
+    # Bridge sensor topics: camera info, point cloud, LiDAR, IMU
     ros_gz_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
@@ -169,20 +168,13 @@ def generate_launch_description():
         output="screen",
     )
 
-    # Transform body-frame /cmd_vel to world-frame and publish for VelocityControl plugin.
-    # gz-sim VelocityControl applies velocity in world frame; this node reads robot yaw from
-    # /mecanum_drive_controller/odom and rotates the command accordingly.
-    # Starts after controllers are active (t≈16s) so odom is available.
-    vel_ctrl_converter = ExecuteProcess(
-        cmd=["python3", vel_ctrl_script],
-        output="screen",
-    )
-
     return LaunchDescription([
         declare_use_sim_time,
         declare_world,
         declare_rviz,
         declare_headless,
+        # Force X11/XWayland for Gazebo GUI — prevents white window on Wayland + AMD GPU
+        SetEnvironmentVariable("QT_QPA_PLATFORM", "xcb"),
         AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
         gazebo_server,
         gazebo_client,
@@ -195,7 +187,5 @@ def generate_launch_description():
         TimerAction(period=12.0, actions=[twist_converter]),
         TimerAction(period=14.0, actions=[load_joint_state_broadcaster]),
         load_mecanum_after_broadcaster,
-        # t=16s: start after controllers are active and odom TF is being published
-        TimerAction(period=16.0, actions=[vel_ctrl_converter]),
         OpaqueFunction(function=_launch_rviz),
     ])

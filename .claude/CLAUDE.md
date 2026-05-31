@@ -203,8 +203,10 @@ ros2 topic pub --rate 10 /mecanum_drive_controller/cmd_vel \
 | Wheel spawn underground | **FIXED** | `-z 0.0325` in spawn args |
 | Dual `/clock` publishers | **FIXED** | `/clock` removed from `ros_gz_bridge.yaml` |
 | Wrong fdir1 vectors (unnormalized) | **FIXED** | `0.707107 ±0.707107 0` in `mecanum_wheel.urdf.xacro` |
-| `gz:expressed_in` silently ignored by DART plugin | **FIXED** | Use `ignition:expressed_in="base_link"` (chassis frame); gz-physics 5.3.2 only parses `ignition:expressed_in` string, not `gz:expressed_in` |
-| Strafing broken (DART expressed_in one-time-only transform) | **FIXED** | gz-physics 5.3.2 DART computes expressed_in transform only at model load, not per step. Added `gz-sim-velocity-control-system` plugin to URDF + `mecanum_velocity_control.py` (body→world frame transform via odom heading) + ros_gz_bridge ROS_TO_GZ entry. Body moves via VelocityControl; wheels+odometry still via mecanum_drive_controller. Confirmed all 3 axes + heading-locked strafing via MCP. |
+| `gz:expressed_in` silently ignored by DART plugin | **FIXED** | Use `ignition:expressed_in="base_footprint"` — gz-physics 5.3.2 only parses `ignition:expressed_in`, not `gz:expressed_in`; confirmed in generated SDF |
+| Strafing broken (DART/gz_ros2_control interaction) | **OPEN** | fdir1 + sphere gives correct forward/rotation but strafing produces -y for +y command + ~50° rotation. Official Gazebo mecanum demo (MecanumDrive plugin) DOES strafe correctly with same fdir1. Root cause: unknown DART interaction with gz_ros2_control velocity constraints. See Strafing Physics Investigation section. |
+| Passive rollers don't strafe (DART ignores passive joints in LCP) | **WONT-FIX** | DART contact solver ignores passive joint DOF; isotropic contact forces cancel during strafe |
+| Bullet physics doesn't support anisotropic friction | **WONT-FIX** | Bullet plugin ignores mu2/fdir1; only isotropic friction available |
 | Zero-stamp cmd_vel (twist_to_stamped clock bug) | **FIXED** | Removed `use_sim_time:=true` from twist_to_stamped; rclpy ROS clock fails in subprocess → stamp=0 → timeout. Wall clock gives negative age → no brake |
 | Double-robot spawn (ghost DDS RSP) | **FIXED** | `create -string` bypasses DDS topic subscription |
 | Camera Classic plugin in Fortress | **FIXED** | Removed `libgazebo_ros_camera.so`; use native Fortress sensor |
@@ -213,13 +215,106 @@ ros2 topic pub --rate 10 /mecanum_drive_controller/cmd_vel \
 | `pal_statistics_msgs` phantom dependency | **FIXED** | Removed from `mecanum_drive_controller/package.xml` + `CMakeLists.txt` (never used in source) |
 | `gazebo_ros` (Classic) in Fortress build | **FIXED** | Removed from `yahboom_rosmaster_gazebo/CMakeLists.txt` (pure launch pkg, no C++ deps needed) |
 
-## TODO — Steps 5 and 6 remaining
+## DDS Ghost Publisher Killer — REQUIRED before every sim launch
 
-**Steps 1–4 verified on this machine (2026-05-29) via ROS2 MCP autonomous debug:**
-- **Strafe**: y=2.56m in 5s at 0.3 m/s, x≈0, yaw≈0 ✓
-- **Heading-locked strafe**: at yaw=-143°, Δx/Δy = -0.74 (expected -0.75) ✓
-- **Rotate**: wz=1.0 rad/s confirmed ✓
-**Remaining: restart test (step 5) and merge (step 6).**
+Zombie robot_state_publisher and ign gazebo processes from previous sessions publish stale
+TRANSIENT_LOCAL robot_description messages. gz_ros2_control reads one of these at spawn time
+and initializes hardware without command_interfaces → controllers fail to load.
+
+```bash
+pkill -9 -f "ign|ros2 launch|robot_state_publisher|controller_manager|ros_gz|twist_to_stamped|image_bridge|parameter_bridge" 2>/dev/null
+sleep 3
+kill -9 $(pgrep -f robot_state_publisher) 2>/dev/null
+sleep 2
+rm -f /dev/shm/fastrtps_* /dev/shm/sem.fastrtps_* 2>/dev/null
+source /opt/ros/humble/setup.bash && ros2 daemon stop 2>/dev/null
+sleep 2
+rm -f /dev/shm/fastrtps_* /dev/shm/sem.fastrtps_* 2>/dev/null
+# Verify: should say "no publishers (clean)"
+ros2 topic info /robot_description 2>/dev/null | grep "Publisher count" || echo "clean"
+```
+
+## Strafing Physics Investigation (2026-05-31) — DART Limitations
+
+### Approaches tried and results
+
+**Approach A — Passive roller cylinders (ABANDONED)**
+Added 4 cylinder rollers per wheel as passive revolute joints. Theory: DART's LCP solver
+would use the passive DOF to produce anisotropic friction (roller spins freely = zero friction
+in that direction).
+**Result:** DART's contact LCP does NOT use passive joint DOF for friction anisotropy. The
+contact solver treats friction as isotropic at the contact point, ignoring that the roller
+joint is free. All 4 wheels produce zero net lateral force → no strafing. 8 rollers also
+hangs DART (32 passive joints too slow for constraint solver at 1ms timestep).
+
+**Approach B — Bullet physics + fdir1 (ABANDONED)**
+Switched to `ignition-physics5-bullet-plugin.so` (available, installed).
+**Result:** Bullet physics ignores ODE-style friction parameters entirely (mu, mu2, fdir1
+are not supported). Uses isotropic friction only. No strafing.
+
+**Approach C — Sphere collision + fdir1 + ignition:expressed_in (CURRENT STATE)**
+Sphere collision (single contact point per wheel) with:
+- `mu=1.0` along fdir1 (grip axis), `mu2=0.0` perpendicular (free rolling)
+- `ignition:expressed_in="base_footprint"` → confirmed in generated SDF
+- FL/BR: fdir1="0.707107 -0.707107 0", FR/BL: fdir1="0.707107 0.707107 0"
+- Matches official Gazebo mecanum demo fdir1 assignments exactly
+
+**Test results (2026-05-31):**
+- Forward: Δx=+1.49m in 5s at 0.3 m/s (99%) ✓
+- Rotation: CCW for angular.z=+0.5, correct direction ✓
+- Strafe: Δy=-0.026m + Δyaw=-48.8° (wrong direction AND significant rotation) ✗
+
+### Why strafing fails with Approach C
+
+The official Gazebo mecanum demo (native SDF + MecanumDrive plugin + DART) WORKS for strafing.
+Our robot (URDF + gz_ros2_control + DART) does NOT. The fdir1 values and expressed_in are
+identical. The key difference is the motion control system.
+
+**MecanumDrive plugin**: Ignition native plugin that computes wheel velocities from body cmd.
+Applies JointVelocityCommandComponent directly in the physics system thread.
+
+**gz_ros2_control + mecanum_drive_controller**: Also applies JointVelocityCommandComponent.
+Mechanically equivalent to MecanumDrive.
+
+Root cause is not yet identified. Empirical behavior: any fdir1 assignment produces strafing
+in -y direction for +y command + ~50° unwanted yaw rotation. Torque analysis shows torques
+should cancel (zero net yaw) but empirically they don't. DART may have a constraint solver
+interaction with gz_ros2_control velocity commands that doesn't occur with MecanumDrive.
+
+**Note:** The strafing failure is NOT due to the expressed_in one-shot bug (that would only
+affect headings after rotation). The robot fails to strafe even at initial yaw=0.
+
+### cmd_vel_timeout workaround (required for testing)
+
+The wall-clock stamp from `twist_to_stamped.py` makes `cmd_vel_timeout` never fire
+(age = sim_time - wall_time ≈ -1.78e9 s << 0 → no timeout → last command runs forever).
+**Always send a zero cmd_vel after each test:**
+```bash
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{}"
+```
+
+## TODO — Next session
+
+**Verified working (2026-05-31):** Forward Δx=1.49m ✓, Rotation CCW ✓
+**Strafe: BROKEN** with all physics-based approaches tried. Options:
+
+1. **Add MecanumDrive plugin** alongside mecanum_drive_controller: official demo proves
+   this combination works for strafing. MecanumDrive handles wheel kinematics (not body
+   velocity directly), so ground friction still matters. May satisfy "physics-based" requirement
+   since it's not a body velocity override.
+
+2. **Accept limitation**: forward + rotation work correctly. Strafing doesn't. Document as
+   DART/gz_ros2_control limitation.
+
+3. **Upgrade Gazebo**: Fortress (gz-physics 5.3.2) is EOL. Newer versions may fix the
+   expressed_in one-shot bug AND the URDF fdir1 interaction issue.
+
+**Remaining tests (blocked on strafe):**
+- Restart test (step 5): Ctrl+C, wait 5s, relaunch → verify one robot
+- Merge to main (step 6) when user is satisfied
+
+**Session history:** `fix/fortress-simulator` branch. Sphere + fdir1 + ignition:expressed_in
+approach is in place. VelocityControl and passive roller approaches both reverted.
 
 ```bash
 # 0. Install ROS 2 Humble + Gazebo Fortress (new machine only — skip if already installed)

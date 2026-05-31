@@ -1,5 +1,8 @@
 <?xml version="1.0"?>
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" xmlns:gz="http://gazebosim.org/schema" name="rosmaster_x3">
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro"
+       xmlns:gz="http://gazebosim.org/schema"
+       xmlns:ignition="http://ignitionrobotics.org/schema"
+       name="rosmaster_x3">
 
   <xacro:property name="M_PI" value="3.1415926535897931" />
 
@@ -15,9 +18,10 @@
 
   <xacro:rosmaster_x3_base prefix="$(arg prefix)"/>
 
-  <!-- fdir1 defines the roller axis direction (locked to chassis frame via gz:expressed_in).
-       FL/BR diagonal: rollers at -45° to forward  →  (1, -1, 0) normalized
-       FR/BL diagonal: rollers at +45° to forward  →  (1,  1, 0) normalized -->
+  <!-- fdir1 = roller grip direction in base_footprint frame via ignition:expressed_in.
+       Matches the official Gazebo mecanum demo (expressed_in="chassis", same topology).
+       FL/BR: grip along (0.707, -0.707, 0) — "A"-type rollers
+       FR/BL: grip along (0.707,  0.707, 0) — "B"-type rollers -->
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
     side="front_left"
@@ -77,17 +81,6 @@
     <gazebo>
       <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
         <parameters>$(find yahboom_rosmaster_gazebo)/config/ros2_control.yaml</parameters>
-      </plugin>
-    </gazebo>
-    <!-- VelocityControl: directly applies world-frame velocity to the robot body,
-         bypassing the DART anisotropic-friction-expressed_in issue.
-         A ROS node (mecanum_velocity_control.py) transforms body-frame /cmd_vel
-         to world-frame before publishing to /cmd_vel_world_frame, which is bridged
-         to this plugin's Ignition topic /cmd_vel_world via ros_gz_bridge. -->
-    <gazebo>
-      <plugin filename="gz-sim-velocity-control-system"
-              name="gz::sim::systems::VelocityControl">
-        <topic>/cmd_vel_world</topic>
       </plugin>
     </gazebo>
   </xacro:if>
