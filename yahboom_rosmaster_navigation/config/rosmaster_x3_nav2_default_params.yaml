@@ -27,6 +27,12 @@ amcl:
     resample_interval: 1
     robot_model_type: "nav2_amcl::OmniMotionModel" # Use "nav2_amcl::DifferentialMotionModel" if you have a differential drive robot
     save_pose_rate: 0.5
+    set_initial_pose: true
+    initial_pose:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      yaw: 0.0
     sigma_hit: 0.2
     tf_broadcast: true # map to odom frame transform
     transform_tolerance: 1.0
@@ -307,12 +313,16 @@ map_saver:
     occupied_thresh_default: 0.65
     map_subscribe_transient_local: True
 
+map_server:
+  ros__parameters:
+    yaml_filename: ""
+
 planner_server:
   ros__parameters:
     expected_planner_frequency: 20.0
     planner_plugins: ["GridBased"]
     GridBased:
-      plugin: "nav2_navfn_planner::NavfnPlanner"
+      plugin: "nav2_navfn_planner/NavfnPlanner"
       tolerance: 0.5
       use_astar: false
       allow_unknown: true
@@ -335,15 +345,15 @@ behavior_server:
     cycle_frequency: 10.0
     behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
     spin:
-      plugin: "nav2_behaviors::Spin"
+      plugin: "nav2_behaviors/Spin"
     backup:
-      plugin: "nav2_behaviors::BackUp"
+      plugin: "nav2_behaviors/BackUp"
     drive_on_heading:
-      plugin: "nav2_behaviors::DriveOnHeading"
+      plugin: "nav2_behaviors/DriveOnHeading"
     wait:
-      plugin: "nav2_behaviors::Wait"
+      plugin: "nav2_behaviors/Wait"
     assisted_teleop:
-      plugin: "nav2_behaviors::AssistedTeleop"
+      plugin: "nav2_behaviors/AssistedTeleop"
     local_frame: odom
     global_frame: map
     robot_base_frame: base_link
@@ -539,4 +549,3 @@ slam_toolbox:
     minimum_angle_penalty: 0.9
     minimum_distance_penalty: 0.5
     use_response_expansion: true
-

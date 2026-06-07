@@ -1,5 +1,5 @@
 #!/bin/bash
-# Launch the ROSMASTER X3 with Gazebo Fortress, Nav2, and ROS 2 controllers.
+# Launch the ROSMASTER X3 with Gazebo Fortress and Nav2.
 set -euo pipefail
 
 cleanup() {
@@ -20,7 +20,6 @@ fi
 
 echo "Launching Gazebo Fortress simulation with Nav2..."
 ros2 launch yahboom_rosmaster_bringup rosmaster_x3_navigation.launch.py \
-    enable_odom_tf:=false \
     use_sim_time:=true \
     "$SLAM_ARG" &
 

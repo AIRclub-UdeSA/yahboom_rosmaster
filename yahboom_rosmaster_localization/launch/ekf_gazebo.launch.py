@@ -19,16 +19,7 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    """
-    Generate a launch description for the EKF node.
-
-    This function creates and returns a LaunchDescription object that will start
-    the EKF node from the robot_localization package. The node is configured
-    using parameters from a YAML file.
-
-    Returns:
-        LaunchDescription: A complete launch description for the EKF node
-    """
+    """Generate a launch description for the EKF node."""
     # Constants for paths to different files and folders
     package_name = 'yahboom_rosmaster_localization'
 

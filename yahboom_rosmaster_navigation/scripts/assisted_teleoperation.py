@@ -1,21 +1,5 @@
 #!/usr/bin/env python3
-"""
-Assisted Teleop Node for ROS 2 Navigation
-
-This script implements an Assisted Teleop node that interfaces with the Nav2 stack.
-It manages the lifecycle of the AssistedTeleop action, handles cancellation requests,
-and periodically clears costmaps to remove temporary obstacles.
-
-Subscription Topics:
-    /cmd_vel_teleop (geometry_msgs/Twist): Velocity commands for assisted teleop
-    /cancel_assisted_teleop (std_msgs/Bool): Cancellation requests for assisted teleop
-
-Parameters:
-    ~/costmap_clear_frequency (double): Frequency in Hz for costmap clearing. Default: 2.0
-
-:author: Addison Sears-Collins
-:date: December 5, 2024
-"""
+"""Run the Nav2 assisted teleoperation helper node."""
 
 import rclpy
 from rclpy.node import Node
@@ -27,9 +11,7 @@ from rcl_interfaces.msg import ParameterDescriptor
 
 
 class AssistedTeleopNode(Node):
-    """
-    A ROS 2 node for managing Assisted Teleop functionality.
-    """
+    """Manage Nav2 Assisted Teleop behavior."""
 
     def __init__(self):
         """Initialize the AssistedTeleopNode."""
@@ -61,8 +43,8 @@ class AssistedTeleopNode(Node):
         self.clear_costmaps_timer = self.create_timer(period, self.clear_costmaps_callback)
 
         self.get_logger().info(
-            f'Assisted Teleop Node initialized with costmap clearing frequency: {
-                clear_frequency} Hz')
+            f'Assisted Teleop Node initialized with costmap clearing frequency: '
+            f'{clear_frequency} Hz')
 
         # Wait for navigation to fully activate.
         self.navigator.waitUntilNav2Active()

@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""
-Launch file for publishing the pose of the AprilTag on the detected_dock_pose topic as a
-geometry_msgs/PoseStamped message.
-
-:author: Automatic Addison
-:date: December 11, 2024
-"""
+"""Launch the AprilTag dock pose publisher."""
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -16,12 +10,7 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    """
-    Generate a launch description.
-
-    Returns:
-        LaunchDescription: A complete launch description
-    """
+    """Generate the AprilTag dock pose launch description."""
     # Constants for paths to different files and folders
     package_name_docking = 'yahboom_rosmaster_docking'
 

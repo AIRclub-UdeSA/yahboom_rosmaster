@@ -10,10 +10,8 @@
  *   None
  *
  * Publishing Topics:
- *   /mecanum_drive_controller/cmd_vel (geometry_msgs/TwistStamped):
- *     Timestamped velocity command for the robot:
- *     - header.stamp: Current ROS time when command is published
- *     - header.frame_id: "base_link" (robot's base frame)
+ *   /cmd_vel (geometry_msgs/Twist):
+ *     Velocity command for the robot:
  *     - twist.linear.x: Always 0 (no forward/backward motion)
  *     - twist.linear.y: Always 0 (no left/right motion)
  *     - twist.angular.z: Rotation speed in radians/second (positive=counterclockwise, negative=clockwise)
@@ -36,7 +34,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "yahboom_rosmaster_msgs/action/timed_rotation.hpp"
-#include "geometry_msgs/msg/twist_stamped.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 
 using namespace std::chrono_literals;
 using TimedRotation = yahboom_rosmaster_msgs::action::TimedRotation;
@@ -57,7 +55,7 @@ public:
   /**
    * @brief Constructor for the TimedRotationActionServer class.
    *
-   * Initializes the action server and the timestamped velocity command publisher.
+   * Initializes the action server and velocity command publisher.
    * Sets up callback bindings for handling goals, cancellation requests,
    * and accepted goals.
    */
@@ -74,16 +72,16 @@ public:
       std::bind(&TimedRotationActionServer::handle_cancel, this, _1),
       std::bind(&TimedRotationActionServer::handle_accepted, this, _1));
 
-    // Create publisher for timestamped velocity commands
-    cmd_vel_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>(
-      "/mecanum_drive_controller/cmd_vel",
+    // Create publisher for velocity commands
+    cmd_vel_publisher_ = this->create_publisher<geometry_msgs::msg::Twist>(
+      "/cmd_vel",
       10);  // Queue size of 10 messages
   }
 
 private:
   // Class member variables
   rclcpp_action::Server<TimedRotation>::SharedPtr action_server_;  ///< The action server instance
-  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_publisher_;  ///< Publisher for timestamped velocity commands
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_publisher_;  ///< Publisher for velocity commands
 
   /**
    * @brief Callback function for handling new goal requests.
@@ -144,7 +142,7 @@ private:
    *
    * This function runs in a separate thread and performs the following:
    * 1. Publishes initial feedback with GOAL_RECEIVED status
-   * 2. Creates and sends timestamped velocity commands based on goal parameters
+   * 2. Creates and sends velocity commands based on goal parameters
    * 3. Continuously publishes feedback during rotation
    * 4. Handles cancellation requests during execution
    * 5. Stops rotation and publishes final result
@@ -166,36 +164,31 @@ private:
     feedback->status = "GOAL_RECEIVED";
     goal_handle->publish_feedback(feedback);
 
-    // Create timestamped velocity command message
-    geometry_msgs::msg::TwistStamped twist_stamped_msg;
-    twist_stamped_msg.twist.angular.z = goal->angular_velocity;  // Set rotation speed
-    twist_stamped_msg.header.frame_id = "base_link";  // Set the reference frame
+    // Create velocity command message
+    geometry_msgs::msg::Twist twist_msg;
+    twist_msg.angular.z = goal->angular_velocity;  // Set rotation speed
     // linear.x and linear.y are automatically initialized to 0
 
     // Record start time for duration tracking
     auto start_time = this->now();
 
     // Main execution loop
-    while (rclcpp::ok())
-    {
+    while (rclcpp::ok()) {
       // Check for cancellation requests
-      if (goal_handle->is_canceling())
-      {
+      if (goal_handle->is_canceling()) {
         goal_handle->canceled(result);
         RCLCPP_INFO(this->get_logger(), "Goal canceled");
         feedback->status = "GOAL_CANCELED";
         goal_handle->publish_feedback(feedback);
 
-        // Stop the robot with timestamped command
-        twist_stamped_msg.twist.angular.z = 0.0;
-        twist_stamped_msg.header.stamp = this->now();
-        cmd_vel_publisher_->publish(twist_stamped_msg);
+        // Stop the robot
+        twist_msg.angular.z = 0.0;
+        cmd_vel_publisher_->publish(twist_msg);
         return;
       }
 
-      // Update timestamp and publish velocity command
-      twist_stamped_msg.header.stamp = this->now();
-      cmd_vel_publisher_->publish(twist_stamped_msg);
+      // Publish velocity command
+      cmd_vel_publisher_->publish(twist_msg);
 
       // Calculate elapsed time
       auto elapsed_time = (this->now() - start_time).seconds();
@@ -206,8 +199,7 @@ private:
       goal_handle->publish_feedback(feedback);
 
       // Check if we've reached the desired duration
-      if (elapsed_time >= goal->duration)
-      {
+      if (elapsed_time >= goal->duration) {
         break;
       }
 
@@ -215,10 +207,9 @@ private:
       std::this_thread::sleep_for(200ms);
     }
 
-    // Stop the robot with final timestamped command
-    twist_stamped_msg.twist.angular.z = 0.0;
-    twist_stamped_msg.header.stamp = this->now();
-    cmd_vel_publisher_->publish(twist_stamped_msg);
+    // Stop the robot
+    twist_msg.angular.z = 0.0;
+    cmd_vel_publisher_->publish(twist_msg);
 
     // Set and send result
     result->success = true;

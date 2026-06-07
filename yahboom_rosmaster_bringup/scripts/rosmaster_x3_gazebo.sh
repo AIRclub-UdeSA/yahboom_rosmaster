@@ -1,12 +1,12 @@
 #!/bin/bash
-# Launch the ROSMASTER X3 in Gazebo Fortress with ROS 2 controllers.
+# Launch the ROSMASTER X3 in Gazebo Fortress.
 set -euo pipefail
 
 cleanup() {
     echo "Cleaning up..."
-    pkill -TERM -f "ros2|ruby|gz|rviz2|robot_state_publisher|joint_state_publisher|twist_to_stamped" 2>/dev/null || true
+    pkill -TERM -f "ros2|ruby|gz|rviz2|robot_state_publisher|joint_state_publisher" 2>/dev/null || true
     sleep 3
-    pkill -KILL -f "ros2|ruby|gz|rviz2|robot_state_publisher|joint_state_publisher|twist_to_stamped" 2>/dev/null || true
+    pkill -KILL -f "ros2|ruby|gz|rviz2|robot_state_publisher|joint_state_publisher" 2>/dev/null || true
 }
 
 # Kill any stale Gazebo/ROS processes from a previous session before starting.

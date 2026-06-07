@@ -1,16 +1,34 @@
 #!/bin/bash
-# Launch ROSMASTER X3 in headless Gazebo Fortress (no GUI, for autonomous Claude debugging).
+# Launch ROSMASTER X3 in headless Gazebo Fortress.
 # Requires: xvfb-run (sudo apt-get install -y xvfb)
 set -euo pipefail
 
-source /opt/ros/humble/setup.bash
-source /home/juan/Documents/rosmaster_ws/install/setup.bash
+if [ -f /opt/ros/humble/setup.bash ]; then
+    # shellcheck disable=SC1091
+    source /opt/ros/humble/setup.bash
+fi
+
+if ! command -v ros2 >/dev/null 2>&1; then
+    echo "ros2 was not found. Source your ROS 2 environment first." >&2
+    exit 1
+fi
+
+if ! ros2 pkg prefix yahboom_rosmaster_gazebo >/dev/null 2>&1; then
+    echo "yahboom_rosmaster_gazebo was not found." >&2
+    echo "Build the workspace and source install/setup.bash before running this script." >&2
+    exit 1
+fi
+
+if ! command -v xvfb-run >/dev/null 2>&1; then
+    echo "xvfb-run was not found. Install it with: sudo apt-get install -y xvfb" >&2
+    exit 1
+fi
 
 cleanup() {
     echo "Cleaning up..."
-    pkill -TERM -f "ros2|ruby|gz|rviz2|robot_state_publisher|twist_to_stamped" 2>/dev/null || true
+    pkill -TERM -f "ros2|ruby|gz|rviz2|robot_state_publisher" 2>/dev/null || true
     sleep 2
-    pkill -KILL -f "ros2|ruby|gz|rviz2|robot_state_publisher|twist_to_stamped" 2>/dev/null || true
+    pkill -KILL -f "ros2|ruby|gz|rviz2|robot_state_publisher" 2>/dev/null || true
 }
 
 echo "Killing any stale simulation processes..."

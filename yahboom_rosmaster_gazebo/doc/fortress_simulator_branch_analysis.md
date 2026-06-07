@@ -192,11 +192,11 @@ The final branch changes include:
 - `create -string` model spawning to avoid ghost DDS robot descriptions.
 - Native Gazebo `MecanumDrive` plugin in the robot xacro.
 - Read-only `gz_ros2_control` wheel state interfaces.
-- Removal of `mecanum_drive_controller` from Gazebo controller loading.
+- Removal of the obsolete `mecanum_drive_controller` path from Gazebo.
 - `/cmd_vel_gz` bridge for the internal Gazebo command topic.
 - `cmd_vel_watchdog.py` for the missing Fortress `MecanumDrive` timeout.
 - `wheel_state_odometry.py` for encoder-style `/odom` and `odom -> base_footprint`.
-- EKF input changed to `/odom`.
+- EKF input changed to `/odom` with wheel odometry retaining TF ownership.
 - Documentation in `README.md` and
   `yahboom_rosmaster_gazebo/doc/native_mecanum_drive_implementation.md`.
 

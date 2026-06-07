@@ -52,7 +52,7 @@ public:
    * @brief Constructor for the TimedRotationActionClient class.
    * @param options ROS 2 node options.
    */
-  explicit TimedRotationActionClient(const rclcpp::NodeOptions& options)
+  explicit TimedRotationActionClient(const rclcpp::NodeOptions & options)
   : Node("timed_rotation_action_client_cpp", options)
   {
     // Create the action client
@@ -65,7 +65,9 @@ public:
     timed_rotation_mode_sub_ = create_subscription<std_msgs::msg::Bool>(
       "/timed_rotation_mode",
       10,
-      std::bind(&TimedRotationActionClient::timed_rotation_mode_callback, this, std::placeholders::_1)
+      std::bind(
+        &TimedRotationActionClient::timed_rotation_mode_callback, this,
+        std::placeholders::_1)
     );
 
     // Declare parameters with default values
@@ -85,15 +87,13 @@ private:
    */
   void timed_rotation_mode_callback(const std_msgs::msg::Bool::SharedPtr msg)
   {
-    if (!timed_rotation_mode_ && msg->data)
-    {
+    if (!timed_rotation_mode_ && msg->data) {
       // Transition from False to True - Start rotation
       send_goal();
-    }
-    else if (timed_rotation_mode_ && !msg->data)
-    {
+    } else if (timed_rotation_mode_ && !msg->data) {
       // Transition from True to False - Cancel if active
-      if (goal_handle_ && goal_handle_->get_status() == rclcpp_action::GoalStatus::STATUS_ACCEPTED)
+      if (goal_handle_ &&
+        goal_handle_->get_status() == rclcpp_action::GoalStatus::STATUS_ACCEPTED)
       {
         cancel_goal();
       }
@@ -105,10 +105,9 @@ private:
    * @brief Callback function for goal response.
    * @param goal_handle The goal handle returned by the action server.
    */
-  void goal_response_callback(const GoalHandleTimedRotation::SharedPtr& goal_handle)
+  void goal_response_callback(const GoalHandleTimedRotation::SharedPtr & goal_handle)
   {
-    if (!goal_handle)
-    {
+    if (!goal_handle) {
       RCLCPP_ERROR(get_logger(), "Goal was rejected by server");
       return;
     }
@@ -123,26 +122,27 @@ private:
    * @param feedback The feedback message received from the action server.
    */
   void feedback_callback(
-    const GoalHandleTimedRotation::SharedPtr& goal_handle,
-    const std::shared_ptr<const TimedRotation::Feedback>& feedback)
+    const GoalHandleTimedRotation::SharedPtr & goal_handle,
+    const std::shared_ptr<const TimedRotation::Feedback> & feedback)
   {
     (void)goal_handle;  // Unused parameter
-    RCLCPP_INFO(get_logger(), "Feedback received - Elapsed time: %.2f seconds, Status: %s",
-                feedback->elapsed_time,
-                feedback->status.c_str());
+    RCLCPP_INFO(
+      get_logger(), "Feedback received - Elapsed time: %.2f seconds, Status: %s",
+      feedback->elapsed_time,
+      feedback->status.c_str());
   }
 
   /**
    * @brief Callback function for getting the result.
    * @param result The result message received from the action server.
    */
-  void get_result_callback(const GoalHandleTimedRotation::WrappedResult& result)
+  void get_result_callback(const GoalHandleTimedRotation::WrappedResult & result)
   {
-    switch (result.code)
-    {
+    switch (result.code) {
       case rclcpp_action::ResultCode::SUCCEEDED:
-        RCLCPP_INFO(get_logger(), "Goal succeeded! Actual duration: %.2f seconds",
-                    result.result->actual_duration);
+        RCLCPP_INFO(
+          get_logger(), "Goal succeeded! Actual duration: %.2f seconds",
+          result.result->actual_duration);
         break;
       case rclcpp_action::ResultCode::ABORTED:
         RCLCPP_ERROR(get_logger(), "Goal was aborted");
@@ -165,19 +165,18 @@ private:
   void cancel_goal()
   {
     RCLCPP_INFO(get_logger(), "Requesting to cancel goal");
-    if (!goal_handle_)
-    {
-        RCLCPP_ERROR(get_logger(), "Goal handle is null");
-        return;
+    if (!goal_handle_) {
+      RCLCPP_ERROR(get_logger(), "Goal handle is null");
+      return;
     }
 
     auto future = action_client_->async_cancel_goal(goal_handle_);
 
     if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) !=
-        rclcpp::FutureReturnCode::SUCCESS)
+      rclcpp::FutureReturnCode::SUCCESS)
     {
-        RCLCPP_ERROR(get_logger(), "Failed to cancel goal");
-        return;
+      RCLCPP_ERROR(get_logger(), "Failed to cancel goal");
+      return;
     }
     RCLCPP_INFO(get_logger(), "Goal cancellation request sent");
   }
@@ -191,8 +190,7 @@ private:
   void send_goal()
   {
     RCLCPP_INFO(get_logger(), "Waiting for action server...");
-    if (!action_client_->wait_for_action_server(std::chrono::seconds(5)))
-    {
+    if (!action_client_->wait_for_action_server(std::chrono::seconds(5))) {
       RCLCPP_ERROR(get_logger(), "Action server not available after 5 seconds");
       return;
     }
@@ -205,15 +203,18 @@ private:
     goal_msg.angular_velocity = angular_velocity;
     goal_msg.duration = duration;
 
-    RCLCPP_INFO(get_logger(),
-                "Sending goal: angular_velocity=%.2f rad/s, duration=%.2f seconds",
-                angular_velocity, duration);
+    RCLCPP_INFO(
+      get_logger(),
+      "Sending goal: angular_velocity=%.2f rad/s, duration=%.2f seconds",
+      angular_velocity, duration);
 
     auto send_goal_options = rclcpp_action::Client<TimedRotation>::SendGoalOptions();
     send_goal_options.goal_response_callback =
       std::bind(&TimedRotationActionClient::goal_response_callback, this, std::placeholders::_1);
     send_goal_options.feedback_callback =
-      std::bind(&TimedRotationActionClient::feedback_callback, this, std::placeholders::_1, std::placeholders::_2);
+      std::bind(
+      &TimedRotationActionClient::feedback_callback, this, std::placeholders::_1,
+      std::placeholders::_2);
     send_goal_options.result_callback =
       std::bind(&TimedRotationActionClient::get_result_callback, this, std::placeholders::_1);
 
@@ -237,7 +238,7 @@ private:
  * @param argv Array of command-line arguments.
  * @return int Exit status of the program.
  */
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto action_client = std::make_shared<TimedRotationActionClient>(rclcpp::NodeOptions());

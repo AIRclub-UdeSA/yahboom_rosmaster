@@ -59,7 +59,8 @@ produce correct physical strafing after URDF-to-SDF conversion.
 - `yahboom_rosmaster_gazebo/package.xml`
   adds runtime dependencies for the new Python nodes.
 - `yahboom_rosmaster_localization/config/ekf.yaml`
-  consumes `/odom` instead of the removed mecanum controller odometry topic.
+  consumes `/odom` without publishing TF, leaving wheel odometry as the sole
+  `odom -> base_footprint` authority.
 - `README.md`
   documents the new command, odometry, controller, and physics interfaces.
 
@@ -97,7 +98,7 @@ git diff --check
 ## Manual retest
 
 ```bash
-pkill -f 'ros2 launch yahboom_rosmaster_gazebo|ign gazebo|parameter_bridge|cmd_vel_watchdog|wheel_state_odometry|twist_to_stamped|mecanum_drive_controller' || true
+pkill -f 'ros2 launch yahboom_rosmaster_gazebo|ign gazebo|parameter_bridge|cmd_vel_watchdog|wheel_state_odometry' || true
 
 cd ~/Documents/rosmaster_ws
 source /opt/ros/humble/setup.bash

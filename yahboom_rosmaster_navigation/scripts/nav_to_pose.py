@@ -40,12 +40,10 @@ COSTMAP_CLEARING_PERIOD = 0.5
 
 
 class GoToGoalPose(Node):
-    """This class subscribes to the goal pose and publishes the ETA
-       and goal status information to ROS 2.
-    """
+    """Subscribe to goal poses and publish ETA plus goal status."""
 
     def __init__(self):
-        """Constructor."""
+        """Initialize the goal-pose navigation node."""
         # Initialize the class using the constructor
         super().__init__('go_to_goal_pose')
 
@@ -92,8 +90,9 @@ class GoToGoalPose(Node):
 
             if feedback:
                 # Publish the estimated time of arrival in seconds
-                estimated_time_of_arrival = f"{Duration.from_msg(
-                    feedback.estimated_time_remaining).nanoseconds / 1e9:.0f}"
+                eta_seconds = Duration.from_msg(
+                    feedback.estimated_time_remaining).nanoseconds / 1e9
+                estimated_time_of_arrival = f"{eta_seconds:.0f}"
                 msg_eta = String()
                 msg_eta.data = str(estimated_time_of_arrival)
                 self.publisher_eta.publish(msg_eta)
@@ -153,12 +152,10 @@ class GoToGoalPose(Node):
 
 
 class GetStopNavigationSignal(Node):
-    """This class subscribes to a Boolean flag that tells the
-       robot to stop navigation.
-    """
+    """Subscribe to the Boolean navigation stop signal."""
 
     def __init__(self):
-        """Constructor."""
+        """Initialize the navigation stop-signal subscriber."""
         # Initialize the class using the constructor
         super().__init__('get_stop_navigation_signal')
 
@@ -180,12 +177,10 @@ class GetStopNavigationSignal(Node):
 
 
 class GetCurrentVelocity(Node):
-    """This class subscribes to the current velocity and determines if the robot
-       is making forward progress.
-    """
+    """Track whether the current velocity indicates forward progress."""
 
     def __init__(self):
-        """Constructor."""
+        """Initialize the current-velocity subscriber."""
         # Initialize the class using the constructor
         super().__init__('get_current_velocity')
 
@@ -210,7 +205,7 @@ class GetCurrentVelocity(Node):
 
 
 def main(args=None):
-    """Main function to initialize and run the ROS 2 nodes."""
+    """Initialize and run the ROS 2 nodes."""
     # Initialize the rclpy library
     rclpy.init(args=args)
 

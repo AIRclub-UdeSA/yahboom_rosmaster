@@ -9,7 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 
 # Copy necessary files to designated locations in the project
-install (
+install(
   DIRECTORY config launch models rviz scripts worlds
   DESTINATION share/${PROJECT_NAME}
 )

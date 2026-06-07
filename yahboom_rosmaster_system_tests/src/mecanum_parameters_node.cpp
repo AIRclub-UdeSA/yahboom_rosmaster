@@ -2,7 +2,7 @@
  * @file mecanum_parameters_node.cpp
  * @brief This ROS 2 node demonstrates how to declare parameters and publish velocity messages.
  *
- * This program implements a ROS 2 node that declares parameters for a mecanum wheel robot 
+ * This program implements a ROS 2 node that declares parameters for a mecanum wheel robot
  * and publishes velocity commands. It demonstrates parameter declaration, callback
  * registration for parameter changes, and publishing to the velocity topic.
  *
@@ -10,7 +10,7 @@
  *   None
  *
  * Publishing Topics:
- *   /mecanum_drive_controller/cmd_vel (geometry_msgs/TwistStamped): Velocity command for the robot
+ *   /cmd_vel (geometry_msgs/Twist): Velocity command for the robot
  *   (linear.x, linear.y, and angular.z)
  *
  * Parameters:
@@ -27,7 +27,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rcl_interfaces/msg/parameter_descriptor.hpp>
 #include <rcl_interfaces/msg/set_parameters_result.hpp>
-#include <geometry_msgs/msg/twist_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
 
 /**
  * @class MecanumParameters
@@ -42,7 +42,8 @@ public:
    * Initializes the node, declares parameters, sets up parameter change callback,
    * and creates a publisher and timer for velocity messages.
    */
-  MecanumParameters() : Node("mecanum_parameters_node")
+  MecanumParameters()
+  : Node("mecanum_parameters_node")
   {
     // Describe parameters
     rcl_interfaces::msg::ParameterDescriptor robot_name_descriptor;
@@ -50,11 +51,14 @@ public:
     rcl_interfaces::msg::ParameterDescriptor robot_id_descriptor;
     robot_id_descriptor.description = "The unique ID number of the robot";
     rcl_interfaces::msg::ParameterDescriptor target_linear_velocity_x_descriptor;
-    target_linear_velocity_x_descriptor.description = "Target linear velocity in x direction (meters per second)";
+    target_linear_velocity_x_descriptor.description =
+      "Target linear velocity in x direction (meters per second)";
     rcl_interfaces::msg::ParameterDescriptor target_linear_velocity_y_descriptor;
-    target_linear_velocity_y_descriptor.description = "Target linear velocity in y direction (meters per second)";
+    target_linear_velocity_y_descriptor.description =
+      "Target linear velocity in y direction (meters per second)";
     rcl_interfaces::msg::ParameterDescriptor target_angular_velocity_descriptor;
-    target_angular_velocity_descriptor.description = "Target angular velocity in radians per second";
+    target_angular_velocity_descriptor.description =
+      "Target angular velocity in radians per second";
 
     // Declare parameters using declare_parameter()
     this->declare_parameter("robot_name", "Automatic Addison Bot", robot_name_descriptor);
@@ -67,11 +71,14 @@ public:
     param_callback_handle_ = this->add_on_set_parameters_callback(
       std::bind(&MecanumParameters::parameter_change_callback, this, std::placeholders::_1));
 
-    // Create a publisher for the /mecanum_drive_controller/cmd_vel topic
-    velocity_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/mecanum_drive_controller/cmd_vel", 10);
+    // Create a publisher for the /cmd_vel topic
+    velocity_publisher_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
 
     // Create a timer that will call the publish_velocity function every 0.5 seconds (2 Hz)
-    timer_ = this->create_wall_timer(std::chrono::milliseconds(500), std::bind(&MecanumParameters::publish_velocity, this));
+    timer_ =
+      this->create_wall_timer(
+      std::chrono::milliseconds(500),
+      std::bind(&MecanumParameters::publish_velocity, this));
   }
 
 private:
@@ -82,35 +89,44 @@ private:
    *               being attempted to change.
    * @return rcl_interfaces::msg::SetParametersResult Object indicating whether the change was successful.
    */
-  rcl_interfaces::msg::SetParametersResult parameter_change_callback(const std::vector<rclcpp::Parameter> & params)
+  rcl_interfaces::msg::SetParametersResult parameter_change_callback(
+    const std::vector<rclcpp::Parameter> & params)
   {
     rcl_interfaces::msg::SetParametersResult result;
     result.successful = true;
 
-    for (const auto & param : params)
-    {
-      if (param.get_name() == "robot_name" && param.get_type() == rclcpp::ParameterType::PARAMETER_STRING)
+    for (const auto & param : params) {
+      if (param.get_name() == "robot_name" &&
+        param.get_type() == rclcpp::ParameterType::PARAMETER_STRING)
       {
-        RCLCPP_INFO(this->get_logger(), "Parameter robot_name has changed. The new value is: %s", param.as_string().c_str());
-      }
-      else if (param.get_name() == "robot_id" && param.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER)
+        RCLCPP_INFO(
+          this->get_logger(), "Parameter robot_name has changed. The new value is: %s",
+          param.as_string().c_str());
+      } else if (param.get_name() == "robot_id" &&
+        param.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER)
       {
-        RCLCPP_INFO(this->get_logger(), "Parameter robot_id has changed. The new value is: %ld", param.as_int());  // Changed %d to %ld
-      }
-      else if (param.get_name() == "target_linear_velocity_x" && param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE)
+        RCLCPP_INFO(
+          this->get_logger(), "Parameter robot_id has changed. The new value is: %ld",
+          param.as_int());                                                                                         // Changed %d to %ld
+      } else if (param.get_name() == "target_linear_velocity_x" &&
+        param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE)
       {
-        RCLCPP_INFO(this->get_logger(), "Parameter target_linear_velocity_x has changed. The new value is: %f", param.as_double());
-      }
-      else if (param.get_name() == "target_linear_velocity_y" && param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE)
+        RCLCPP_INFO(
+          this->get_logger(), "Parameter target_linear_velocity_x has changed. The new value is: %f",
+          param.as_double());
+      } else if (param.get_name() == "target_linear_velocity_y" &&
+        param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE)
       {
-        RCLCPP_INFO(this->get_logger(), "Parameter target_linear_velocity_y has changed. The new value is: %f", param.as_double());
-      }
-      else if (param.get_name() == "target_angular_velocity" && param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE)
+        RCLCPP_INFO(
+          this->get_logger(), "Parameter target_linear_velocity_y has changed. The new value is: %f",
+          param.as_double());
+      } else if (param.get_name() == "target_angular_velocity" &&
+        param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE)
       {
-        RCLCPP_INFO(this->get_logger(), "Parameter target_angular_velocity has changed. The new value is: %f", param.as_double());
-      }
-      else
-      {
+        RCLCPP_INFO(
+          this->get_logger(), "Parameter target_angular_velocity has changed. The new value is: %f",
+          param.as_double());
+      } else {
         result.successful = false;
         result.reason = "Unknown parameter: " + param.get_name();
         break;
@@ -120,7 +136,7 @@ private:
   }
 
   /**
-   * @brief Publishes velocity messages to the /mecanum_drive_controller/cmd_vel topic.
+   * @brief Publishes velocity messages to the /cmd_vel topic.
    *
    * This function is called periodically by the timer to publish the current
    * target linear and angular velocities.
@@ -131,17 +147,15 @@ private:
     double target_linear_velocity_y = this->get_parameter("target_linear_velocity_y").as_double();
     double target_angular_velocity = this->get_parameter("target_angular_velocity").as_double();
 
-    geometry_msgs::msg::TwistStamped velocity_msg;
-    velocity_msg.header.stamp = this->get_clock()->now();
-    velocity_msg.header.frame_id = "base_link";
-    velocity_msg.twist.linear.x = target_linear_velocity_x;
-    velocity_msg.twist.linear.y = target_linear_velocity_y;
-    velocity_msg.twist.angular.z = target_angular_velocity;
+    geometry_msgs::msg::Twist velocity_msg;
+    velocity_msg.linear.x = target_linear_velocity_x;
+    velocity_msg.linear.y = target_linear_velocity_y;
+    velocity_msg.angular.z = target_angular_velocity;
 
     velocity_publisher_->publish(velocity_msg);
   }
 
-  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr velocity_publisher_;  ///< Publisher for velocity commands
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr velocity_publisher_;  ///< Publisher for velocity commands
   rclcpp::TimerBase::SharedPtr timer_;  ///< Timer for periodic velocity publishing
   OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;  ///< Handle for the parameter callback
 };

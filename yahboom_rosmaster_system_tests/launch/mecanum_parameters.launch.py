@@ -17,13 +17,7 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    """
-    Generate a launch description for the mecanum_parameters_node.
-
-    :return: A LaunchDescription object containing the actions to execute.
-    :rtype: LaunchDescription
-    """
-
+    """Generate a launch description for the mecanum_parameters_node."""
     # Constants for paths to different files and folders
     package_name_system_tests = 'yahboom_rosmaster_system_tests'
 

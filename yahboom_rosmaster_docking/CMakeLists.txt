@@ -26,7 +26,7 @@ install(TARGETS
 )
 
 # Copy necessary files to designated locations in the project
-install (
+install(
   DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
 )

@@ -40,8 +40,9 @@ public:
   {
     service_ = this->create_service<yahboom_rosmaster_msgs::srv::SetCleaningState>(
       "/set_cleaning_state",
-      std::bind(&SetCleaningStateService::set_cleaning_state_callback, this,
-                std::placeholders::_1, std::placeholders::_2));
+      std::bind(
+        &SetCleaningStateService::set_cleaning_state_callback, this,
+        std::placeholders::_1, std::placeholders::_2));
 
     RCLCPP_INFO(this->get_logger(), "Cleaning Service Server is ready.");
   }

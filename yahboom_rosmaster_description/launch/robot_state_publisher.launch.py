@@ -2,75 +2,19 @@
 """
 Launch RViz visualization for the Yahboom (ROSMASTER) robot.
 
-This launch file sets up the complete visualization environment for the robot,
-including robot state publisher, joint state publisher, and RViz2. It handles loading
-and processing of URDF/XACRO files and controller configurations.
+This launch file starts robot_state_publisher, optional joint state publishers,
+and RViz2 for the robot description.
 
 :author: Addison Sears-Collins
 :date: November 20, 2024
 """
-import os
-from pathlib import Path
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, OpaqueFunction
-from launch.conditions import IfCondition, UnlessCondition
+from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
-
-
-def process_ros2_controllers_config(context):
-    """Process the ROS 2 controller configuration yaml file before loading the URDF.
-
-    This function reads a template configuration file, replaces placeholder values
-    with actual configuration, and writes the processed file to both source and
-    install directories.
-
-    Args:
-        context: Launch context containing configuration values
-
-    Returns:
-        list: Empty list as required by OpaqueFunction
-    """
-
-    # Get the configuration values
-    prefix = LaunchConfiguration('prefix').perform(context)
-    robot_name = LaunchConfiguration('robot_name').perform(context)
-    enable_odom_tf = LaunchConfiguration('enable_odom_tf').perform(context)
-
-    home = str(Path.home())
-
-    # Define both source and install paths
-    src_config_path = os.path.join(
-        home,
-        'ros2_ws/src/yahboom_rosmaster/yahboom_rosmaster_description/config',
-        robot_name
-    )
-    install_config_path = os.path.join(
-        home,
-        'ros2_ws/install/yahboom_rosmaster_description/share/yahboom_rosmaster_description/config',
-        robot_name
-    )
-
-    # Read from source template
-    template_path = os.path.join(src_config_path, 'ros2_controllers_template.yaml')
-    with open(template_path, 'r', encoding='utf-8') as file:
-        template_content = file.read()
-
-    # Create processed content (leaving template untouched)
-    processed_content = template_content.replace('${prefix}', prefix)
-    processed_content = processed_content.replace(
-        'enable_odom_tf: true', f'enable_odom_tf: {enable_odom_tf}')
-
-    # Write processed content to both source and install directories
-    for config_path in [src_config_path, install_config_path]:
-        os.makedirs(config_path, exist_ok=True)
-        output_path = os.path.join(config_path, 'ros2_controllers.yaml')
-        with open(output_path, 'w', encoding='utf-8') as file:
-            file.write(processed_content)
-
-    return []
 
 
 # Define the arguments for the XACRO file
@@ -81,25 +25,12 @@ ARGUMENTS = [
                           description='Prefix for robot joints and links'),
     DeclareLaunchArgument('use_gazebo', default_value='false',
                           choices=['true', 'false'],
-                          description='Whether to use Gazebo simulation'),
-    DeclareLaunchArgument('enable_odom_tf', default_value='true',
-                          choices=['true', 'false'],
-                          description='Enable odometry transform broadcasting via ROS 2 Control')
+                          description='Whether to use Gazebo simulation')
 ]
 
 
 def generate_launch_description():
-    """Generate the launch description for the robot visualization.
-
-    This function sets up all necessary nodes and parameters for visualizing
-    the robot in RViz, including:
-    - Robot state publisher for broadcasting transforms
-    - Joint state publisher for simulating joint movements
-    - RViz for visualization
-
-    Returns:
-        LaunchDescription: Complete launch description for the visualization setup
-    """
+    """Generate the robot visualization launch description."""
     # Define filenames
     urdf_package = 'yahboom_rosmaster_description'
     urdf_filename = 'rosmaster_x3.urdf.xacro'
@@ -136,7 +67,7 @@ def generate_launch_description():
         name='urdf_model',
         default_value=default_urdf_model_path,
         description='Absolute path to robot urdf file')
-    
+
     declare_use_jsp_cmd = DeclareLaunchArgument(
         name='use_jsp',
         default_value='false',
@@ -198,14 +129,11 @@ def generate_launch_description():
     # Create the launch description and populate
     ld = LaunchDescription(ARGUMENTS)
 
-    # Process the controller configuration before starting nodes
-    ld.add_action(OpaqueFunction(function=process_ros2_controllers_config))
-
     # Declare the launch options
     ld.add_action(declare_jsp_gui_cmd)
     ld.add_action(declare_rviz_config_file_cmd)
     ld.add_action(declare_urdf_model_path_cmd)
-    ld.add_action(declare_use_jsp_cmd) 
+    ld.add_action(declare_use_jsp_cmd)
     ld.add_action(declare_use_rviz_cmd)
     ld.add_action(declare_use_sim_time_cmd)
 

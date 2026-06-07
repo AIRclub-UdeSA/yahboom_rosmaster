@@ -169,6 +169,7 @@ def generate_launch_description():
         declare_headless,
         # Force X11/XWayland for Gazebo GUI — prevents white window on Wayland + AMD GPU
         SetEnvironmentVariable("QT_QPA_PLATFORM", "xcb"),
+        AppendEnvironmentVariable("IGN_GAZEBO_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
         AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
         gazebo_server,
         gazebo_client,

@@ -86,7 +86,8 @@ public:
       std::bind(&DetectedDockPosePublisher::timer_callback, this));
 
     // Log that we've successfully initialized
-    RCLCPP_INFO(this->get_logger(),
+    RCLCPP_INFO(
+      this->get_logger(),
       "Detected dock pose publisher initialized with parent frame: '%s' and child frame: '%s'",
       parent_frame_.c_str(), child_frame_.c_str());
   }
@@ -127,9 +128,9 @@ private:
 
       // Publish the dock pose for the navigation system to use
       dock_pose_pub_->publish(dock_pose);
-    }
-    catch (const tf2::TransformException & ex) {
-      RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(), *this->get_clock(), 2000,
         "Waiting for TF from '%s' to '%s': %s",
         parent_frame_.c_str(), child_frame_.c_str(), ex.what());
       return;

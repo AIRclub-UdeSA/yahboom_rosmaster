@@ -17,6 +17,7 @@
   <exec_depend>apriltag_ros</exec_depend>
   <exec_depend>image_proc</exec_depend>
   <exec_depend>nav2_simple_commander</exec_depend>
+  <exec_depend>rclcpp_components</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
