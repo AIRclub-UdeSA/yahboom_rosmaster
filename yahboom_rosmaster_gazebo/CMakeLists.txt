@@ -7,17 +7,9 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(controller_manager REQUIRED)
-
-find_package(rclcpp REQUIRED)
-find_package(ros2_control REQUIRED)
-find_package(ros2_controllers REQUIRED)
-find_package(trajectory_msgs REQUIRED)
-find_package(xacro REQUIRED)
-find_package(gazebo_ros REQUIRED)
 
 # Copy necessary files to designated locations in the project
-install (
+install(
   DIRECTORY config launch models rviz scripts worlds
   DESTINATION share/${PROJECT_NAME}
 )

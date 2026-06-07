@@ -1,27 +1,16 @@
 #!/usr/bin/env python3
-"""
-Launch file for publishing the pose of the AprilTag on the detected_dock_pose topic as a
-geometry_msgs/PoseStamped message.
-
-:author: Automatic Addison
-:date: December 11, 2024
-"""
+"""Launch the AprilTag dock pose publisher."""
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import ComposableNodeContainer, Node
 from launch_ros.descriptions import ComposableNode
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    """
-    Generate a launch description.
-
-    Returns:
-        LaunchDescription: A complete launch description
-    """
+    """Generate the AprilTag dock pose launch description."""
     # Constants for paths to different files and folders
     package_name_docking = 'yahboom_rosmaster_docking'
 
@@ -126,14 +115,16 @@ def generate_launch_description():
         output='screen'
     )
 
-   # Create the detected dock pose publisher node
+    # Create the detected dock pose publisher node
     start_detected_dock_pose_publisher = Node(
         package='yahboom_rosmaster_docking',
         executable='detected_dock_pose_publisher',
         parameters=[{
             'use_sim_time': use_sim_time,
-            'parent_frame': [camera_namespace, TextSubstitution(text=''), camera_frame_type],
-            'child_frame': [tag_family, TextSubstitution(text=':'), tag_id],
+            'parent_frame': PythonExpression(
+                ["'", camera_namespace, "' + '", camera_frame_type, "'"]),
+            'child_frame': PythonExpression(
+                ["'", tag_family, "' + ':' + '", tag_id, "'"]),
             'publish_rate': 10.0
         }],
         output='screen'

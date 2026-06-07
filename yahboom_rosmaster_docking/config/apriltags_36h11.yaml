@@ -1,4 +1,4 @@
-/**:
+/*:
     ros__parameters:
         image_transport: raw    # Controls image compression - 'raw' means uncompressed images
         family: 36h11           # The type/style of AprilTag - 36h11 is a common, reliable family

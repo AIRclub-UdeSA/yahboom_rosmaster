@@ -20,24 +20,10 @@ from yahboom_rosmaster_navigation.posestamped_msg_generator import PoseStampedGe
 
 
 class GoalPublisher(Node):
-    """
-    ROS 2 node for publishing goal poses to different tables.
-
-    This node allows users to input table numbers and publishes the corresponding
-    goal poses for robot navigation.
-
-    Attributes:
-        publisher: Publisher object for goal poses
-        locations (dict): Dictionary containing x,y coordinates for each table
-        pose_generator: Generator for PoseStamped messages
-    """
+    """Publish goal poses to different tables."""
 
     def __init__(self):
-        """
-        Initialize the GoalPublisher node.
-
-        Sets up the publisher for goal poses and defines the table locations.
-        """
+        """Initialize the publisher and table locations."""
         super().__init__('goal_publisher')
 
         # Create a publisher that will send goal poses to the robot
@@ -57,15 +43,7 @@ class GoalPublisher(Node):
         }
 
     def publish_goal(self, table_number):
-        """
-        Publish a goal pose for the selected table.
-
-        Creates and publishes a PoseStamped message with the coordinates
-        corresponding to the selected table number.
-
-        Args:
-            table_number (str): The selected table number ('1' through '5')
-        """
+        """Publish a goal pose for the selected table."""
         # Get the coordinates for the selected table
         x = self.locations[table_number]['x']
         y = self.locations[table_number]['y']
@@ -115,12 +93,7 @@ class GoalPublisher(Node):
 
 
 def main(args=None):
-    """
-    Main function to initialize and run the ROS 2 node.
-
-    Args:
-        args: Command-line arguments (default: None)
-    """
+    """Initialize and run the ROS 2 node."""
     # Initialize ROS 2
     rclpy.init(args=args)
 

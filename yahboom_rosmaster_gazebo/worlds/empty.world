@@ -2,8 +2,6 @@
 <sdf version="1.6">
   <world name="empty_world">
 
-    <!-- Fortress physics: type="ignored" lets Fortress use DART (default).
-         Required for gz:expressed_in="base_link" to work on mecanum fdir1. -->
     <physics name="1ms" type="ignored">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1.0</real_time_factor>
@@ -18,6 +16,13 @@
             name="gz::sim::systems::SceneBroadcaster"/>
     <plugin filename="gz-sim-contact-system"
             name="gz::sim::systems::Contact"/>
+    <!-- Required for camera/depth/IMU sensors defined in the robot URDF -->
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system"
+            name="gz::sim::systems::Imu"/>
 
     <!-- Inline directional light (replaces model://sun which is Classic-only) -->
     <light type="directional" name="sun">
@@ -48,8 +53,9 @@
           <surface>
             <friction>
               <ode>
+                <!-- Equal mu in both axes avoids traction bias during holonomic strafing -->
                 <mu>100</mu>
-                <mu2>50</mu2>
+                <mu2>100</mu2>
               </ode>
             </friction>
           </surface>

@@ -66,14 +66,10 @@
                 <diffuse>${gazebo_material_diffuse}</diffuse>
                 <specular>${gazebo_material_specular}</specular>
             </material>
+            <!-- Fortress-native IMU sensor. libgazebo_ros_imu_sensor.so is Classic-only
+                 and must not be used here. Data flows via ros_gz_bridge (gz.msgs.IMU →
+                 sensor_msgs/Imu). gz_ros2_control also reads this sensor through the ECS. -->
             <sensor name="${prefix}imu_sensor" type="imu">
-                <plugin name="${prefix}imu_plugin" filename="libgazebo_ros_imu_sensor.so">
-                    <ros>
-                        <namespace>${prefix}</namespace>
-                        <remapping>~/out:=${topic_name}</remapping>
-                    </ros>
-                    <initial_orientation_as_reference>false</initial_orientation_as_reference>
-                </plugin>
                 <imu>
                     <angular_velocity>
                         <x><noise type="gaussian"><mean>0</mean><stddev>${gyro_noise_stddev}</stddev></noise></x>
@@ -89,6 +85,8 @@
                 <update_rate>${update_rate}</update_rate>
                 <always_on>${always_on}</always_on>
                 <visualize>${visualize}</visualize>
+                <!-- Short topic name so ros_gz_bridge.yaml 'imu/data' entry matches -->
+                <topic>${topic_name}</topic>
                 <gz_frame_id>${prefix}${frame_id}_link</gz_frame_id>
             </sensor>
         </gazebo>

@@ -12,7 +12,7 @@ find_package(ament_cmake REQUIRED)
 # find_package(<dependency> REQUIRED)
 
 # Copy necessary files to designated locations in the project
-install (
+install(
   DIRECTORY launch scripts
   DESTINATION share/${PROJECT_NAME}
 )

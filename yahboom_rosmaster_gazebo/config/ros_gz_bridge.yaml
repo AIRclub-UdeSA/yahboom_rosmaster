@@ -1,10 +1,19 @@
+# MecanumDrive command input. /cmd_vel_gz is an internal watchdog output; users
+# and Nav2 continue publishing to /cmd_vel.
+- ros_topic_name: "cmd_vel_gz"
+  gz_topic_name: "/model/rosmaster_x3/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+  lazy: false
+
 # RGBD Camera topics
 - ros_topic_name: "cam_1/color/camera_info"
   gz_topic_name: "cam_1/camera_info"
   ros_type_name: "sensor_msgs/msg/CameraInfo"
   gz_type_name: "gz.msgs.CameraInfo"
   direction: GZ_TO_ROS
-  lazy: true # Determines whether connections are created immediately at startup (when false) or only when data is actually requested by a subscriber (when true), helping to conserve system resources at the cost of potential initial delays in data flow.
+  lazy: true
 
 - ros_topic_name: "cam_1/depth/color/points"
   gz_topic_name: "cam_1/points"
@@ -13,7 +22,7 @@
   direction: GZ_TO_ROS
   lazy: true
 
-  # LIDAR configuration
+# LIDAR configuration
 - ros_topic_name: "scan"
   gz_topic_name: "scan"
   ros_type_name: "sensor_msgs/msg/LaserScan"
@@ -29,11 +38,6 @@
   direction: GZ_TO_ROS
   lazy: false
 
-# Clock configuration
-- ros_topic_name: "clock"
-  gz_topic_name: "clock"
-  ros_type_name: "rosgraph_msgs/msg/Clock"
-  gz_type_name: "gz.msgs.Clock"
-  direction: GZ_TO_ROS
-  lazy: false
-
+# Clock is published directly by Gazebo's internal bridge (/clock).
+# Bridging it here too creates two publishers on /clock which causes
+# RViz to detect spurious "jump back in time" loops.
