@@ -37,10 +37,28 @@ Install the common build tools first:
 
 ```bash
 sudo apt update
-sudo apt install -y python3-colcon-common-extensions python3-rosdep
+sudo apt install -y \
+  curl \
+  gnupg \
+  lsb-release \
+  python3-colcon-common-extensions \
+  python3-rosdep
 ```
 
-Install Gazebo Fortress ROS integration:
+Configure the OSRF Gazebo apt repository and install Gazebo Fortress:
+
+```bash
+sudo curl https://packages.osrfoundation.org/gazebo.gpg \
+  --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
+  | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
+
+sudo apt update
+sudo apt install -y ignition-fortress
+```
+
+Install Gazebo Fortress ROS integration packages:
 
 ```bash
 sudo apt install -y \
