@@ -16,6 +16,8 @@
   <!-- Runtime-only deps for composable launch nodes -->
   <exec_depend>apriltag_ros</exec_depend>
   <exec_depend>image_proc</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
   <exec_depend>nav2_simple_commander</exec_depend>
   <exec_depend>rclcpp_components</exec_depend>
 

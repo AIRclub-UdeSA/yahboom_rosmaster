@@ -82,16 +82,11 @@ git clone https://github.com/juan-kaplan/yahboom_rosmaster.git
 
 cd ~/rosmaster_ws
 source /opt/ros/humble/setup.bash
+sudo rosdep init || true
+rosdep update
 rosdep install --from-paths src --ignore-src -r -y --rosdistro humble
 colcon build --symlink-install
 source install/setup.bash
-```
-
-If `rosdep` has not been initialized on the machine:
-
-```bash
-sudo rosdep init
-rosdep update
 ```
 
 ## Standalone Simulator

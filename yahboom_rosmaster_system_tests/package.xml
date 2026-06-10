@@ -12,6 +12,8 @@
   <depend>rclcpp</depend>
   <depend>rclcpp_action</depend>
   <depend>geometry_msgs</depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
   <depend>std_msgs</depend>
   <depend>rcl_interfaces</depend>
   <depend>yahboom_rosmaster_msgs</depend>
