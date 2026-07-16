@@ -108,7 +108,7 @@ Visualization Manager:
       Use rainbow: true
       Value: true
     - Class: rviz_default_plugins/Camera
-      Enabled: false
+      Enabled: true
       Image Rendering: background and overlay
       Name: Camera
       Overlay Alpha: 0.5
@@ -117,8 +117,8 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /cam_1/image_raw
-      Value: false
+        Value: /cam_1/color/image_raw
+      Value: true
       Visibility:
         Grid: true
         LaserScan: true
