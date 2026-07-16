@@ -7,3 +7,6 @@ install/
 log/
 *.pyc
 __pycache__/
+
+# Local audit workspace (findings, command logs, and agent handoffs)
+/AGENT/

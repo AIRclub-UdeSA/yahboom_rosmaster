@@ -4,94 +4,80 @@
 ![ROS 2](https://img.shields.io/badge/ROS%202-Humble-blue)
 ![Gazebo](https://img.shields.io/badge/Gazebo-Fortress%206-blue)
 
-ROS 2 Humble packages for the Yahboom ROSMASTER X3 mecanum robot, with a
-Gazebo Fortress simulator, Nav2 configuration, localization, docking helpers,
-and system-test utilities.
+ROS 2 Humble packages for simulating the Yahboom ROSMASTER X3 mecanum robot
+with Gazebo Fortress. The supported standalone workflow provides contact-driven
+holonomic motion, wheel-state odometry, TF, 2D LiDAR, IMU data, and a depth
+point cloud.
 
 Gazebo Fortress is the supported simulator backend. Gazebo Classic is not
-supported for the mecanum simulator.
-
-## Repository Contents
-
-| Package | Purpose |
-|---------|---------|
-| `yahboom_rosmaster` | Metapackage |
-| `yahboom_rosmaster_description` | URDF, meshes, robot state publisher launch files, RViz configs |
-| `yahboom_rosmaster_gazebo` | Gazebo Fortress worlds, bridge config, simulator launch, command watchdog, wheel odometry |
-| `yahboom_rosmaster_bringup` | Combined simulator, localization, docking, and Nav2 launch files |
-| `yahboom_rosmaster_navigation` | Nav2 parameters, maps, and navigation helper scripts |
-| `yahboom_rosmaster_localization` | `robot_localization` EKF configuration and launch files |
-| `yahboom_rosmaster_docking` | AprilTag docking support |
-| `yahboom_rosmaster_msgs` | Custom messages |
-| `yahboom_rosmaster_system_tests` | Small test/demo nodes for mecanum motion and services |
+supported by the current mecanum simulator.
 
 ## Requirements
 
 - Ubuntu 22.04
-- ROS 2 Humble
+- [ROS 2 Humble](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html)
 - Gazebo Fortress 6
-- `colcon`
-- `rosdep`
+- `git`, `colcon`, and `rosdep`
 
-Install the common build tools first:
+ROS 2 Humble and Gazebo Fortress are the supported ROS/Gazebo pairing. After
+installing ROS 2 Humble, install the common workspace tools and ROS-Gazebo
+integration packages:
 
 ```bash
 sudo apt update
 sudo apt install -y \
-  curl \
-  gnupg \
-  lsb-release \
+  git \
   python3-colcon-common-extensions \
-  python3-rosdep
+  python3-rosdep \
+  ros-humble-ros-gz
 ```
 
-Configure the OSRF Gazebo apt repository and install Gazebo Fortress:
-
-```bash
-sudo curl https://packages.osrfoundation.org/gazebo.gpg \
-  --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
-
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
-  | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
-
-sudo apt update
-sudo apt install -y ignition-fortress
-```
-
-Install Gazebo Fortress ROS integration packages:
-
-```bash
-sudo apt install -y \
-  ros-humble-ros-gz \
-  ros-humble-gz-ros2-control \
-  ros-humble-gz-ros2-control-demos
-```
-
-For headless launch helper scripts, install:
-
-```bash
-sudo apt install -y xvfb
-```
+The build instructions below use `rosdep` to install the remaining dependencies
+declared by the repository packages.
 
 ## Build
+
+Create a workspace and clone the repository:
 
 ```bash
 mkdir -p ~/rosmaster_ws/src
 cd ~/rosmaster_ws/src
-git clone https://github.com/juan-kaplan/yahboom_rosmaster.git
+git clone https://github.com/AIRclub-UdeSA/yahboom_rosmaster.git
+```
 
+Initialize `rosdep` once on a new machine:
+
+```bash
+sudo rosdep init
+```
+
+If `rosdep` is already initialized, skip that command. Then install dependencies
+and build from the workspace root:
+
+```bash
 cd ~/rosmaster_ws
 source /opt/ros/humble/setup.bash
-sudo rosdep init || true
+
 rosdep update
 rosdep install --from-paths src --ignore-src -r -y --rosdistro humble
+
 colcon build --symlink-install
 source install/setup.bash
 ```
 
-## Standalone Simulator
+Source both ROS 2 and the workspace overlay in every new terminal used with the
+simulator:
 
-Launch Gazebo Fortress with RViz:
+```bash
+source /opt/ros/humble/setup.bash
+source ~/rosmaster_ws/install/setup.bash
+```
+
+## Quick Start
+
+### Launch the Simulator
+
+Start the default empty world with the Gazebo GUI and RViz:
 
 ```bash
 cd ~/rosmaster_ws
@@ -101,7 +87,17 @@ source install/setup.bash
 ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py
 ```
 
-Launch headless, without RViz:
+Startup is staged while Gazebo creates the robot and starts its ROS interfaces.
+Wait for these messages before checking odometry:
+
+```text
+Configured and activated joint_state_broadcaster
+Publishing wheel-state odometry from /joint_states to /odom
+```
+
+### Launch Without GUIs
+
+Run the Gazebo server without the Gazebo GUI or RViz:
 
 ```bash
 ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
@@ -109,53 +105,76 @@ ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
   headless:=true
 ```
 
-Use a specific world:
+### Launch the Cafe World
+
+The repository supports the empty and cafe Fortress worlds. Launch the cafe
+world with:
 
 ```bash
 ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
-  world:=$(ros2 pkg prefix yahboom_rosmaster_gazebo)/share/yahboom_rosmaster_gazebo/worlds/cafe.world
+  world:="$(ros2 pkg prefix yahboom_rosmaster_gazebo)/share/yahboom_rosmaster_gazebo/worlds/cafe.world"
 ```
 
 ### Simulator Launch Arguments
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `world` | `worlds/empty.world` | Gazebo world path |
+| `world` | `worlds/empty.world` | Absolute path to the Gazebo world file |
 | `rviz` | `true` | Start RViz |
-| `headless` | `false` | Run Gazebo server without the GUI client |
-| `use_sim_time` | `true` | Use simulation time |
-| `gz_args` | empty | Extra Gazebo Sim arguments |
+| `headless` | `false` | Run the Gazebo server without its GUI client |
+| `use_sim_time` | `true` | Use the Gazebo simulation clock; keep enabled for the supported workflow |
 
-## Nav2 Simulator Launch
+## Controlling the Robot
 
-Launch Gazebo, wheel odometry, EKF, docking support, and Nav2:
+The public velocity-command topic is `/cmd_vel`. Positive `linear.x` moves the
+robot forward, positive `linear.y` strafes left, and positive `angular.z`
+rotates counterclockwise.
 
-```bash
-cd ~/rosmaster_ws
-source /opt/ros/humble/setup.bash
-source install/setup.bash
+### Keyboard Teleoperation
 
-ros2 launch yahboom_rosmaster_bringup rosmaster_x3_navigation.launch.py
-```
-
-Headless Nav2 smoke launch:
+Install the keyboard teleoperation package if needed:
 
 ```bash
-ros2 launch yahboom_rosmaster_bringup rosmaster_x3_navigation.launch.py \
-  rviz:=false \
-  headless:=true
+sudo apt install -y ros-humble-teleop-twist-keyboard
 ```
 
-The Nav2 launch defaults to:
+In a second sourced terminal, run:
 
-- `yahboom_rosmaster_gazebo/worlds/cafe.world`
-- `yahboom_rosmaster_navigation/maps/cafe_world_map.yaml`
-- `use_sim_time:=true`
-- `autostart:=true`
+```bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
 
-## Command And State Flow
+Follow the program's holonomic movement bindings to drive and strafe the robot.
 
-The public command API is `/cmd_vel`.
+### Direct Motion Commands
+
+The following finite commands are useful for checking each mecanum axis. Run
+them one at a time with enough free space around the robot.
+
+Move forward for approximately two seconds:
+
+```bash
+ros2 topic pub --rate 10 --times 20 /cmd_vel geometry_msgs/msg/Twist \
+  '{linear: {x: 0.20, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}'
+```
+
+Strafe left for approximately two seconds:
+
+```bash
+ros2 topic pub --rate 10 --times 20 /cmd_vel geometry_msgs/msg/Twist \
+  '{linear: {x: 0.0, y: 0.20, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}'
+```
+
+Rotate counterclockwise for approximately two seconds:
+
+```bash
+ros2 topic pub --rate 10 --times 20 /cmd_vel geometry_msgs/msg/Twist \
+  '{linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.50}}'
+```
+
+## Simulator Architecture
+
+### Command Flow
 
 ```text
 /cmd_vel
@@ -164,103 +183,104 @@ The public command API is `/cmd_vel`.
   -> ros_gz_bridge
   -> /model/rosmaster_x3/cmd_vel
   -> Gazebo MecanumDrive
+  -> wheel joint velocity targets
+  -> DART wheel/ground contact
 ```
 
-The simulator uses Gazebo's native `MecanumDrive` system for wheel commands.
-`gz_ros2_control` is read-only for wheel state, and only
+Gazebo's native `MecanumDrive` system calculates the four wheel targets.
+`gz_ros2_control` is kept read-only for wheel state, and only
 `joint_state_broadcaster` is loaded.
 
-Odometry and TF ownership:
+The watchdog republishes the latest command to the internal `/cmd_vel_gz` topic
+and publishes zero when `/cmd_vel` has been silent for 0.5 seconds.
+
+### Odometry and TF
 
 - `/joint_states` is published by `joint_state_broadcaster`.
-- `/odom` is published by `wheel_state_odometry.py`.
+- `/odom` is integrated from wheel joint positions by
+  `wheel_state_odometry.py`.
 - `odom -> base_footprint` is published by `wheel_state_odometry.py`.
-- The Gazebo EKF configuration does not publish TF.
+- Robot link transforms are published by `robot_state_publisher`.
 
-## Main Topics
+## Working ROS Interfaces
 
-| Topic | Type | Notes |
-|-------|------|-------|
-| `/cmd_vel` | `geometry_msgs/msg/Twist` | Public velocity command input |
+| Topic | Type | Purpose |
+|-------|------|---------|
+| `/clock` | `rosgraph_msgs/msg/Clock` | Gazebo simulation clock |
+| `/cmd_vel` | `geometry_msgs/msg/Twist` | Public velocity-command input |
 | `/cmd_vel_gz` | `geometry_msgs/msg/Twist` | Internal watchdog output bridged to Gazebo |
-| `/joint_states` | `sensor_msgs/msg/JointState` | Wheel joint state from `joint_state_broadcaster` |
+| `/joint_states` | `sensor_msgs/msg/JointState` | Wheel joint positions and velocities |
 | `/odom` | `nav_msgs/msg/Odometry` | Wheel-state odometry |
 | `/tf` | `tf2_msgs/msg/TFMessage` | Dynamic transforms |
 | `/tf_static` | `tf2_msgs/msg/TFMessage` | Static robot transforms |
-| `/scan` | `sensor_msgs/msg/LaserScan` | 2D LiDAR |
-| `/imu/data` | `sensor_msgs/msg/Imu` | IMU |
-| `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | RGB camera image |
-| `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | Depth image |
+| `/scan` | `sensor_msgs/msg/LaserScan` | 2D LiDAR scan |
+| `/imu/data` | `sensor_msgs/msg/Imu` | Simulated IMU data |
+| `/cam_1/depth/color/points` | `sensor_msgs/msg/PointCloud2` | Depth-camera point cloud |
 
-## Teleoperation
+## Verify the Simulator
 
-Install teleop if needed:
+Run these checks in a second sourced terminal after simulator startup.
 
-```bash
-sudo apt install -y ros-humble-teleop-twist-keyboard
-```
-
-Run:
+### Controller and Topics
 
 ```bash
-ros2 run teleop_twist_keyboard teleop_twist_keyboard
-```
-
-The simulator listens on `/cmd_vel`. Use the standard
-`teleop_twist_keyboard` holonomic bindings for mecanum strafing.
-
-## Smoke Tests
-
-After launching the standalone simulator or Nav2 simulator, run these checks in
-a second terminal:
-
-```bash
-cd ~/rosmaster_ws
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-
 ros2 control list_controllers
-ros2 topic list | sort | grep -E 'cmd_vel|odom|joint_states|tf|map|mecanum'
+
+ros2 topic list | sort | grep -E \
+  '^/(clock|cmd_vel|cmd_vel_gz|joint_states|odom|scan|imu/data|tf|tf_static|cam_1/depth/color/points)$'
 ```
 
-Expected controller:
+The controller list should contain:
 
 ```text
 joint_state_broadcaster ... active
 ```
 
-The old controller command topic should not exist:
+The removed custom controller topic should not exist:
 
 ```bash
 ros2 topic list | grep '^/mecanum_drive_controller/cmd_vel$' \
-  && echo "BAD: old controller topic exists" \
-  || echo "OK: old controller topic absent"
+  && echo "BAD: removed controller topic exists" \
+  || echo "OK: removed controller topic is absent"
 ```
 
-Check odometry and TF:
+### Odometry and TF
 
 ```bash
-timeout 5 ros2 run tf2_ros tf2_echo odom base_footprint
+ros2 topic echo /joint_states --once
 ros2 topic echo /odom --once
+timeout --signal=INT 5 ros2 run tf2_ros tf2_echo odom base_footprint
 ```
 
-Publish a forward command:
+### Sensors
+
+Each command should report incoming messages:
 
 ```bash
-ros2 topic pub --rate 10 --times 15 /cmd_vel geometry_msgs/msg/Twist \
-  "{linear: {x: 0.25, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}"
-
-ros2 topic echo /odom --once
+timeout --signal=INT 5 ros2 topic hz /scan
+timeout --signal=INT 5 ros2 topic hz /imu/data
+timeout --signal=INT 5 ros2 topic hz /cam_1/depth/color/points
 ```
 
-After the watchdog timeout, `/cmd_vel_gz` should return to zero:
+### Command Watchdog
+
+Publish one nonzero input, wait longer than the 0.5-second timeout, and inspect
+the internal command:
 
 ```bash
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist \
+  '{linear: {x: 0.10, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}'
+
 sleep 1
 ros2 topic echo /cmd_vel_gz --once
 ```
 
+The reported twist should be zero. The robot's physical stopping time is also
+affected by the acceleration limit in the Gazebo drive plugin.
+
 ## Development Checks
+
+Run the repository checks from the workspace root:
 
 ```bash
 cd ~/rosmaster_ws
@@ -286,10 +306,39 @@ rosdep check --from-paths src --ignore-src --rosdistro humble
 
 ## Troubleshooting
 
-### Stale Overlay
+### Package or Launch File Not Found
 
-If a deleted package such as `mecanum_drive_controller` still appears, or a
-new package cannot be found, clean and rebuild the workspace root:
+Source both the ROS installation and the workspace overlay in the current
+terminal:
+
+```bash
+source /opt/ros/humble/setup.bash
+source ~/rosmaster_ws/install/setup.bash
+```
+
+Confirm that ROS resolves the simulator package from the expected workspace:
+
+```bash
+ros2 pkg prefix yahboom_rosmaster_gazebo
+```
+
+### Controller or Odometry Not Ready
+
+Robot creation and controller startup are staged. Wait for the controller
+activation message, then check:
+
+```bash
+ros2 control list_controllers
+ros2 topic echo /joint_states --once
+ros2 topic echo /odom --once
+```
+
+Also confirm that Gazebo is running and the simulation is not paused.
+
+### Stale Workspace Overlay
+
+If a deleted package such as `mecanum_drive_controller` still resolves, or a new
+package cannot be found, rebuild a clean workspace overlay:
 
 ```bash
 cd ~/rosmaster_ws
@@ -299,32 +348,75 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-Check package resolution:
+The removed controller package should not resolve from the rebuilt workspace:
 
 ```bash
-ros2 pkg prefix yahboom_rosmaster_docking
-ros2 pkg prefix yahboom_rosmaster_navigation
 ros2 pkg prefix mecanum_drive_controller
 ```
 
-`mecanum_drive_controller` should not resolve from the workspace install.
+### Run Without the Gazebo GUI
 
-### Early Nav2 TF Warnings
+If the Gazebo GUI cannot start in the current display environment, use the
+server-only command:
 
-During Nav2 startup, costmaps may briefly report that `odom` is unavailable
-while Gazebo spawns the robot and `joint_state_broadcaster` starts. The expected
-steady state is:
-
-```text
-wheel_state_odometry: Publishing wheel-state odometry from /joint_states to /odom
-spawner_joint_state_broadcaster: Configured and activated joint_state_broadcaster
-lifecycle_manager_navigation: Managed nodes are active
+```bash
+ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
+  rviz:=false \
+  headless:=true
 ```
 
-## Additional Documentation
+## Current Project Status
 
-- [Native mecanum drive implementation](yahboom_rosmaster_gazebo/doc/native_mecanum_drive_implementation.md)
+The supported user path is the standalone, single-robot Fortress simulator in
+the empty or cafe world. Its nominal forward, lateral, and rotational motion,
+wheel odometry, TF, LiDAR, IMU, and depth point cloud have been exercised on ROS
+2 Humble.
+
+The following repository surfaces are retained for continued development but
+are not part of the supported workflow described above:
+
+- The combined Nav2 launch loads its nodes, but its simulation-time propagation
+  is not currently reliable enough for navigation-goal execution.
+- The depth point cloud publishes, but the color image, depth image, and camera
+  information topic mappings are not currently operational.
+- AprilTag and docking resources are present, but they do not provide a working
+  end-to-end docking workflow.
+- The drivetrain is an idealized contact-driven model. It is not calibrated to
+  reproduce measured motor, encoder, wheel, floor, latency, or battery error
+  from a physical ROSMASTER X3.
+- `simple_room.world` and `willowgarage.world` are retained migration assets;
+  they are not supported Fortress worlds.
+- Multi-robot operation and real-hardware bringup are not provided.
+- The registered automated tests are lint, style, and XML checks. Runtime
+  behavior is currently verified with the manual checks above.
+
+The 0.5-second watchdog handles normal command loss. It is not a safety-rated
+controller: terminating the watchdog or its bridge can leave Gazebo retaining
+the last drive target until another command is received or the simulation is
+stopped.
+
+## Repository Layout
+
+| Package | Contents |
+|---------|----------|
+| `yahboom_rosmaster` | Repository metapackage |
+| `yahboom_rosmaster_description` | Xacro/URDF, meshes, robot-state launch files, and RViz configuration |
+| `yahboom_rosmaster_gazebo` | Fortress worlds, bridge configuration, simulator launch, command watchdog, and wheel odometry |
+| `yahboom_rosmaster_bringup` | Integration launch files and command-line helpers |
+| `yahboom_rosmaster_navigation` | Navigation parameters, maps, and helper code |
+| `yahboom_rosmaster_localization` | `robot_localization` EKF configuration and launch files |
+| `yahboom_rosmaster_docking` | AprilTag and docking-related helper code |
+| `yahboom_rosmaster_msgs` | Custom messages, service, and action definitions |
+| `yahboom_rosmaster_system_tests` | Manual example and demo nodes for commands, messages, services, and actions |
+
+## Provenance
+
+This repository is a ROS 2 Humble and Gazebo Fortress fork of
+[Automatic Addison's `yahboom_rosmaster`](https://github.com/automaticaddison/yahboom_rosmaster)
+repository. The current fork is maintained at
+[`AIRclub-UdeSA/yahboom_rosmaster`](https://github.com/AIRclub-UdeSA/yahboom_rosmaster).
 
 ## License
 
-BSD-3-Clause
+The packages are distributed under the BSD-3-Clause license. Each package
+contains its own `LICENSE` file.
