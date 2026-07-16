@@ -82,11 +82,13 @@
     </joint>
 
     <gazebo reference="${prefix}${frame_id}">
-      <material>
-        <ambient>${gazebo_material_ambient}</ambient>
-        <diffuse>${gazebo_material_diffuse}</diffuse>
-        <specular>${gazebo_material_specular}</specular>
-      </material>
+      <visual>
+        <material>
+          <ambient>${gazebo_material_ambient}</ambient>
+          <diffuse>${gazebo_material_diffuse}</diffuse>
+          <specular>${gazebo_material_specular}</specular>
+        </material>
+      </visual>
       <!-- Fortress-native GPU LiDAR. type="ray" (CPU LIDAR) is not supported in Fortress;
            type="gpu_lidar" uses the ogre2 render pipeline (enabled in empty.world).
            libgazebo_ros_ray_sensor.so is Classic-only and must not be used here.
@@ -118,7 +120,9 @@
             <max>${max_range}</max>
             <resolution>${range_resolution}</resolution>
           </range>
-          <noise type="gaussian">
+          <!-- SDFormat's lidar schema uses a child element for the noise type. -->
+          <noise>
+            <type>gaussian</type>
             <mean>${noise_mean}</mean>
             <stddev>${noise_stddev}</stddev>
           </noise>

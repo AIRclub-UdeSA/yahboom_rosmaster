@@ -7,7 +7,8 @@
 ROS 2 Humble packages for simulating the Yahboom ROSMASTER X3 mecanum robot
 with Gazebo Fortress. The supported standalone workflow provides contact-driven
 holonomic motion, wheel-state odometry, TF, 2D LiDAR, IMU data, and a depth
-point cloud.
+point cloud, along with RGB and depth camera images and camera calibration
+messages.
 
 Gazebo Fortress is the supported simulator backend. Gazebo Classic is not
 supported by the current mecanum simulator.
@@ -188,7 +189,7 @@ ros2 topic pub --rate 10 --times 20 /cmd_vel geometry_msgs/msg/Twist \
 ```
 
 Gazebo's native `MecanumDrive` system calculates the four wheel targets.
-`gz_ros2_control` is kept read-only for wheel state, and only
+`gz_ros2_control` is kept read-only for wheel and IMU state, and only
 `joint_state_broadcaster` is loaded.
 
 The watchdog republishes the latest command to the internal `/cmd_vel_gz` topic
@@ -215,6 +216,10 @@ and publishes zero when `/cmd_vel` has been silent for 0.5 seconds.
 | `/tf_static` | `tf2_msgs/msg/TFMessage` | Static robot transforms |
 | `/scan` | `sensor_msgs/msg/LaserScan` | 2D LiDAR scan |
 | `/imu/data` | `sensor_msgs/msg/Imu` | Simulated IMU data |
+| `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | RGB camera image |
+| `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | Depth camera image |
+| `/cam_1/color/camera_info` | `sensor_msgs/msg/CameraInfo` | RGB camera intrinsics |
+| `/cam_1/depth/camera_info` | `sensor_msgs/msg/CameraInfo` | Depth camera intrinsics |
 | `/cam_1/depth/color/points` | `sensor_msgs/msg/PointCloud2` | Depth-camera point cloud |
 
 ## Verify the Simulator
@@ -227,7 +232,7 @@ Run these checks in a second sourced terminal after simulator startup.
 ros2 control list_controllers
 
 ros2 topic list | sort | grep -E \
-  '^/(clock|cmd_vel|cmd_vel_gz|joint_states|odom|scan|imu/data|tf|tf_static|cam_1/depth/color/points)$'
+  '^/(clock|cmd_vel|cmd_vel_gz|joint_states|odom|scan|imu/data|tf|tf_static|cam_1/)'
 ```
 
 The controller list should contain:
@@ -259,7 +264,22 @@ Each command should report incoming messages:
 ```bash
 timeout --signal=INT 5 ros2 topic hz /scan
 timeout --signal=INT 5 ros2 topic hz /imu/data
+timeout --signal=INT 5 ros2 topic hz /cam_1/color/image_raw
+timeout --signal=INT 5 ros2 topic hz /cam_1/depth/image_raw
 timeout --signal=INT 5 ros2 topic hz /cam_1/depth/color/points
+ros2 topic echo /cam_1/color/camera_info --once
+ros2 topic echo /cam_1/depth/camera_info --once
+```
+
+The repository also registers an end-to-end sensor contract for both supported
+worlds. It validates message delivery and the expected clock, frame IDs, image
+encodings, camera dimensions and intrinsics, point fields, LiDAR metadata, IMU
+values, wheel joints, odometry, and TF:
+
+```bash
+colcon test --packages-select yahboom_rosmaster_gazebo \
+  --ctest-args -R sensor_contract_ --output-on-failure
+colcon test-result --verbose
 ```
 
 ### Command Watchdog
@@ -369,26 +389,27 @@ ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
 
 The supported user path is the standalone, single-robot Fortress simulator in
 the empty or cafe world. Its nominal forward, lateral, and rotational motion,
-wheel odometry, TF, LiDAR, IMU, and depth point cloud have been exercised on ROS
-2 Humble.
+wheel odometry, TF, LiDAR, IMU, RGB and depth images, camera information, and
+depth point cloud have been exercised on ROS 2 Humble. Automated headless
+sensor contracts cover both supported worlds.
 
 The following repository surfaces are retained for continued development but
 are not part of the supported workflow described above:
 
 - The combined Nav2 launch loads its nodes, but its simulation-time propagation
   is not currently reliable enough for navigation-goal execution.
-- The depth point cloud publishes, but the color image, depth image, and camera
-  information topic mappings are not currently operational.
 - AprilTag and docking resources are present, but they do not provide a working
   end-to-end docking workflow.
 - The drivetrain is an idealized contact-driven model. It is not calibrated to
   reproduce measured motor, encoder, wheel, floor, latency, or battery error
   from a physical ROSMASTER X3.
+- Sensor data is nominal simulation output. The camera, LiDAR, and IMU models
+  have not been calibrated against measurements from the physical robot.
 - `simple_room.world` and `willowgarage.world` are retained migration assets;
   they are not supported Fortress worlds.
 - Multi-robot operation and real-hardware bringup are not provided.
-- The registered automated tests are lint, style, and XML checks. Runtime
-  behavior is currently verified with the manual checks above.
+- The registered tests include lint, style, XML, and the empty/cafe runtime
+  sensor contracts. Motion behavior still uses the manual checks above.
 
 The 0.5-second watchdog handles normal command loss. It is not a safety-rated
 controller: terminating the watchdog or its bridge can leave Gazebo retaining

@@ -136,11 +136,12 @@
     </joint>
     <link name="${prefix}${camera_name}_color_optical_frame"/>
 
-    <!-- Fortress sensor: uses the gz-sim Sensors system (loaded in the world SDF).
-         Data is bridged to ROS via ros_gz_bridge + ros_gz_image_bridge.
-         libgazebo_ros_camera.so is Classic-only and must NOT be used in Fortress. -->
+    <!-- Fortress RGB-D sensor: publishes <topic>/image, <topic>/depth_image,
+         <topic>/camera_info, and <topic>/points through the Sensors system loaded
+         by the world. Data is bridged to ROS by ros_gz_bridge and ros_gz_image.
+         libgazebo_ros_camera.so is Classic-only and must NOT be used here. -->
     <gazebo reference="${prefix}${camera_name}_link">
-      <sensor name="${prefix}${camera_name}" type="depth_camera">
+      <sensor name="${prefix}${camera_name}" type="rgbd_camera">
         <camera>
           <horizontal_fov>${horizontal_fov}</horizontal_fov>
           <image>

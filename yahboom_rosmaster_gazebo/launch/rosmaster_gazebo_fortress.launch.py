@@ -125,12 +125,16 @@ def generate_launch_description():
         output="screen",
     )
 
-    # Optimized image bridge for camera
+    # Optimized image bridge for the native Fortress RGB-D camera outputs.
     ros_gz_image_bridge = Node(
         package="ros_gz_image",
         executable="image_bridge",
-        arguments=["/cam_1/image"],
-        remappings=[("/cam_1/image", "/cam_1/color/image_raw")],
+        arguments=["/cam_1/image", "/cam_1/depth_image"],
+        remappings=[
+            ("/cam_1/image", "/cam_1/color/image_raw"),
+            ("/cam_1/depth_image", "/cam_1/depth/image_raw"),
+        ],
+        output="screen",
     )
 
     # Load and activate the read-only joint state broadcaster. The spawner waits

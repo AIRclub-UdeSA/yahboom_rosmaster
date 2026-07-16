@@ -9,14 +9,21 @@
 
 # RGBD Camera topics
 - ros_topic_name: "cam_1/color/camera_info"
-  gz_topic_name: "cam_1/camera_info"
+  gz_topic_name: "/cam_1/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS
+  lazy: true
+
+- ros_topic_name: "cam_1/depth/camera_info"
+  gz_topic_name: "/cam_1/camera_info"
   ros_type_name: "sensor_msgs/msg/CameraInfo"
   gz_type_name: "gz.msgs.CameraInfo"
   direction: GZ_TO_ROS
   lazy: true
 
 - ros_topic_name: "cam_1/depth/color/points"
-  gz_topic_name: "cam_1/points"
+  gz_topic_name: "/cam_1/points"
   ros_type_name: "sensor_msgs/msg/PointCloud2"
   gz_type_name: "gz.msgs.PointCloudPacked"
   direction: GZ_TO_ROS
@@ -38,6 +45,10 @@
   direction: GZ_TO_ROS
   lazy: false
 
-# Clock is published directly by Gazebo's internal bridge (/clock).
-# Bridging it here too creates two publishers on /clock which causes
-# RViz to detect spurious "jump back in time" loops.
+# Simulation clock for every ROS node using use_sim_time.
+- ros_topic_name: "clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+  lazy: false

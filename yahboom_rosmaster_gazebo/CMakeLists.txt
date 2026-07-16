@@ -14,9 +14,14 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(
+  PROGRAMS scripts/sensor_contract_probe.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+  find_package(launch_testing_ament_cmake REQUIRED)
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files
   set(ament_cmake_copyright_FOUND TRUE)
@@ -25,6 +30,18 @@ if(BUILD_TESTING)
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+  add_launch_test(
+    test/sensor_contract.launch.py
+    TARGET sensor_contract_empty
+    TIMEOUT 90
+    ARGS "world:=empty.world"
+  )
+  add_launch_test(
+    test/sensor_contract.launch.py
+    TARGET sensor_contract_cafe
+    TIMEOUT 90
+    ARGS "world:=cafe.world"
+  )
 endif()
 
 ament_package()

@@ -61,11 +61,13 @@
         </joint>
 
         <gazebo reference="${prefix}${frame_id}_link">
-            <material>
-                <ambient>${gazebo_material_ambient}</ambient>
-                <diffuse>${gazebo_material_diffuse}</diffuse>
-                <specular>${gazebo_material_specular}</specular>
-            </material>
+            <visual>
+                <material>
+                    <ambient>${gazebo_material_ambient}</ambient>
+                    <diffuse>${gazebo_material_diffuse}</diffuse>
+                    <specular>${gazebo_material_specular}</specular>
+                </material>
+            </visual>
             <!-- Fortress-native IMU sensor. libgazebo_ros_imu_sensor.so is Classic-only
                  and must not be used here. Data flows via ros_gz_bridge (gz.msgs.IMU →
                  sensor_msgs/Imu). gz_ros2_control also reads this sensor through the ECS. -->
