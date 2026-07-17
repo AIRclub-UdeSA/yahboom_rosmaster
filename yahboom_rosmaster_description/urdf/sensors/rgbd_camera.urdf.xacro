@@ -48,6 +48,15 @@
     visualize:=false
     enable_collision:=false">
 
+    <!-- Fortress 6.8 populates RGB-D CameraInfo before configuring the
+         renderer, so its implicit values remain the SDFormat 320x240 defaults
+         (fx=fy=277, cx=160, cy=120). Publish intrinsics that actually match
+         this image size and horizontal FOV. -->
+    <xacro:property name="focal_length"
+                    value="${image_width / (2.0 * tan(horizontal_fov / 2.0))}" />
+    <xacro:property name="principal_x" value="${image_width / 2.0}" />
+    <xacro:property name="principal_y" value="${image_height / 2.0}" />
+
     <link name="${prefix}${camera_name}_link">
       <visual>
         <origin xyz="${mesh_xyz_offset}" rpy="${mesh_rpy_offset}"/>
@@ -153,6 +162,25 @@
             <near>${clip_near}</near>
             <far>${clip_far}</far>
           </clip>
+          <lens>
+            <type>gnomonical</type>
+            <scale_to_hfov>true</scale_to_hfov>
+            <intrinsics>
+              <fx>${focal_length}</fx>
+              <fy>${focal_length}</fy>
+              <cx>${principal_x}</cx>
+              <cy>${principal_y}</cy>
+              <s>0.0</s>
+            </intrinsics>
+            <projection>
+              <p_fx>${focal_length}</p_fx>
+              <p_fy>${focal_length}</p_fy>
+              <p_cx>${principal_x}</p_cx>
+              <p_cy>${principal_y}</p_cy>
+              <tx>0.0</tx>
+              <ty>0.0</ty>
+            </projection>
+          </lens>
         </camera>
         <always_on>${always_on}</always_on>
         <update_rate>${update_rate}</update_rate>

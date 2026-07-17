@@ -20,6 +20,7 @@ EXPECTED_WHEEL_JOINTS = {
     "back_left_wheel_joint",
     "back_right_wheel_joint",
 }
+CAMERA_HORIZONTAL_FOV = 1.5184
 
 
 class SensorContractProbe(Node):
@@ -190,6 +191,33 @@ class SensorContractProbe(Node):
                 errors.append(f"{label} camera info: dimensions do not match image")
             if len(info.k) != 9 or not self.finite(info.k):
                 errors.append(f"{label} camera info: invalid intrinsic matrix")
+            else:
+                expected_focal_length = image.width / (
+                    2.0 * math.tan(CAMERA_HORIZONTAL_FOV / 2.0))
+                if not math.isclose(
+                        info.k[0], expected_focal_length, rel_tol=1e-5):
+                    errors.append(
+                        f"{label} camera info: fx {info.k[0]:.3f} does not "
+                        f"match image/FOV {expected_focal_length:.3f}")
+                if not math.isclose(
+                        info.k[4], expected_focal_length, rel_tol=1e-5):
+                    errors.append(
+                        f"{label} camera info: fy {info.k[4]:.3f} does not "
+                        f"match image/FOV {expected_focal_length:.3f}")
+                if not math.isclose(info.k[2], image.width / 2.0, abs_tol=0.5):
+                    errors.append(
+                        f"{label} camera info: cx {info.k[2]:.3f} is not "
+                        f"centered in width {image.width}")
+                if not math.isclose(info.k[5], image.height / 2.0, abs_tol=0.5):
+                    errors.append(
+                        f"{label} camera info: cy {info.k[5]:.3f} is not "
+                        f"centered in height {image.height}")
+            if len(info.p) != 12 or not self.finite(info.p):
+                errors.append(f"{label} camera info: invalid projection matrix")
+            elif not all(math.isclose(info.p[p_index], info.k[k_index])
+                         for p_index, k_index in ((0, 0), (2, 2), (5, 4), (6, 5))):
+                errors.append(
+                    f"{label} camera info: projection does not match intrinsics")
             if info.header.frame_id != image.header.frame_id:
                 errors.append(f"{label} camera info: frame does not match image")
 
