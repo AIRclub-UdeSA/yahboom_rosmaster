@@ -162,6 +162,30 @@ class ImuMotionProbe(Node):
             errors.append(f"{label} covariance has a negative diagonal")
         return "provided matrix"
 
+    def validate_public_interface(self, errors):
+        """Require the public IMU stream to have only the intended bridge publisher."""
+        publishers = self.get_publishers_info_by_topic("/imu/data")
+        if len(publishers) != 1:
+            identities = [
+                f"{publisher.node_namespace}{publisher.node_name}"
+                for publisher in publishers
+            ]
+            errors.append(
+                "expected exactly one /imu/data publisher from ros_gz_bridge, "
+                f"found {len(publishers)}: {identities}")
+            return "invalid"
+
+        publisher = publishers[0]
+        if publisher.node_name != "ros_gz_bridge":
+            errors.append(
+                "expected /imu/data publisher node ros_gz_bridge, got "
+                f"{publisher.node_namespace}{publisher.node_name}")
+        if publisher.topic_type != "sensor_msgs/msg/Imu":
+            errors.append(
+                "expected /imu/data type sensor_msgs/msg/Imu, got "
+                f"{publisher.topic_type}")
+        return f"{publisher.node_namespace}{publisher.node_name}"
+
     def validate_stationary(self, messages):
         """Validate stationary IMU frames, time, values, orientation, and rate."""
         errors = []
@@ -242,6 +266,13 @@ class ImuMotionProbe(Node):
             errors.append(
                 "orientation is marked unavailable, so quaternion meaning "
                 "cannot be tested")
+        for label, state in covariance_states.items():
+            if state != "unknown (all-zero matrix)":
+                errors.append(
+                    f"{label} covariance policy changed: expected the current "
+                    f"explicitly-unknown all-zero matrix, got {state}")
+
+        publisher = self.validate_public_interface(errors)
 
         try:
             transform = self.tf_buffer.lookup_transform(
@@ -271,7 +302,8 @@ class ImuMotionProbe(Node):
             f"median accel=({acceleration_x:.3f}, {acceleration_y:.3f}, "
             f"{acceleration_z:.3f}) m/s^2, gravity={gravity:.3f} m/s^2, "
             f"median angular speed={angular_speed:.3f} rad/s, "
-            f"roll={roll:.3f}, pitch={pitch:.3f}, covariance={covariance_states}"
+            f"roll={roll:.3f}, pitch={pitch:.3f}, "
+            f"publisher={publisher}, covariance={covariance_states}"
         )
         return errors, diagnostics
 

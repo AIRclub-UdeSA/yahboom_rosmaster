@@ -24,7 +24,7 @@
     infra1_rpy_offset:='0 0 0'
     infra2_xyz_offset:='0 -0.05 0'
     infra2_rpy_offset:='0 0 0'
-    color_xyz_offset:='0 0.015 0'
+    color_xyz_offset:='0 0 0'
     color_rpy_offset:='0 0 0'
     cam_width:=0.090
     cam_height:=0.025
@@ -131,6 +131,10 @@
     </joint>
     <link name="${prefix}${camera_name}_infra2_optical_frame"/>
 
+    <!-- The Fortress rgbd_camera renders color and depth from one aperture and
+         exposes only one optical frame ID.  Keep the color-named frames as
+         compatibility aliases, co-located with the depth frames, unless this
+         model is replaced by independently rendered color/depth sensors. -->
     <joint name="${prefix}${camera_name}_color_joint" type="fixed">
       <origin xyz="${color_xyz_offset}" rpy="${color_rpy_offset}" />
       <parent link="${prefix}${camera_name}_link" />

@@ -6,20 +6,23 @@ Uses the native Gazebo MecanumDrive system for wheel velocity commands, with
 gz_ros2_control kept read-only for joint states and wheel-link TF.
 """
 import os
+import shutil
 import subprocess
+import time
 
 from launch import LaunchDescription
 from launch.actions import (
     AppendEnvironmentVariable,
     DeclareLaunchArgument,
     ExecuteProcess,
-    IncludeLaunchDescription,
+    RegisterEventHandler,
     SetEnvironmentVariable,
     TimerAction,
     OpaqueFunction,
 )
 from launch.conditions import UnlessCondition
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.event_handlers import OnShutdown
+from launch.logging import get_logger
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
@@ -42,13 +45,83 @@ def _launch_rviz(context):
     return []
 
 
+def _gazebo_process_stopped(gazebo_server):
+    """Return whether the owned Gazebo process has exited or become a zombie."""
+    if gazebo_server.return_code is not None:
+        return True
+    details = gazebo_server.process_details
+    if details is None or "pid" not in details:
+        return False
+    try:
+        with open(f"/proc/{details['pid']}/stat", encoding="utf-8") as stat_file:
+            state = stat_file.read().rsplit(")", 1)[1].strip().split()[0]
+    except FileNotFoundError:
+        return True
+    except (IndexError, OSError):
+        return False
+    return state == "Z"
+
+
+def _request_gazebo_stop(event, context, gazebo_server):
+    """Ask Gazebo to stop cleanly before launch falls back to process signals."""
+    del event
+    logger = get_logger("rosmaster_gazebo_shutdown")
+    ign_executable = shutil.which("ign")
+    if ign_executable is None:
+        logger.warning("Cannot request Gazebo stop: 'ign' is not available")
+        return None
+
+    try:
+        result = subprocess.run(
+            [
+                ign_executable,
+                "service",
+                "-s", "/server_control",
+                "--reqtype", "ignition.msgs.ServerControl",
+                "--reptype", "ignition.msgs.Boolean",
+                "--timeout", "1500",
+                "--req", "stop: true",
+            ],
+            capture_output=True,
+            check=False,
+            env=context.environment,
+            text=True,
+            timeout=2.0,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exception:
+        logger.warning(
+            f"Gazebo stop service was unavailable; using signal fallback: {exception}")
+        return None
+
+    if result.returncode != 0 or "data: true" not in result.stdout:
+        detail = result.stderr.strip() or result.stdout.strip() or "no response"
+        logger.warning(
+            "Gazebo did not acknowledge the stop service; using signal fallback: "
+            f"{detail}")
+    else:
+        logger.info("Gazebo acknowledged the clean stop request")
+        deadline = time.monotonic() + 4.0
+        while time.monotonic() < deadline:
+            if _gazebo_process_stopped(gazebo_server):
+                logger.info("Gazebo completed its clean stop before signal fallback")
+                break
+            time.sleep(0.05)
+        else:
+            logger.warning(
+                "Gazebo did not finish its service-requested stop within 4 seconds; "
+                "using signal fallback")
+    return None
+
+
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     world = LaunchConfiguration("world")
 
-    pkg_ros_gz_sim = get_package_share_directory("ros_gz_sim")
     pkg_desc = get_package_share_directory("yahboom_rosmaster_description")
     pkg_gz = get_package_share_directory("yahboom_rosmaster_gazebo")
+    ign_executable = shutil.which("ign")
+    if ign_executable is None:
+        raise RuntimeError("Could not find the Gazebo Fortress 'ign' executable")
 
     default_world = os.path.join(pkg_gz, "worlds", "empty.world")
     default_xacro = os.path.join(pkg_desc, "urdf", "robots", "rosmaster_x3.urdf.xacro")
@@ -86,20 +159,27 @@ def generate_launch_description():
         }],
     )
 
-    # Gazebo Fortress server (headless)
-    gazebo_server = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(pkg_ros_gz_sim, "launch", "gz_sim.launch.py")),
-        launch_arguments=[("gz_args", ["-r -s -v 4 ", world])],
+    # Own the Ruby/Gazebo process directly so launch's SIGINT reaches it. The
+    # Humble ros_gz_sim wrapper uses ExecuteProcess(shell=True), which signals a
+    # waiting /bin/sh instead; after escalation that can orphan the real server.
+    gazebo_server = ExecuteProcess(
+        cmd=[
+            "ruby", ign_executable, "gazebo",
+            "-r", "-s", "-v", "4", world,
+            "--force-version", "6",
+        ],
+        output="screen",
     )
 
     # Gazebo Fortress GUI — skipped when headless:=true.
     # QT_QPA_PLATFORM=xcb forces X11/XWayland mode on Wayland sessions;
     # without it the Qt platform default fails on AMD Wayland, leaving a white window.
-    gazebo_client = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(pkg_ros_gz_sim, "launch", "gz_sim.launch.py")),
-        launch_arguments=[("gz_args", "-g")],
+    gazebo_client = ExecuteProcess(
+        cmd=[
+            "ruby", ign_executable, "gazebo", "-g",
+            "--force-version", "6",
+        ],
+        output="screen",
         condition=UnlessCondition(headless),
     )
 
@@ -173,8 +253,20 @@ def generate_launch_description():
         declare_headless,
         # Force X11/XWayland for Gazebo GUI — prevents white window on Wayland + AMD GPU
         SetEnvironmentVariable("QT_QPA_PLATFORM", "xcb"),
+        # Match ros_gz_sim's plugin search environment for ROS-installed Gazebo
+        # systems such as gz_ros2_control while bypassing its shell wrapper.
+        AppendEnvironmentVariable(
+            "IGN_GAZEBO_SYSTEM_PLUGIN_PATH", os.environ.get("LD_LIBRARY_PATH", "")),
+        AppendEnvironmentVariable(
+            "GZ_SIM_SYSTEM_PLUGIN_PATH", os.environ.get("LD_LIBRARY_PATH", "")),
         AppendEnvironmentVariable("IGN_GAZEBO_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
         AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
+        # Gazebo occasionally misses process-level SIGINT after sequential test
+        # runs. Its control service cleanly stops the server first; launch's
+        # normal SIGINT/SIGTERM escalation remains available as a fallback.
+        RegisterEventHandler(OnShutdown(
+            on_shutdown=lambda event, context: _request_gazebo_stop(
+                event, context, gazebo_server))),
         gazebo_server,
         gazebo_client,
         # t=2s: RSP starts after /clock is available (avoids wall-clock TF poisoning).

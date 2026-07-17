@@ -17,6 +17,7 @@ from tf2_ros import Buffer, TransformListener
 
 EXPECTED_SAMPLES = 720
 EXPECTED_RATE_HZ = 5.0
+EXPECTED_SCAN_PERIOD = 1.0 / EXPECTED_RATE_HZ
 EXPECTED_RANGE_MIN = 0.20
 EXPECTED_RANGE_MAX = 30.0
 EXPECTED_FRONT_RANGE = 1.90
@@ -140,19 +141,17 @@ class LidarGeometryProbe(Node):
         if invalid_count == 0:
             errors.append(f"{label}: no invalid/no-return markers in the empty sectors")
 
-        # The Fortress LaserScan bridge currently emits both timing fields as
-        # zero. Treat that pair consistently, while rejecting partially filled
-        # or internally inconsistent timing metadata.
-        if (scan.scan_time == 0.0) != (scan.time_increment == 0.0):
+        # The current Fortress bridge leaves scan_time unspecified. The GPU
+        # LiDAR renders one complete scan snapshot, so time_increment must also
+        # stay zero rather than claiming a rolling per-ray acquisition.
+        if not math.isclose(scan.scan_time, 0.0, abs_tol=1e-12):
             errors.append(
-                f"{label}: scan_time/time_increment are only partially populated")
-        elif scan.scan_time > 0.0:
-            expected_increment = scan.scan_time / len(scan.ranges)
-            if not math.isclose(
-                    scan.time_increment, expected_increment, rel_tol=0.05):
-                errors.append(
-                    f"{label}: time_increment {scan.time_increment:.9f} is not "
-                    f"consistent with scan_time/rays {expected_increment:.9f}")
+                f"{label}: current bridge contract expects unspecified "
+                f"scan_time=0, got {scan.scan_time:.9f}")
+        if not math.isclose(scan.time_increment, 0.0, abs_tol=1e-12):
+            errors.append(
+                f"{label}: snapshot acquisition requires time_increment=0, "
+                f"got {scan.time_increment:.9f}")
 
     def validate_geometry(self, errors):
         """Validate front range plus an asymmetric positive-y target."""
@@ -251,6 +250,11 @@ class LidarGeometryProbe(Node):
                 errors.append(
                     f"scan rate: expected about {EXPECTED_RATE_HZ:.1f}Hz, "
                     f"measured {measured_rate:.3f}Hz from simulation stamps")
+            if not math.isclose(
+                    median_period, EXPECTED_SCAN_PERIOD, abs_tol=0.02):
+                errors.append(
+                    f"scan period: expected {EXPECTED_SCAN_PERIOD:.3f}s, "
+                    f"measured {median_period:.6f}s from simulation stamps")
             if max(abs(delta - median_period) for delta in stamp_deltas) > 0.025:
                 errors.append(
                     "scan rate: simulation-time period jitter exceeds 0.025s; "
@@ -320,8 +324,9 @@ def main():
         node.get_logger().info("LiDAR geometry contract PASSED: " + summary)
         if node.scans[-1].scan_time == 0.0:
             node.get_logger().warning(
-                "Known Fortress bridge limitation: scan_time and time_increment "
-                "are both zero; rate is validated from consecutive header stamps")
+                "Fortress leaves scan_time unspecified (zero); the 0.2s scan "
+                "period is validated from consecutive headers. time_increment=0 "
+                "correctly declares this simulator's snapshot acquisition")
         return 0
     finally:
         node.destroy_node()

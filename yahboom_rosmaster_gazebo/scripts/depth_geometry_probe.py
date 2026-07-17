@@ -7,9 +7,12 @@ import time
 
 import numpy as np
 import rclpy
+from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.time import Time
 from sensor_msgs.msg import CameraInfo, Image, PointCloud2, PointField
+from tf2_ros import Buffer, TransformException, TransformListener
 
 
 COLOR_TOPIC = "/cam_1/color/image_raw"
@@ -19,6 +22,8 @@ DEPTH_INFO_TOPIC = "/cam_1/depth/camera_info"
 POINTS_TOPIC = "/cam_1/depth/color/points"
 EXPECTED_IMAGE_FRAME = "cam_1_depth_optical_frame"
 EXPECTED_CLOUD_FRAME = "cam_1_depth_frame"
+COLOR_OPTICAL_ALIAS = "cam_1_color_optical_frame"
+COLOR_FRAME_ALIAS = "cam_1_color_frame"
 EXPECTED_WIDTH = 424
 EXPECTED_HEIGHT = 240
 DEPTH_NEAR = 0.05
@@ -76,6 +81,10 @@ class DepthGeometryProbe(Node):
             self._subscription_handles.append(
                 self.create_subscription(
                     message_type, topic, callback, sensor_qos))
+
+        self.tf_buffer = Buffer(cache_time=Duration(seconds=20.0), node=self)
+        self.tf_listener = TransformListener(
+            self.tf_buffer, self, spin_thread=False)
 
         self.get_logger().info(
             f"Waiting up to {self.timeout:.1f}s for {self.samples} coherent "
@@ -375,6 +384,78 @@ class DepthGeometryProbe(Node):
                     f"got {item['frame']}")
                 break
 
+    def validate_registered_frame_contract(self, coherent_stamps, errors):
+        """Validate stream headers and co-located color/depth TF aliases."""
+        if not coherent_stamps:
+            return
+
+        samples_by_topic = {
+            topic: {item["stamp"]: item for item in self.observations[topic]}
+            for topic in (
+                COLOR_TOPIC,
+                DEPTH_TOPIC,
+                COLOR_INFO_TOPIC,
+                DEPTH_INFO_TOPIC,
+            )
+        }
+        for stamp in coherent_stamps[-self.samples:]:
+            color = samples_by_topic[COLOR_TOPIC][stamp]
+            depth = samples_by_topic[DEPTH_TOPIC][stamp]
+            color_info = samples_by_topic[COLOR_INFO_TOPIC][stamp]
+            depth_info = samples_by_topic[DEPTH_INFO_TOPIC][stamp]
+            if color["frame"] != depth["frame"]:
+                errors.append(
+                    "registered camera frames: color and depth images at "
+                    f"{stamp} use {color['frame']} and {depth['frame']}")
+                break
+            if color_info["frame"] != color["frame"]:
+                errors.append(
+                    "registered camera frames: color CameraInfo does not "
+                    f"match its image header at {stamp}")
+                break
+            if depth_info["frame"] != depth["frame"]:
+                errors.append(
+                    "registered camera frames: depth CameraInfo does not "
+                    f"match its image header at {stamp}")
+                break
+
+        stamp = Time(nanoseconds=coherent_stamps[-1])
+        for depth_frame, color_alias in (
+                (EXPECTED_CLOUD_FRAME, COLOR_FRAME_ALIAS),
+                (EXPECTED_IMAGE_FRAME, COLOR_OPTICAL_ALIAS)):
+            try:
+                transform = self.tf_buffer.lookup_transform(
+                    depth_frame,
+                    color_alias,
+                    stamp,
+                    timeout=Duration(seconds=0.2),
+                ).transform
+            except TransformException as exception:
+                errors.append(
+                    "registered camera TF: cannot resolve "
+                    f"{depth_frame} <- {color_alias} at the sensor stamp: "
+                    f"{exception}")
+                continue
+
+            translation = transform.translation
+            rotation = transform.rotation
+            translation_norm = math.sqrt(
+                translation.x ** 2
+                + translation.y ** 2
+                + translation.z ** 2)
+            vector_rotation_norm = math.sqrt(
+                rotation.x ** 2 + rotation.y ** 2 + rotation.z ** 2)
+            if (
+                    translation_norm > 1e-8
+                    or vector_rotation_norm > 1e-8
+                    or not math.isclose(abs(rotation.w), 1.0, abs_tol=1e-8)):
+                errors.append(
+                    "registered camera TF: expected identity transform "
+                    f"{depth_frame} <- {color_alias}, got translation "
+                    f"({translation.x}, {translation.y}, {translation.z}) "
+                    "and rotation "
+                    f"({rotation.x}, {rotation.y}, {rotation.z}, {rotation.w})")
+
     def validate(self):
         errors = list(self.capture_errors)
         for topic, observations in self.observations.items():
@@ -522,6 +603,7 @@ class DepthGeometryProbe(Node):
                 f"timestamp coherence: only {len(coherent_stamps)}/"
                 f"{self.samples} target cycles have an exact common stamp")
         else:
+            self.validate_registered_frame_contract(coherent_stamps, errors)
             depth_by_stamp = {item["stamp"]: item for item in depths}
             cloud_by_stamp = {item["stamp"]: item for item in clouds}
             depth_frame_matches = 0

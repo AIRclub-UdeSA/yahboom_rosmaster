@@ -109,3 +109,11 @@ class TestDepthGeometry(unittest.TestCase):
         proc_info.assertWaitForStartup(probe, timeout=30)
         proc_info.assertWaitForShutdown(probe, timeout=55)
         launch_testing.asserts.assertExitCodes(proc_info, process=probe)
+
+
+@launch_testing.post_shutdown_test()
+class TestCleanShutdown(unittest.TestCase):
+    """Require every launched process to exit cleanly."""
+
+    def test_all_processes_exit_cleanly(self, proc_info):
+        launch_testing.asserts.assertExitCodes(proc_info)

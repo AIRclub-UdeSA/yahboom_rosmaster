@@ -227,6 +227,15 @@ The images and camera information use the ROS optical convention (+Z forward,
 camera's regular sensor frame (+X forward, +Y left, +Z up); TF provides the
 fixed transform between the two frames.
 
+The current camera is an idealized, pre-registered, single-aperture RGB-D
+model. Fortress renders the combined color and depth streams from one pose, so
+all four image and camera-information topics use
+`cam_1_depth_optical_frame`. The compatibility aliases `cam_1_color_frame` and
+`cam_1_color_optical_frame` remain available in TF but are co-located with the
+corresponding depth frames. This nominal model does not claim the independently
+calibrated color/depth extrinsics of the physical camera represented by the
+visual mesh.
+
 ## Verify the Simulator
 
 Run these checks in a second sourced terminal after simulator startup.
@@ -279,8 +288,9 @@ ros2 topic echo /cam_1/depth/camera_info --once
 The repository registers a headless contract for both supported worlds plus
 known-geometry and commanded-motion gates. Together they validate ten-message
 delivery, nominal rates, first-message latency, timestamped TF, RGB-D geometry,
-LiDAR geometry and handedness, IMU axes, mecanum wheel signs, odometry/TF
-agreement, and odometry rewind/discontinuity handling:
+registered color/depth frame origins, LiDAR geometry and handedness, IMU axes,
+mecanum wheel signs, odometry/TF agreement, and odometry
+rewind/discontinuity handling:
 
 ```bash
 colcon test --packages-select yahboom_rosmaster_gazebo \
@@ -412,19 +422,21 @@ are not part of the supported workflow described above:
   reproduce measured motor, encoder, wheel, floor, latency, or battery error
   from a physical ROSMASTER X3.
 - Sensor data is nominal simulation output. The camera, LiDAR, and IMU models
-  have not been calibrated against measurements from the physical robot.
-- Fortress leaves LiDAR `scan_time` and `time_increment` at zero. The tests
-  verify the 5 Hz scan period from consecutive simulation timestamps; a rolling
-  acquisition model is deferred until the installed LiDAR is identified.
+  have not been calibrated against measurements from the physical robot. The
+  combined RGB-D model is deliberately pre-registered at one color/depth
+  origin; a measured physical baseline requires independently rendered sensors
+  and is deferred until real camera calibration is available.
+- The Fortress bridge leaves LiDAR `scan_time` unspecified at zero. The GPU
+  LiDAR is an instantaneous snapshot model, so `time_increment=0` is
+  intentional. Tests verify the 0.2-second period from consecutive simulation
+  timestamps; rolling acquisition is deferred until the installed LiDAR is
+  identified.
 - IMU covariance arrays are all zero, which ROS defines as covariance unknown;
   the configured nominal noise is not yet communicated to consumers as a
   measured covariance.
 - `simple_room.world` and `willowgarage.world` are retained migration assets;
   they are not supported Fortress worlds.
 - Multi-robot operation and real-hardware bringup are not provided.
-- Ignition Gazebo may require SIGTERM after it does not exit within the launch
-  test framework's five-second SIGINT grace period. Probes and bridges exit
-  cleanly, but clean server teardown remains an open simulator issue.
 
 The 0.5-second watchdog handles normal command loss. It is not a safety-rated
 controller: terminating the watchdog or its bridge can leave Gazebo retaining
