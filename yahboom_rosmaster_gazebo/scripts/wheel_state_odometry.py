@@ -42,6 +42,7 @@ class WheelStateOdometry(Node):
         self.declare_parameter("wheel_base", 0.16)
         self.declare_parameter("wheel_separation", 0.149)
         self.declare_parameter("wheel_radius", 0.0325)
+        self.declare_parameter("max_wheel_position_jump", 2.0 * math.pi)
         self.declare_parameter("odom_frame_id", "odom")
         self.declare_parameter("base_frame_id", "base_footprint")
 
@@ -60,6 +61,8 @@ class WheelStateOdometry(Node):
         self.wheel_separation = float(
             self.get_parameter("wheel_separation").value)
         self.wheel_radius = float(self.get_parameter("wheel_radius").value)
+        self.max_wheel_position_jump = float(
+            self.get_parameter("max_wheel_position_jump").value)
         self.odom_frame_id = self.get_parameter("odom_frame_id").value
         self.base_frame_id = self.get_parameter("base_frame_id").value
 
@@ -94,6 +97,17 @@ class WheelStateOdometry(Node):
             self.publish_odometry(stamp, 0.0, 0.0, 0.0)
             return
 
+        if stamp_seconds < self.previous_stamp:
+            self.get_logger().warn(
+                "Joint-state time moved backwards; resetting integrated odometry")
+            self.x = 0.0
+            self.y = 0.0
+            self.heading = 0.0
+            self.previous_positions = positions
+            self.previous_stamp = stamp_seconds
+            self.publish_odometry(stamp, 0.0, 0.0, 0.0)
+            return
+
         dt = stamp_seconds - self.previous_stamp
         if dt < 0.0001:
             return
@@ -102,6 +116,18 @@ class WheelStateOdometry(Node):
             name: positions[name] - self.previous_positions[name]
             for name in self.joint_names
         }
+        discontinuous = [
+            name for name, value in delta.items()
+            if abs(value) > self.max_wheel_position_jump
+        ]
+        if discontinuous:
+            self.get_logger().warn(
+                "Rebasing wheel-state odometry after a joint-position "
+                f"discontinuity in {discontinuous}")
+            self.previous_positions = positions
+            self.previous_stamp = stamp_seconds
+            self.publish_odometry(stamp, 0.0, 0.0, 0.0)
+            return
 
         linear_x_delta = self.wheel_radius * (
             delta[self.front_left_joint] +
@@ -155,10 +181,20 @@ class WheelStateOdometry(Node):
                 throttle_duration_sec=5.0)
             return None
 
-        return {
+        positions = {
             name: msg.position[indexes[name]]
             for name in self.joint_names
         }
+        if not all(math.isfinite(value) for value in positions.values()):
+            return self.warn_nonfinite_positions()
+        return positions
+
+    def warn_nonfinite_positions(self):
+        """Reject non-finite wheel positions without poisoning integration."""
+        self.get_logger().warn(
+            "JointState message contains non-finite wheel positions",
+            throttle_duration_sec=5.0)
+        return None
 
     def publish_odometry(self, stamp, linear_x, linear_y, angular_z):
         qx, qy, qz, qw = quaternion_from_yaw(self.heading)

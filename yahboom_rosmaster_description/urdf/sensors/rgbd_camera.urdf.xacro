@@ -152,6 +152,11 @@
     <gazebo reference="${prefix}${camera_name}_link">
       <sensor name="${prefix}${camera_name}" type="rgbd_camera">
         <camera>
+          <!-- Gazebo renders cameras with +X forward, while ROS image data
+               uses a +Z-forward optical frame.  Keep the sensor frame for
+               the native XYZ point cloud and label image/calibration data
+               with the optical frame through SDFormat's dedicated field. -->
+          <optical_frame_id>${prefix}${camera_name}_depth_optical_frame</optical_frame_id>
           <horizontal_fov>${horizontal_fov}</horizontal_fov>
           <image>
             <width>${image_width}</width>
@@ -186,7 +191,7 @@
         <update_rate>${update_rate}</update_rate>
         <visualize>${visualize}</visualize>
         <topic>${prefix}${camera_name}</topic>
-        <gz_frame_id>${prefix}${camera_name}_depth_optical_frame</gz_frame_id>
+        <gz_frame_id>${prefix}${camera_name}_depth_frame</gz_frame_id>
       </sensor>
     </gazebo>
 

@@ -7,11 +7,14 @@ import time
 
 import rclpy
 from nav_msgs.msg import Odometry
+from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.time import Time
 from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import CameraInfo, Image, Imu, JointState, LaserScan, PointCloud2
 from tf2_msgs.msg import TFMessage
+from tf2_ros import Buffer, TransformListener
 
 
 EXPECTED_WHEEL_JOINTS = {
@@ -48,6 +51,8 @@ class SensorContractProbe(Node):
             "/tf_static": 1,
         }
         self.messages = {topic: [] for topic in self.required_counts}
+        self.started_at = time.monotonic()
+        self.first_arrivals = {}
         self._subscription_handles = []
 
         default_qos = QoSProfile(depth=20)
@@ -101,11 +106,16 @@ class SensorContractProbe(Node):
             )
             self._subscription_handles.append(subscription)
 
+        self.tf_buffer = Buffer(cache_time=Duration(seconds=20.0), node=self)
+        self.tf_listener = TransformListener(
+            self.tf_buffer, self, spin_thread=False)
+
         self.get_logger().info(
             f"Waiting up to {self.timeout:.1f}s for the standalone sensor contract")
 
     def capture(self, topic, message):
         """Keep only the number of messages needed by the contract."""
+        self.first_arrivals.setdefault(topic, time.monotonic())
         if len(self.messages[topic]) < self.required_counts[topic]:
             self.messages[topic].append(message)
 
@@ -137,6 +147,48 @@ class SensorContractProbe(Node):
             errors.append(f"{topic}: header timestamps are not strictly increasing")
         if any(not message.header.frame_id for message in messages):
             errors.append(f"{topic}: frame_id is empty")
+
+    def validate_rate(self, topic, minimum, maximum, errors):
+        """Validate nominal rate from simulation timestamps."""
+        stamps = [self.stamp_seconds(message) for message in self.messages[topic]]
+        periods = [
+            current - previous
+            for previous, current in zip(stamps, stamps[1:])
+        ]
+        if not periods or any(period <= 0.0 for period in periods):
+            return
+        sorted_periods = sorted(periods)
+        median_period = sorted_periods[len(sorted_periods) // 2]
+        rate = 1.0 / median_period
+        if not minimum <= rate <= maximum:
+            errors.append(
+                f"{topic}: measured {rate:.3f} Hz outside "
+                f"{minimum:.1f}..{maximum:.1f} Hz")
+
+    def validate_timestamped_tf(self, errors):
+        """Require representative sensor frames to resolve at message time."""
+        topics = (
+            "/scan",
+            "/imu/data",
+            "/cam_1/color/image_raw",
+            "/cam_1/depth/image_raw",
+            "/cam_1/color/camera_info",
+            "/cam_1/depth/camera_info",
+            "/cam_1/depth/color/points",
+            "/odom",
+        )
+        for topic in topics:
+            message = self.messages[topic][-3]
+            frame = (
+                message.child_frame_id if topic == "/odom"
+                else message.header.frame_id
+            )
+            stamp = Time.from_msg(message.header.stamp)
+            if not self.tf_buffer.can_transform(
+                    "odom", frame, stamp, timeout=Duration(seconds=0.1)):
+                errors.append(
+                    f"{topic}: cannot resolve odom -> {frame} at "
+                    f"{self.stamp_seconds(message):.9f}")
 
     def validate(self):
         """Return contract errors after collection finishes."""
@@ -170,6 +222,24 @@ class SensorContractProbe(Node):
         )
         for topic in header_topics:
             self.validate_header(topic, errors)
+
+        rate_contracts = {
+            "/scan": (4.5, 5.5),
+            "/imu/data": (12.0, 18.0),
+            "/cam_1/color/image_raw": (1.7, 2.3),
+            "/cam_1/depth/image_raw": (1.7, 2.3),
+            "/cam_1/color/camera_info": (1.7, 2.3),
+            "/cam_1/depth/camera_info": (1.7, 2.3),
+            "/cam_1/depth/color/points": (1.7, 2.3),
+            "/joint_states": (20.0, 40.0),
+            "/odom": (20.0, 40.0),
+        }
+        for topic, (minimum, maximum) in rate_contracts.items():
+            self.validate_rate(topic, minimum, maximum, errors)
+            first_latency = self.first_arrivals[topic] - self.started_at
+            if first_latency > 5.0:
+                errors.append(
+                    f"{topic}: first message latency {first_latency:.3f}s exceeds 5s")
 
         color = self.messages["/cam_1/color/image_raw"][-1]
         depth = self.messages["/cam_1/depth/image_raw"][-1]
@@ -222,6 +292,10 @@ class SensorContractProbe(Node):
                 errors.append(f"{label} camera info: frame does not match image")
 
         points = self.messages["/cam_1/depth/color/points"][-1]
+        if points.header.frame_id != "cam_1_depth_frame":
+            errors.append(
+                "point cloud: expected x-forward cam_1_depth_frame, got "
+                f"{points.header.frame_id}")
         point_fields = {field.name for field in points.fields}
         if not {"x", "y", "z", "rgb"}.issubset(point_fields):
             errors.append(f"point cloud: missing XYZRGB fields: {point_fields}")
@@ -295,6 +369,8 @@ class SensorContractProbe(Node):
         if missing_static:
             errors.append(f"/tf_static: missing frames {sorted(missing_static)}")
 
+        self.validate_timestamped_tf(errors)
+
         return errors
 
     def summary(self):
@@ -312,6 +388,10 @@ def main():
     try:
         while rclpy.ok() and time.monotonic() < deadline and not node.complete():
             rclpy.spin_once(node, timeout_sec=0.2)
+        # Let dynamic TF advance beyond the newest collected sensor samples.
+        tf_deadline = min(deadline, time.monotonic() + 0.5)
+        while rclpy.ok() and time.monotonic() < tf_deadline:
+            rclpy.spin_once(node, timeout_sec=0.05)
         errors = node.validate()
         if errors:
             node.get_logger().error("Sensor contract FAILED: " + "; ".join(errors))

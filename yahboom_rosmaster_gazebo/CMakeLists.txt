@@ -15,7 +15,13 @@ install(
 )
 
 install(
-  PROGRAMS scripts/sensor_contract_probe.py
+  PROGRAMS
+    scripts/base_feedback_probe.py
+    scripts/depth_geometry_probe.py
+    scripts/imu_motion_probe.py
+    scripts/lidar_geometry_probe.py
+    scripts/sensor_contract_probe.py
+    scripts/wheel_odometry_resilience_probe.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -41,6 +47,31 @@ if(BUILD_TESTING)
     TARGET sensor_contract_cafe
     TIMEOUT 90
     ARGS "world:=cafe.world"
+  )
+  add_launch_test(
+    test/base_feedback.launch.py
+    TARGET base_feedback
+    TIMEOUT 90
+  )
+  add_launch_test(
+    test/depth_geometry.launch.py
+    TARGET depth_geometry
+    TIMEOUT 90
+  )
+  add_launch_test(
+    test/lidar_geometry.launch.py
+    TARGET lidar_geometry
+    TIMEOUT 90
+  )
+  add_launch_test(
+    test/imu_motion.launch.py
+    TARGET imu_motion
+    TIMEOUT 90
+  )
+  add_launch_test(
+    test/wheel_odometry_resilience.launch.py
+    TARGET wheel_odometry_resilience
+    TIMEOUT 40
   )
 endif()
 

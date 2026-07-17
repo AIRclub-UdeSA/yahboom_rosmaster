@@ -205,22 +205,27 @@ and publishes zero when `/cmd_vel` has been silent for 0.5 seconds.
 
 ## Working ROS Interfaces
 
-| Topic | Type | Purpose |
-|-------|------|---------|
-| `/clock` | `rosgraph_msgs/msg/Clock` | Gazebo simulation clock |
-| `/cmd_vel` | `geometry_msgs/msg/Twist` | Public velocity-command input |
-| `/cmd_vel_gz` | `geometry_msgs/msg/Twist` | Internal watchdog output bridged to Gazebo |
-| `/joint_states` | `sensor_msgs/msg/JointState` | Wheel joint positions and velocities |
-| `/odom` | `nav_msgs/msg/Odometry` | Wheel-state odometry |
-| `/tf` | `tf2_msgs/msg/TFMessage` | Dynamic transforms |
-| `/tf_static` | `tf2_msgs/msg/TFMessage` | Static robot transforms |
-| `/scan` | `sensor_msgs/msg/LaserScan` | 2D LiDAR scan |
-| `/imu/data` | `sensor_msgs/msg/Imu` | Simulated IMU data |
-| `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | RGB camera image |
-| `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | Depth camera image |
-| `/cam_1/color/camera_info` | `sensor_msgs/msg/CameraInfo` | RGB camera intrinsics |
-| `/cam_1/depth/camera_info` | `sensor_msgs/msg/CameraInfo` | Depth camera intrinsics |
-| `/cam_1/depth/color/points` | `sensor_msgs/msg/PointCloud2` | Depth-camera point cloud |
+| Topic | Type | Frame / nominal rate | Purpose |
+|-------|------|----------------------|---------|
+| `/clock` | `rosgraph_msgs/msg/Clock` | — | Gazebo simulation clock |
+| `/cmd_vel` | `geometry_msgs/msg/Twist` | — | Public velocity-command input |
+| `/cmd_vel_gz` | `geometry_msgs/msg/Twist` | — | Internal watchdog output bridged to Gazebo |
+| `/joint_states` | `sensor_msgs/msg/JointState` | `base_link` / 30 Hz | Wheel joint positions and velocities |
+| `/odom` | `nav_msgs/msg/Odometry` | `odom` -> `base_footprint` / 30 Hz | Wheel-state odometry |
+| `/tf` | `tf2_msgs/msg/TFMessage` | — | Dynamic transforms |
+| `/tf_static` | `tf2_msgs/msg/TFMessage` | — | Static robot transforms |
+| `/scan` | `sensor_msgs/msg/LaserScan` | `laser_frame` / 5 Hz | 720-sample 2D LiDAR scan |
+| `/imu/data` | `sensor_msgs/msg/Imu` | `imu_link` / 15 Hz | Simulated IMU data |
+| `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | `cam_1_depth_optical_frame` / 2 Hz | 424x240 `rgb8` image |
+| `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | `cam_1_depth_optical_frame` / 2 Hz | 424x240 `32FC1` depth in metres |
+| `/cam_1/color/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_depth_optical_frame` / 2 Hz | RGB camera intrinsics |
+| `/cam_1/depth/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_depth_optical_frame` / 2 Hz | Depth camera intrinsics |
+| `/cam_1/depth/color/points` | `sensor_msgs/msg/PointCloud2` | `cam_1_depth_frame` / 2 Hz | Organized XYZRGB point cloud, bridged lazily |
+
+The images and camera information use the ROS optical convention (+Z forward,
++X right, +Y down). Gazebo's native point cloud is correctly labelled in the
+camera's regular sensor frame (+X forward, +Y left, +Z up); TF provides the
+fixed transform between the two frames.
 
 ## Verify the Simulator
 
@@ -271,14 +276,16 @@ ros2 topic echo /cam_1/color/camera_info --once
 ros2 topic echo /cam_1/depth/camera_info --once
 ```
 
-The repository also registers an end-to-end sensor contract for both supported
-worlds. It validates message delivery and the expected clock, frame IDs, image
-encodings, camera dimensions and intrinsics, point fields, LiDAR metadata, IMU
-values, wheel joints, odometry, and TF:
+The repository registers a headless contract for both supported worlds plus
+known-geometry and commanded-motion gates. Together they validate ten-message
+delivery, nominal rates, first-message latency, timestamped TF, RGB-D geometry,
+LiDAR geometry and handedness, IMU axes, mecanum wheel signs, odometry/TF
+agreement, and odometry rewind/discontinuity handling:
 
 ```bash
 colcon test --packages-select yahboom_rosmaster_gazebo \
-  --ctest-args -R sensor_contract_ --output-on-failure
+  --ctest-args -R '^(sensor_contract_.*|depth_geometry|lidar_geometry|imu_motion|base_feedback|wheel_odometry_resilience)$' \
+  --output-on-failure
 colcon test-result --verbose
 ```
 
@@ -391,7 +398,8 @@ The supported user path is the standalone, single-robot Fortress simulator in
 the empty or cafe world. Its nominal forward, lateral, and rotational motion,
 wheel odometry, TF, LiDAR, IMU, RGB and depth images, camera information, and
 depth point cloud have been exercised on ROS 2 Humble. Automated headless
-sensor contracts cover both supported worlds.
+contracts cover both supported worlds, and isolated acceptance tests exercise
+controlled RGB-D/LiDAR geometry, IMU motion, wheel signs, odometry, and TF.
 
 The following repository surfaces are retained for continued development but
 are not part of the supported workflow described above:
@@ -405,11 +413,18 @@ are not part of the supported workflow described above:
   from a physical ROSMASTER X3.
 - Sensor data is nominal simulation output. The camera, LiDAR, and IMU models
   have not been calibrated against measurements from the physical robot.
+- Fortress leaves LiDAR `scan_time` and `time_increment` at zero. The tests
+  verify the 5 Hz scan period from consecutive simulation timestamps; a rolling
+  acquisition model is deferred until the installed LiDAR is identified.
+- IMU covariance arrays are all zero, which ROS defines as covariance unknown;
+  the configured nominal noise is not yet communicated to consumers as a
+  measured covariance.
 - `simple_room.world` and `willowgarage.world` are retained migration assets;
   they are not supported Fortress worlds.
 - Multi-robot operation and real-hardware bringup are not provided.
-- The registered tests include lint, style, XML, and the empty/cafe runtime
-  sensor contracts. Motion behavior still uses the manual checks above.
+- Ignition Gazebo may require SIGTERM after it does not exit within the launch
+  test framework's five-second SIGINT grace period. Probes and bridges exit
+  cleanly, but clean server teardown remains an open simulator issue.
 
 The 0.5-second watchdog handles normal command loss. It is not a safety-rated
 controller: terminating the watchdog or its bridge can leave Gazebo retaining
