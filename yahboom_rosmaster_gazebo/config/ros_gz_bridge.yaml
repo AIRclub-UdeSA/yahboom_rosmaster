@@ -13,14 +13,16 @@
   ros_type_name: "sensor_msgs/msg/CameraInfo"
   gz_type_name: "gz.msgs.CameraInfo"
   direction: GZ_TO_ROS
-  lazy: true
+  # Keep calibration available while RViz switches between RGB and depth.
+  # Lazy aliases of the same Gazebo topic can race during display reconfiguration.
+  lazy: false
 
 - ros_topic_name: "cam_1/depth/camera_info"
   gz_topic_name: "/cam_1/camera_info"
   ros_type_name: "sensor_msgs/msg/CameraInfo"
   gz_type_name: "gz.msgs.CameraInfo"
   direction: GZ_TO_ROS
-  lazy: true
+  lazy: false
 
 - ros_topic_name: "cam_1/depth/color/points"
   gz_topic_name: "/cam_1/points"
