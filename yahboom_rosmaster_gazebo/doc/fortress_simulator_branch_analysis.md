@@ -121,8 +121,9 @@ Several approaches were tested before the final solution:
   not preserve body-frame holonomic behavior after rotation.
 - `VelocityControl`: produced motion, but it bypassed the intended wheel-ground
   force model by controlling body velocity.
-- `OdometryPublisher`: rejected because it publishes ground-truth world pose,
-  which hides wheel slip and contradicts the desired realistic odometry error.
+- `OdometryPublisher` as `/odom`: rejected because replacing wheel odometry
+  with world pose hides slip. It is now used only on the separate
+  measurement-only `/ground_truth/odom` interface.
 
 The official Gazebo mecanum demo was the key comparison point. It used the
 native `MecanumDrive` system and a spherical wheel collision with diagonal
@@ -162,6 +163,8 @@ The final odometry path is:
 
 This keeps odometry encoder-like. If the wheels slip, the simulated body pose can
 diverge from `/odom`, which is the intended behavior for navigation tuning.
+Gazebo's timestamped world pose is independently bridged to
+`/ground_truth/odom` for measuring that divergence and does not publish TF.
 
 ### Wheel contact model
 
@@ -177,6 +180,9 @@ The final working wheel friction details are important:
 - Diagonal directions match the official Gazebo demo:
   - front-left and back-right: `1 -1 0`
   - front-right and back-left: `1 1 0`
+- Contact coefficients come from the launch-selected motion profile. `stress`
+  is the default uncalibrated profile; `ideal` preserves the historical
+  `mu=1`, `mu2=0`, and zero-slip values.
 
 The expanded spawned SDF confirmed that `base_link` becomes a frame attached to
 `base_footprint`, not the root free body. This is why `base_link` looked right in
@@ -196,6 +202,8 @@ The final branch changes include:
 - `/cmd_vel_gz` bridge for the internal Gazebo command topic.
 - `cmd_vel_watchdog.py` for the missing Fortress `MecanumDrive` timeout.
 - `wheel_state_odometry.py` for encoder-style `/odom` and `odom -> base_footprint`.
+- Measurement-only `/ground_truth/odom` with simulation timestamps and no TF.
+- Selectable `stress` and `ideal` wheel-contact profiles.
 - EKF input changed to `/odom` with wheel odometry retaining TF ownership.
 - Documentation in `README.md` and
   `yahboom_rosmaster_gazebo/doc/native_mecanum_drive_implementation.md`.

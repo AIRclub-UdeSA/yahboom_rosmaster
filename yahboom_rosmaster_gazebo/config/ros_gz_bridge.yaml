@@ -54,3 +54,12 @@
   gz_type_name: "gz.msgs.Clock"
   direction: GZ_TO_ROS
   lazy: false
+
+# Measurement-only Gazebo world pose. Keep it separate from wheel-derived
+# /odom and do not bridge the plugin's Pose_V output into /tf.
+- ros_topic_name: "ground_truth/odom"
+  gz_topic_name: "/model/rosmaster_x3/ground_truth"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+  lazy: false

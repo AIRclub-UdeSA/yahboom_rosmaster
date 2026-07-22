@@ -8,7 +8,8 @@ ROS 2 Humble packages for simulating the Yahboom ROSMASTER X3 mecanum robot
 with Gazebo Fortress. The supported standalone workflow provides contact-driven
 holonomic motion, wheel-state odometry, TF, 2D LiDAR, IMU data, and a depth
 point cloud, along with RGB and depth camera images and camera calibration
-messages.
+messages. It also exposes timestamped simulation ground truth separately from
+robot-facing odometry.
 
 Gazebo Fortress is the supported simulator backend. Gazebo Classic is not
 supported by the current mecanum simulator.
@@ -96,6 +97,10 @@ Configured and activated joint_state_broadcaster
 Publishing wheel-state odometry from /joint_states to /odom
 ```
 
+The default `stress` motion profile adds deterministic, uncalibrated wheel slip,
+roller resistance, and per-wheel asymmetry. To recover the previous zero-slip
+baseline, launch with `motion_profile:=ideal`.
+
 ### Launch Without GUIs
 
 Run the Gazebo server without the Gazebo GUI or RViz:
@@ -124,6 +129,7 @@ ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
 | `rviz` | `true` | Start RViz |
 | `headless` | `false` | Run the Gazebo server without its GUI client |
 | `use_sim_time` | `true` | Use the Gazebo simulation clock; keep enabled for the supported workflow |
+| `motion_profile` | `stress` | Wheel contact model: uncalibrated `stress` or zero-slip `ideal` |
 
 ## Controlling the Robot
 
@@ -195,12 +201,20 @@ Gazebo's native `MecanumDrive` system calculates the four wheel targets.
 The watchdog republishes the latest command to the internal `/cmd_vel_gz` topic
 and publishes zero when `/cmd_vel` has been silent for 0.5 seconds.
 
+Wheel contact parameters come from
+`yahboom_rosmaster_gazebo/config/motion_profiles.yaml`. The default `stress`
+profile is deterministic and deliberately imperfect; it has not been fitted to
+a physical ROSMASTER X3. See
+`yahboom_rosmaster_gazebo/doc/motion_profiles.md` for values and measurements.
+
 ### Odometry and TF
 
 - `/joint_states` is published by `joint_state_broadcaster`.
 - `/odom` is integrated from wheel joint positions by
   `wheel_state_odometry.py`.
 - `odom -> base_footprint` is published by `wheel_state_odometry.py`.
+- `/ground_truth/odom` is the timestamped Gazebo world pose of the simulated
+  chassis. It is measurement-only and does not publish a TF edge.
 - Robot link transforms are published by `robot_state_publisher`.
 
 ## Working ROS Interfaces
@@ -212,6 +226,7 @@ and publishes zero when `/cmd_vel` has been silent for 0.5 seconds.
 | `/cmd_vel_gz` | `geometry_msgs/msg/Twist` | — | Internal watchdog output bridged to Gazebo |
 | `/joint_states` | `sensor_msgs/msg/JointState` | `base_link` / 30 Hz | Wheel joint positions and velocities |
 | `/odom` | `nav_msgs/msg/Odometry` | `odom` -> `base_footprint` / 30 Hz | Wheel-state odometry |
+| `/ground_truth/odom` | `nav_msgs/msg/Odometry` | `world` -> `base_footprint` / 50 Hz | Measurement-only Gazebo ground truth; not TF |
 | `/tf` | `tf2_msgs/msg/TFMessage` | — | Dynamic transforms |
 | `/tf_static` | `tf2_msgs/msg/TFMessage` | — | Static robot transforms |
 | `/scan` | `sensor_msgs/msg/LaserScan` | `laser_frame` / 5 Hz | 720-sample 2D LiDAR scan |
@@ -246,7 +261,7 @@ Run these checks in a second sourced terminal after simulator startup.
 ros2 control list_controllers
 
 ros2 topic list | sort | grep -E \
-  '^/(clock|cmd_vel|cmd_vel_gz|joint_states|odom|scan|imu/data|tf|tf_static|cam_1/)'
+  '^/(clock|cmd_vel|cmd_vel_gz|joint_states|odom|ground_truth/odom|scan|imu/data|tf|tf_static|cam_1/)'
 ```
 
 The controller list should contain:
@@ -268,6 +283,7 @@ ros2 topic list | grep '^/mecanum_drive_controller/cmd_vel$' \
 ```bash
 ros2 topic echo /joint_states --once
 ros2 topic echo /odom --once
+ros2 topic echo /ground_truth/odom --once
 timeout --signal=INT 5 ros2 run tf2_ros tf2_echo odom base_footprint
 ```
 
@@ -290,11 +306,12 @@ known-geometry and commanded-motion gates. Together they validate ten-message
 delivery, nominal rates, first-message latency, timestamped TF, RGB-D geometry,
 registered color/depth frame origins, LiDAR geometry and handedness, IMU axes,
 mecanum wheel signs, odometry/TF agreement, and odometry
-rewind/discontinuity handling:
+rewind/discontinuity handling. They also verify the ground-truth topic and the
+ideal-versus-stress motion-profile contract:
 
 ```bash
 colcon test --packages-select yahboom_rosmaster_gazebo \
-  --ctest-args -R '^(sensor_contract_.*|depth_geometry|lidar_geometry|imu_motion|base_feedback|wheel_odometry_resilience)$' \
+  --ctest-args -R '^(sensor_contract_.*|depth_geometry|ground_truth_contract|motion_profile_.*|lidar_geometry|imu_motion|base_feedback|wheel_odometry_resilience)$' \
   --output-on-failure
 colcon test-result --verbose
 ```
@@ -405,11 +422,14 @@ ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
 ## Current Project Status
 
 The supported user path is the standalone, single-robot Fortress simulator in
-the empty or cafe world. Its nominal forward, lateral, and rotational motion,
+the empty or cafe world. Its forward, lateral, and rotational motion,
 wheel odometry, TF, LiDAR, IMU, RGB and depth images, camera information, and
-depth point cloud have been exercised on ROS 2 Humble. Automated headless
+depth point cloud have been exercised on ROS 2 Humble. The default uncalibrated
+stress profile creates measurable wheel-odometry divergence while the optional
+ideal profile preserves the previous near-zero-error baseline. Automated headless
 contracts cover both supported worlds, and isolated acceptance tests exercise
-controlled RGB-D/LiDAR geometry, IMU motion, wheel signs, odometry, and TF.
+controlled RGB-D/LiDAR geometry, IMU motion, wheel signs, odometry, ground
+truth, profile selection, and TF.
 
 The following repository surfaces are retained for continued development but
 are not part of the supported workflow described above:
@@ -418,9 +438,11 @@ are not part of the supported workflow described above:
   is not currently reliable enough for navigation-goal execution.
 - AprilTag and docking resources are present, but they do not provide a working
   end-to-end docking workflow.
-- The drivetrain is an idealized contact-driven model. It is not calibrated to
-  reproduce measured motor, encoder, wheel, floor, latency, or battery error
-  from a physical ROSMASTER X3.
+- The default drivetrain stress profile is deterministic but uncalibrated. It
+  must not be described as reproducing the physical ROSMASTER X3 until its
+  contact values are fitted against synchronized wheel odometry and external
+  ground truth. Motor, encoder, floor, latency, and battery effects remain
+  separate future calibration layers.
 - Sensor data is nominal simulation output. The camera, LiDAR, and IMU models
   have not been calibrated against measurements from the physical robot. The
   combined RGB-D model is deliberately pre-registered at one color/depth

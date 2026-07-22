@@ -60,6 +60,7 @@ def generate_launch_description():
     ekf_launch_file = LaunchConfiguration('ekf_launch_file')
     gazebo_launch_file = LaunchConfiguration('gazebo_launch_file')
     map_yaml_file = LaunchConfiguration('map')
+    motion_profile = LaunchConfiguration('motion_profile')
     namespace = LaunchConfiguration('namespace')
     nav2_params_file = LaunchConfiguration('nav2_params_file')
     slam = LaunchConfiguration('slam')
@@ -105,6 +106,14 @@ def generate_launch_description():
         name='map',
         default_value=static_map_path,
         description='Full path to map file to load')
+
+    declare_motion_profile_cmd = DeclareLaunchArgument(
+        name='motion_profile',
+        default_value='stress',
+        choices=['ideal', 'stress'],
+        description=(
+            'Simulator wheel-contact profile; stress is deterministic and '
+            'uncalibrated'))
 
     declare_namespace_cmd = DeclareLaunchArgument(
         name='namespace',
@@ -175,6 +184,7 @@ def generate_launch_description():
             'world': world,
             'rviz': rviz,
             'headless': headless,
+            'motion_profile': motion_profile,
             'use_sim_time': use_sim_time,
         }.items()
     )
@@ -203,6 +213,7 @@ def generate_launch_description():
     ld.add_action(declare_gazebo_launch_file_cmd)
     ld.add_action(declare_world_cmd)
     ld.add_action(declare_map_yaml_cmd)
+    ld.add_action(declare_motion_profile_cmd)
     ld.add_action(declare_namespace_cmd)
     ld.add_action(declare_nav2_params_file_cmd)
     ld.add_action(declare_slam_cmd)

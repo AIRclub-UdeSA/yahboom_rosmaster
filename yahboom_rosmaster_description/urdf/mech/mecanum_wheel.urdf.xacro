@@ -2,9 +2,10 @@
 <!--
   Mecanum wheel with sphere collision + fdir1 anisotropic friction.
 
-  Each wheel is a sphere (single contact point) with:
-    mu=1.0  along fdir1 (roller grip direction — high friction)
-    mu2=0.0 perpendicular to fdir1 (roller free-rolling direction — zero friction)
+  Each wheel is a sphere (single contact point) with profile-selected contact
+  values. The ideal profile uses mu=1.0 along fdir1 and mu2=0.0 perpendicular
+  to fdir1; the default stress profile adds deterministic compliance, roller
+  resistance, and per-wheel asymmetry.
 
   fdir1 is expressed in the robot base_footprint frame via ignition:expressed_in
   to match the native Gazebo mecanum demo's chassis-frame friction directions.
@@ -25,7 +26,16 @@
   <xacro:property name="wheel_xoff"      value="0.08"    />
   <xacro:property name="wheel_yoff"      value="-0.01"   />
 
-  <xacro:macro name="mecanum_wheel" params="prefix side x_reflect y_reflect fdir1:='1 0 0'">
+  <xacro:macro name="mecanum_wheel" params="
+    prefix
+    side
+    x_reflect
+    y_reflect
+    fdir1:='1 0 0'
+    mu:=1.0
+    mu2:=0.0
+    slip1:=0.0
+    slip2:=0.0">
     <link name="${prefix}${side}_wheel_link">
       <visual>
         <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
@@ -72,15 +82,15 @@
           <friction>
             <ode>
               <!-- High friction along fdir1 (roller grip axis) -->
-              <mu>1.0</mu>
+              <mu>${mu}</mu>
               <!-- Zero friction perpendicular (roller free-rolling direction) -->
-              <mu2>0.0</mu2>
+              <mu2>${mu2}</mu2>
               <!-- ignition:expressed_in locks fdir1 to the chassis frame.
                    base_footprint is the model root frame, equivalent to "chassis"
                    in the official Gazebo mecanum demo. -->
               <fdir1 ignition:expressed_in="${prefix}base_footprint">${fdir1}</fdir1>
-              <slip1>0.0</slip1>
-              <slip2>0.0</slip2>
+              <slip1>${slip1}</slip1>
+              <slip2>${slip2}</slip2>
             </ode>
           </friction>
           <contact>

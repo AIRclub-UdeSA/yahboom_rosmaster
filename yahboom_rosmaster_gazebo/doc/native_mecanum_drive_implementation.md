@@ -13,6 +13,13 @@ sends zero commands after 0.5 seconds without input.
 
 Odometry is produced on the ROS side from `/joint_states`, so `/odom` remains
 encoder-style wheel odometry instead of Gazebo ground-truth pose.
+Gazebo ground truth is exposed separately on `/ground_truth/odom` for
+measurement and regression testing; it does not publish TF or feed the EKF.
+
+The default `stress` contact profile now adds deterministic, uncalibrated slip,
+roller resistance, and wheel asymmetry. `motion_profile:=ideal` preserves the
+original zero-slip contact model documented by the historical measurements
+below.
 
 ## Root cause
 
@@ -46,7 +53,10 @@ produce correct physical strafing after URDF-to-SDF conversion.
 - `yahboom_rosmaster_gazebo/config/ros2_control.yaml`
   removes `mecanum_drive_controller`; only `joint_state_broadcaster` remains.
 - `yahboom_rosmaster_gazebo/config/ros_gz_bridge.yaml`
-  bridges ROS `/cmd_vel_gz` to Gazebo `/model/rosmaster_x3/cmd_vel`.
+  bridges ROS `/cmd_vel_gz` to Gazebo `/model/rosmaster_x3/cmd_vel` and the
+  dedicated Gazebo ground-truth odometry topic to `/ground_truth/odom`.
+- `yahboom_rosmaster_gazebo/config/motion_profiles.yaml`
+  defines the selectable `ideal` and uncalibrated `stress` wheel contacts.
 - `yahboom_rosmaster_gazebo/launch/rosmaster_gazebo_fortress.launch.py`
   removes the old twist converter and mecanum controller loading, then launches
   the bridge, watchdog, wheel odometry node, image bridge, and joint state
@@ -69,6 +79,7 @@ produce correct physical strafing after URDF-to-SDF conversion.
 - `/cmd_vel` remains the user and Nav2 command topic.
 - `/cmd_vel_gz` is internal and bridged to Gazebo `MecanumDrive`.
 - `/odom` is wheel-state odometry from `/joint_states`.
+- `/ground_truth/odom` is measurement-only Gazebo world pose and is not TF.
 - `/tf` includes `odom -> base_footprint` from wheel odometry and robot link TF
   from `robot_state_publisher`.
 - `ros2 control list_controllers` should show only
@@ -76,7 +87,7 @@ produce correct physical strafing after URDF-to-SDF conversion.
 
 ## Verification
 
-The final isolated Fortress test used a private `ROS_DOMAIN_ID` and
+The original ideal-profile Fortress test used a private `ROS_DOMAIN_ID` and
 `IGN_PARTITION` to avoid stale Gazebo processes. Results:
 
 - `linear.y = 0.3` for about 5 seconds physically strafed left:
@@ -118,3 +129,4 @@ timeout 5 ros2 topic pub --rate 10 /cmd_vel geometry_msgs/msg/Twist "{linear: {y
 ```
 
 Positive ROS `linear.y` is left strafe. Use `linear.y: -0.3` for right strafe.
+Add `motion_profile:=ideal` to reproduce the historical near-zero-error values.

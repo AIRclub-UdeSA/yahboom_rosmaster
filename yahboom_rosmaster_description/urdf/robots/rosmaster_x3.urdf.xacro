@@ -8,6 +8,15 @@
   <xacro:arg name="robot_name" default="rosmaster_x3"/>
   <xacro:arg name="prefix" default=""/>
   <xacro:arg name="use_gazebo" default="false"/>
+  <!-- Contact parameters are supplied by the simulator motion profile. These
+       defaults preserve the ideal description when xacro is expanded directly. -->
+  <xacro:arg name="wheel_mu" default="1.0"/>
+  <xacro:arg name="wheel_mu2" default="0.0"/>
+  <xacro:arg name="wheel_slip2" default="0.0"/>
+  <xacro:arg name="front_left_slip1" default="0.0"/>
+  <xacro:arg name="front_right_slip1" default="0.0"/>
+  <xacro:arg name="back_left_slip1" default="0.0"/>
+  <xacro:arg name="back_right_slip1" default="0.0"/>
 
   <xacro:include filename="$(find yahboom_rosmaster_description)/urdf/mech/rosmaster_x3_base.urdf.xacro"/>
   <xacro:include filename="$(find yahboom_rosmaster_description)/urdf/mech/mecanum_wheel.urdf.xacro"/>
@@ -26,28 +35,44 @@
     side="front_left"
     x_reflect="1"
     y_reflect="1"
-    fdir1="1 -1 0"/>
+    fdir1="1 -1 0"
+    mu="$(arg wheel_mu)"
+    mu2="$(arg wheel_mu2)"
+    slip1="$(arg front_left_slip1)"
+    slip2="$(arg wheel_slip2)"/>
 
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
     side="front_right"
     x_reflect="1"
     y_reflect="-1"
-    fdir1="1 1 0"/>
+    fdir1="1 1 0"
+    mu="$(arg wheel_mu)"
+    mu2="$(arg wheel_mu2)"
+    slip1="$(arg front_right_slip1)"
+    slip2="$(arg wheel_slip2)"/>
 
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
     side="back_left"
     x_reflect="-1"
     y_reflect="1"
-    fdir1="1 1 0"/>
+    fdir1="1 1 0"
+    mu="$(arg wheel_mu)"
+    mu2="$(arg wheel_mu2)"
+    slip1="$(arg back_left_slip1)"
+    slip2="$(arg wheel_slip2)"/>
 
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
     side="back_right"
     x_reflect="-1"
     y_reflect="-1"
-    fdir1="1 -1 0"/>
+    fdir1="1 -1 0"
+    mu="$(arg wheel_mu)"
+    mu2="$(arg wheel_mu2)"
+    slip1="$(arg back_right_slip1)"
+    slip2="$(arg wheel_slip2)"/>
 
   <xacro:rgbd_camera
     prefix="$(arg prefix)"
@@ -94,6 +119,19 @@
         <wheel_radius>0.0325</wheel_radius>
         <min_acceleration>-1.0</min_acceleration>
         <max_acceleration>1.0</max_acceleration>
+      </plugin>
+
+      <!-- Measurement-only world pose. It is bridged to /ground_truth/odom but
+           its Pose_V output is intentionally not bridged into the ROS TF tree. -->
+      <plugin filename="ignition-gazebo-odometry-publisher-system"
+              name="ignition::gazebo::systems::OdometryPublisher">
+        <odom_frame>world</odom_frame>
+        <robot_base_frame>$(arg prefix)base_footprint</robot_base_frame>
+        <dimensions>3</dimensions>
+        <odom_publish_frequency>50</odom_publish_frequency>
+        <odom_topic>/model/rosmaster_x3/ground_truth</odom_topic>
+        <odom_covariance_topic>/model/rosmaster_x3/ground_truth_with_covariance</odom_covariance_topic>
+        <tf_topic>/model/rosmaster_x3/ground_truth_pose</tf_topic>
       </plugin>
     </gazebo>
   </xacro:if>

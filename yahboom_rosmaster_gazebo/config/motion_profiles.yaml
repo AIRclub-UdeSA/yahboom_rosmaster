@@ -1,0 +1,21 @@
+# Deterministic wheel-contact profiles for the Gazebo Fortress simulator.
+# `stress` is intentionally uncalibrated. Promote measured values to a future
+# `calibrated` profile only after fitting them to external real-robot ground truth.
+profiles:
+  ideal:
+    wheel_mu: 1.0
+    wheel_mu2: 0.0
+    wheel_slip2: 0.0
+    front_left_slip1: 0.0
+    front_right_slip1: 0.0
+    back_left_slip1: 0.0
+    back_right_slip1: 0.0
+
+  stress:
+    wheel_mu: 0.8
+    wheel_mu2: 0.03
+    wheel_slip2: 0.002
+    front_left_slip1: 0.014
+    front_right_slip1: 0.008
+    back_left_slip1: 0.012
+    back_right_slip1: 0.010
