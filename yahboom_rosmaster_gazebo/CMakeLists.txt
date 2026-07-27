@@ -22,6 +22,7 @@ install(
     scripts/imu_motion_probe.py
     scripts/lidar_geometry_probe.py
     scripts/motion_profile_divergence_probe.py
+    scripts/real_robot_bag_analyzer.py
     scripts/sensor_contract_probe.py
     scripts/wheel_odometry_resilience_probe.py
     scripts/cmd_vel_watchdog.py

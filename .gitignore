@@ -15,3 +15,6 @@ __pycache__/
 
 # pixi (macOS/RoboStack workflow) — the solved environment, not the manifest
 .pixi/
+
+# Raw rosbag corpora (large binary captures; never belong in Git history)
+/bags_x3.zip

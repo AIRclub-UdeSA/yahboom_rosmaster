@@ -1,0 +1,218 @@
+# Real ROSMASTER X3 interface contract.
+#
+# Derived from bags_x3.zip: 5 ROS 2 Humble sqlite3 bags, ~62 minutes,
+# 425,513 messages. The archive is untracked (see .gitignore) and never
+# extracted into the repository. Regenerate the underlying measurements with:
+#
+#   ros2 run yahboom_rosmaster_gazebo real_robot_bag_analyzer.py <bag_dir>...
+#
+# `confidence` legend:
+#   measured      - computed directly from bag messages with the analyzer
+#                   above, cross-checked against the 2026-07-26 manual audit.
+#   manual_audit  - taken from the 2026-07-26 manual audit; the method (e.g.
+#                   stable command-window segmentation) is not yet
+#                   reproduced by the analyzer script.
+#   inferred      - a stated inference, not a direct measurement.
+#   absent        - the bags do not contain this data at all.
+#
+# This contract describes the real robot's *recorded ROS interface*. It is
+# not a physical calibration: there is no independent ground truth in these
+# bags, wheel joint positions are always zero, and velocity is never
+# reported. See `calibration_gaps` below.
+
+provenance:
+  source_archive: bags_x3.zip
+  ros_distro: humble
+  storage_format: sqlite3
+  bags:
+    bag_x3_5:
+      description: Mapping run
+      duration_s: 965.9
+      message_count: 110507
+      motion_valid: false
+      note: >
+        Odometry path length is exactly zero and IMU samples are constant
+        for the whole bag while /cmd_vel and /scan keep changing. Excluded
+        from every motion/noise statistic below.
+    bag_x3_6:
+      description: Mapping run
+      duration_s: 802.2
+      message_count: 93002
+      motion_valid: true
+    bag_x3_7:
+      description: Mapping run
+      duration_s: 895.7
+      message_count: 104934
+      motion_valid: true
+    bag_x3_8_cones:
+      description: Blue and red cones course
+      duration_s: 531.1
+      message_count: 58900
+      motion_valid: true
+    bag_x3_9_obstacles:
+      description: Cones and obstacles course
+      duration_s: 548.0
+      message_count: 58170
+      motion_valid: true
+  motion_valid_bags: [bag_x3_6, bag_x3_7, bag_x3_8_cones, bag_x3_9_obstacles]
+  ground_truth: absent
+  ground_truth_note: >
+    No map, world, mocap, tracking-camera, GPS, or AprilTag-pose topic
+    exists in any bag. /tf only carries odom -> base_footprint (a duplicate
+    of /odom) plus wheel transforms; it is not a second pose estimate.
+
+topics:
+  /cmd_vel:
+    type: geometry_msgs/msg/Twist
+    confidence: measured
+    rate_hz: {min: 41.2, max: 62.8}
+    note: rate varies by bag/source (teleop vs. autonomous driving); no header.
+    observed_p90:
+      linear_x: 0.2
+      linear_y: 0.18
+      angular_z: 1.0
+
+  /odom:
+    type: nav_msgs/msg/Odometry
+    confidence: measured
+    frame_id: odom
+    child_frame_id: base_footprint
+    rate_hz: 10.0
+    pose_covariance_xx_yy: 0.000854
+    pose_covariance_yawyaw: 0.000648
+    covariance_behavior: dynamic  # changes on every sample; not a fixed matrix
+    lateral_twist: near_zero      # median |twist.linear.y| ~1e-7 m/s in bags 6-9
+                                   # even while /cmd_vel.linear.y reaches +/-0.4
+    source_node: unknown
+    source_node_note: >
+      Not recorded in the bags. Dynamic, non-trivial covariance suggests a
+      vendor or fused estimator rather than raw wheel odometry, but this
+      remains an inference.
+
+  /joint_states:
+    type: sensor_msgs/msg/JointState
+    confidence: measured
+    names: [front_right_joint, front_left_joint, back_right_joint, back_left_joint]
+    rate_hz: 10.0
+    position: always_zero
+    velocity: never_reported
+    note: placeholder state, not encoder telemetry; do not drive simulator odometry from it.
+
+  /scan:
+    type: sensor_msgs/msg/LaserScan
+    confidence: measured
+    frame_id: laser_link
+    rate_hz: 7.40
+    ray_count: 1080
+    angle_min: -3.14159274
+    angle_max: 3.14159274
+    angle_increment: 0.0058231563
+    range_min: 0.05
+    range_max: 12.0
+    scan_time_s: 0.1343
+    time_increment_s: 0.0001244
+    non_finite_returns_per_scan_median: 85
+
+  /imu/data:
+    type: sensor_msgs/msg/Imu
+    confidence: measured
+    frame_id: imu_link
+    rate_hz: 10.0
+    gravity_convention: negative_z
+    gravity_magnitude_median: {min: 9.800, max: 9.848}
+    orientation_covariance_diag: [0.0025, 0.0025, 0.0025]
+    angular_velocity_covariance_diag: [0.0, 0.0, 0.0]
+    linear_acceleration_covariance_diag: [0.0, 0.0, 0.0]
+    covariance_note: angular_velocity and linear_acceleration covariance fields are not populated by the driver.
+    stationary_noise_stddev:
+      confidence: manual_audit
+      note: >
+        Provisional upper bounds from odom-selected low-motion windows, not a
+        controlled stationary capture; includes vibration and selection error.
+      gyro_xy_rad_s: {min: 0.0075, max: 0.0121}
+      gyro_z_rad_s: {min: 0.0184, max: 0.0263}
+      accel_mps2: {min: 0.15, max: 0.31}
+
+  /camera_info:
+    type: sensor_msgs/msg/CameraInfo
+    confidence: measured
+    frame_id: default_cam
+    frame_note: not connected to the recorded TF tree; robot-side defect, do not imitate.
+    rate_hz: 10.0
+    dimensions: [320, 240]
+    k_matrix: all_zero
+    k_matrix_note: invalid intrinsics; robot-side defect, do not imitate.
+    distortion_model: ""
+
+  /image_raw:
+    type: sensor_msgs/msg/Image
+    confidence: measured
+    frame_id: default_cam
+    encoding: yuv422_yuy2
+    dimensions: [320, 240]
+    rate_hz: {min: 9.2, max: 10.0}
+
+  /robot_description:
+    type: std_msgs/msg/String
+    confidence: measured
+    note: static xacro-flattened URDF, byte-identical across all 5 bags.
+
+geometry:
+  confidence: measured
+  source: recorded /robot_description joint origins (see urdf_geometry in the analyzer report)
+  wheel_x_offset_m: 0.08
+  wheel_y_offset_m: {right: -0.0845, left: 0.084492}
+  wheel_separation_m: 0.168992
+  base_footprint_to_base_link_z_m: 0.0815
+  sensors:
+    laser_link: {parent: base_link, xyz: [0.0435, 0.0000526, 0.11], rpy: [0, 0, 0]}
+    camera_link: {parent: base_link, xyz: [0.057105, 0.0000179, 0.03755], rpy: [0, 0, 0]}
+    imu_link: {parent: base_link, xyz: [-0.06, 0.01, 0.01], rpy: [0, 3.1415, 1.5707]}
+  notes:
+    - >
+      Wheel collision meshes do not expose a primitive radius; wheel radius
+      still needs physical measurement or encoder calibration.
+    - >
+      The simulator's own URDF already carries this 0.169 m wheel separation
+      in yahboom_rosmaster_description/urdf/mech/mecanum_wheel.urdf.xacro,
+      but yahboom_rosmaster_description/urdf/robots/rosmaster_x3.urdf.xacro
+      (ros2_control drive) and yahboom_rosmaster_gazebo/scripts/
+      wheel_state_odometry.py both hardcode 0.149 m. This is an internal
+      inconsistency independent of any real-robot measurement question.
+
+command_response:
+  confidence: manual_audit
+  method: >
+    Stable command-window segmentation: windows where /cmd_vel held a
+    constant single-axis value for a sustained period, then the steady-state
+    median of reported /odom twist on the same axis. Not yet reproduced by
+    real_robot_bag_analyzer.py. Describes the estimator's reported behavior,
+    not the robot's true physical motion -- no ground truth exists in these
+    bags.
+  samples:
+    - {cmd_vx: 0.1, reported_vx: 0.0957}
+    - {cmd_vx: 0.2, reported_vx: 0.1896}
+    - {cmd_vx: 0.3, reported_vx: 0.2906}
+    - {cmd_vx: -0.1, reported_vx: -0.0727}
+    - {cmd_vx: -0.2, reported_vx: -0.1776}
+    - {cmd_wz: 1.0, reported_wz: 0.685}
+    - {cmd_wz: -1.0, reported_wz: -0.507}
+    - {cmd_vy: [0.1, -0.1], reported_vy: ~0.0}
+
+calibration_gaps:
+  confidence: absent
+  missing:
+    - independent external pose (map/world/mocap/AprilTag/GPS)
+    - usable wheel encoder feedback (/joint_states position always zero, velocity never reported)
+  blocks:
+    - true longitudinal or lateral slip
+    - per-wheel traction differences
+    - encoder error
+    - true endpoint or trajectory error
+    - a defensible mu, mu2, slip1, or slip2 for the Gazebo stress profile
+  next_step: >
+    A smaller controlled bag with real per-wheel encoder ticks/RPM and
+    synchronized external pose (motion capture, overhead AprilTags, a total
+    station, a tracking camera, or accurately measured endpoints) across
+    forward, reverse, strafe, diagonal, rotation, arc, stop, and reversal
+    trials.
