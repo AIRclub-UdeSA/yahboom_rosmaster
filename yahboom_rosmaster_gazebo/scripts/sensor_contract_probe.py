@@ -225,7 +225,7 @@ class SensorContractProbe(Node):
 
         rate_contracts = {
             "/scan": (4.5, 5.5),
-            "/imu/data": (12.0, 18.0),
+            "/imu/data": (8.0, 12.0),
             "/cam_1/color/image_raw": (1.7, 2.3),
             "/cam_1/depth/image_raw": (1.7, 2.3),
             "/cam_1/color/camera_info": (1.7, 2.3),

@@ -173,12 +173,15 @@ geometry:
       Wheel collision meshes do not expose a primitive radius; wheel radius
       still needs physical measurement or encoder calibration.
     - >
-      The simulator's own URDF already carries this 0.169 m wheel separation
-      in yahboom_rosmaster_description/urdf/mech/mecanum_wheel.urdf.xacro,
-      but yahboom_rosmaster_description/urdf/robots/rosmaster_x3.urdf.xacro
-      (ros2_control drive) and yahboom_rosmaster_gazebo/scripts/
-      wheel_state_odometry.py both hardcode 0.149 m. This is an internal
-      inconsistency independent of any real-robot measurement question.
+      The simulator now uses the measured 0.169 m wheel separation in both
+      the drive plugin and wheel-state odometry, resolving their former
+      0.149 m inconsistency with the wheel geometry.
+    - >
+      The simulator uses 1080 rays, a 0.05-12 m Fortress range, and a rounded
+      (0.043, 0, 0.110) m mount. It deliberately retains simulation-specific
+      differences: laser_frame rather than laser_link, 5 Hz rather than the
+      measured 7.4 Hz, a pi yaw offset, and a 0.25 m minimum range in Classic
+      to prevent the CPU raycast from detecting the chassis.
 
 command_response:
   confidence: manual_audit
