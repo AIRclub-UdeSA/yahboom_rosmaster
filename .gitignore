@@ -5,6 +5,8 @@ yahboom_rosmaster_description/config/rosmaster_x3/ros2_controllers.yaml
 build/
 install/
 log/
+build_classic/
+install_classic/
 *.pyc
 __pycache__/
 

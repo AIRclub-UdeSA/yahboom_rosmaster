@@ -18,6 +18,13 @@
        which libc++ rejects. Set false to publish joint state straight from
        Gazebo instead and skip ros2_control entirely. -->
   <xacro:arg name="use_ros2_control" default="true"/>
+  <!-- Which simulator the Gazebo tags target. "fortress" is the upstream
+       backend. "classic" is for macOS, where Fortress cannot render sensors or
+       open its GUI; Gazebo Classic can, and its CPU raycast lidar works there. -->
+  <xacro:arg name="sim_backend" default="fortress"/>
+  <xacro:property name="backend" value="$(arg sim_backend)"/>
+  <!-- Gazebo Classic plugin suffix: conda installs .dylib on macOS, .so on Linux. -->
+  <xacro:arg name="plugin_ext" default=".so"/>
   <!-- Contact parameters are supplied by the simulator motion profile. These
        defaults preserve the ideal description when xacro is expanded directly. -->
   <xacro:arg name="wheel_mu" default="1.0"/>
@@ -34,7 +41,9 @@
   <xacro:include filename="$(find yahboom_rosmaster_description)/urdf/sensors/lidar.urdf.xacro"/>
   <xacro:include filename="$(find yahboom_rosmaster_description)/urdf/sensors/imu.urdf.xacro"/>
 
-  <xacro:rosmaster_x3_base prefix="$(arg prefix)"/>
+  <xacro:rosmaster_x3_base
+    prefix="$(arg prefix)"
+    footprint_inertial="${backend == 'classic'}"/>
 
   <!-- fdir1 = roller grip direction in base_footprint frame via ignition:expressed_in.
        Matches the official Gazebo mecanum demo (expressed_in="chassis", same topology).
@@ -49,7 +58,9 @@
     mu="$(arg wheel_mu)"
     mu2="$(arg wheel_mu2)"
     slip1="$(arg front_left_slip1)"
-    slip2="$(arg wheel_slip2)"/>
+    slip2="$(arg wheel_slip2)"
+    simple_friction="${backend == 'classic'}"
+    joint_type="${'fixed' if backend == 'classic' else 'continuous'}"/>
 
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
@@ -60,7 +71,9 @@
     mu="$(arg wheel_mu)"
     mu2="$(arg wheel_mu2)"
     slip1="$(arg front_right_slip1)"
-    slip2="$(arg wheel_slip2)"/>
+    slip2="$(arg wheel_slip2)"
+    simple_friction="${backend == 'classic'}"
+    joint_type="${'fixed' if backend == 'classic' else 'continuous'}"/>
 
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
@@ -71,7 +84,9 @@
     mu="$(arg wheel_mu)"
     mu2="$(arg wheel_mu2)"
     slip1="$(arg back_left_slip1)"
-    slip2="$(arg wheel_slip2)"/>
+    slip2="$(arg wheel_slip2)"
+    simple_friction="${backend == 'classic'}"
+    joint_type="${'fixed' if backend == 'classic' else 'continuous'}"/>
 
   <xacro:mecanum_wheel
     prefix="$(arg prefix)"
@@ -82,14 +97,16 @@
     mu="$(arg wheel_mu)"
     mu2="$(arg wheel_mu2)"
     slip1="$(arg back_right_slip1)"
-    slip2="$(arg wheel_slip2)"/>
+    slip2="$(arg wheel_slip2)"
+    simple_friction="${backend == 'classic'}"
+    joint_type="${'fixed' if backend == 'classic' else 'continuous'}"/>
 
   <xacro:rgbd_camera
     prefix="$(arg prefix)"
     camera_name="cam_1"
     xyz_offset="0.105 0 0.05"
     rpy_offset="0 0 0"
-    enable_gz_sensor="$(arg render_sensors)"/>
+    enable_gz_sensor="${backend == 'fortress' and '$(arg render_sensors)' in ['true', 'True', '1']}"/>
 
   <xacro:lidar_sensor
     prefix="$(arg prefix)"
@@ -101,7 +118,9 @@
     mesh_rpy_offset="${-M_PI/2} 0 0"
     update_rate="5"
     topic_name="scan"
-    enable_gz_sensor="$(arg render_sensors)"/>
+    enable_gz_sensor="${backend == 'fortress' and '$(arg render_sensors)' in ['true', 'True', '1']}"
+    classic_sensor="${backend == 'classic'}"
+    plugin_ext="$(arg plugin_ext)"/>
 
   <xacro:imu_sensor
     prefix="$(arg prefix)"
@@ -114,7 +133,38 @@
 
   <!-- Gazebo Fortress simulation plugins. gz_ros2_control is read-only for
        wheel and IMU state; native MecanumDrive owns wheel velocity commands. -->
-  <xacro:if value="$(arg use_gazebo)">
+  <xacro:if value="${backend == 'classic'}">
+    <gazebo>
+      <!-- ODE parks resting bodies, and a parked body ignores the velocity
+           planar_move sets, so the robot never starts moving. -->
+      <allow_auto_disable>false</allow_auto_disable>
+
+      <!-- Holonomic base drive. planar_move consumes linear.x, linear.y and
+           angular.z, so it reproduces mecanum strafing, and it owns both /odom
+           and the odom->base_footprint transform. -->
+      <plugin name="planar_move" filename="libgazebo_ros_planar_move$(arg plugin_ext)">
+        <ros>
+          <remapping>cmd_vel:=cmd_vel</remapping>
+          <remapping>odom:=odom</remapping>
+        </ros>
+        <update_rate>50</update_rate>
+        <publish_odom>true</publish_odom>
+        <publish_odom_tf>true</publish_odom_tf>
+        <odometry_frame>odom</odometry_frame>
+        <robot_base_frame>$(arg prefix)base_footprint</robot_base_frame>
+        <covariance_x>0.0001</covariance_x>
+        <covariance_y>0.0001</covariance_y>
+        <covariance_yaw>0.01</covariance_yaw>
+      </plugin>
+
+      <!-- No joint state publisher here: the wheels are welded on this backend,
+           so there is nothing to report and robot_state_publisher emits their
+           transforms on /tf_static instead. -->
+
+    </gazebo>
+  </xacro:if>
+
+  <xacro:if value="${backend == 'fortress' and '$(arg use_gazebo)' in ['true', 'True', '1']}">
     <gazebo>
       <xacro:if value="$(arg use_ros2_control)">
         <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">

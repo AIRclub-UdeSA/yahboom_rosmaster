@@ -74,3 +74,57 @@ cmd = "ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py 
 
 [activation]
 scripts = ["scripts/pixi_activate.sh"]
+
+# ---------------------------------------------------------------------------
+# Gazebo Classic backend (macOS).
+#
+# Fortress on macOS cannot open its GUI or run any rendering sensor, so there is
+# no LiDAR and no camera. Gazebo Classic opens its GUI and its CPU raycast lidar
+# needs no rendering, which is what makes SLAM and Nav2 possible here.
+#
+# It has to be a separate environment: ros-humble-gazebo-ros-pkgs and
+# ros-humble-ros-gz cannot be solved together (conflicting assimp pins), and the
+# Classic build of gazebo carries `libgz-tools < 0.0.0`.
+# ---------------------------------------------------------------------------
+[feature.classic.dependencies]
+ros-humble-ros-base = "*"
+ros-humble-ros2cli-common-extensions = "*"
+ros-humble-gazebo-ros-pkgs = ">=3.9.0"
+ros-humble-rviz2 = "*"
+ros-humble-xacro = "*"
+ros-humble-robot-state-publisher = "*"
+ros-humble-joint-state-publisher = "*"
+ros-humble-navigation2 = "*"
+ros-humble-nav2-bringup = "*"
+ros-humble-slam-toolbox = "*"
+ros-humble-teleop-twist-keyboard = "*"
+ros-humble-tf2-tools = "*"
+ros-humble-tf-transformations = "*"
+numpy = "*"
+pyyaml = "*"
+colcon-common-extensions = "*"
+compilers = "*"
+cmake = "3.*"
+make = "*"
+pkg-config = "*"
+
+[feature.classic.tasks]
+# Separate build/install trees so the two backends never overwrite each other.
+# Only the packages this backend uses. The rest need ros2_control and
+# robot_localization, which belong to the Fortress environment.
+# yahboom_rosmaster_docking is included because the Nav2 params reference its
+# dock_database.yaml through $(find-pkg-share ...).
+build = "colcon build --symlink-install --build-base build_classic --install-base install_classic --packages-select yahboom_rosmaster_msgs yahboom_rosmaster_description yahboom_rosmaster_gazebo yahboom_rosmaster_navigation yahboom_rosmaster_docking --cmake-args -DCMAKE_BUILD_TYPE=Release -DPython_FIND_VIRTUALENV=ONLY -DPython3_FIND_VIRTUALENV=ONLY"
+sim = "ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_classic.launch.py"
+sim-headless = "ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_classic.launch.py gui:=false rviz:=false"
+slam = "ros2 launch yahboom_rosmaster_gazebo rosmaster_slam_classic.launch.py"
+nav2 = "ros2 launch yahboom_rosmaster_gazebo rosmaster_slam_classic.launch.py nav2:=true"
+teleop = "ros2 run teleop_twist_keyboard teleop_twist_keyboard"
+stop = "bash scripts/stop_sim.sh"
+clean = "rm -rf build_classic install_classic log"
+
+[feature.classic.activation]
+scripts = ["scripts/pixi_activate_classic.sh"]
+
+[environments]
+classic = { features = ["classic"], no-default-feature = true }

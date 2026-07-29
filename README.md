@@ -106,6 +106,52 @@ Verified on an M4 Max: the robot spawns and drives, mecanum strafing works, and
 `/clock`, `/joint_states`, `/odom`, `/imu/data`, `/tf` and `/cmd_vel` all behave
 as they do on Ubuntu.
 
+### Gazebo Classic backend — the full stack on macOS
+
+The Fortress backend above cannot show a Gazebo window or produce a LiDAR scan
+on macOS (see the next section for why). A second backend runs the same robot on
+**Gazebo Classic**, which does both, and therefore supports SLAM and Nav2:
+
+```bash
+pixi run -e classic build     # build into build_classic/ install_classic/
+pixi run -e classic sim       # Gazebo Classic GUI + RViz, robot in a walled room
+```
+
+Then, in another terminal:
+
+```bash
+pixi run -e classic teleop    # drive it: i/, forward-back, j/l turn
+pixi run -e classic nav2      # SLAM + Nav2; set goals with RViz's "2D Goal Pose"
+```
+
+`pixi run -e classic slam` runs mapping without Nav2, and
+`pixi run -e classic stop` tears everything down.
+
+Verified on an M4 Max: the robot drives 0.579 m in 2 s at 0.3 m/s, strafes the
+same distance sideways with no forward drift, the LiDAR reads 2.925 m to a wall
+2.95 m away, slam_toolbox grows the map from 278 to 691 occupied cells while
+driving, and Nav2 reaches a goal 2 m away to within 0.01 m.
+
+| | Fortress (`pixi run sim`) | Classic (`pixi run -e classic sim`) |
+| --- | --- | --- |
+| Gazebo GUI | unavailable | **works** |
+| Driving, mecanum strafe | works | works |
+| LiDAR `/scan` | unavailable | **works** (CPU raycast) |
+| SLAM, Nav2 | needs `/scan`, so no | **works** |
+| Wheels spin visually | yes | no — welded, see below |
+| RGB-D camera | unavailable | unavailable |
+| Matches upstream | yes | macOS-only addition |
+
+Two compromises are worth knowing about. `gazebo_ros_planar_move` imposes a body
+velocity rather than torquing the wheels, so the wheels are welded and do not
+rotate, and the robot is not stopped by obstacles it drives into. Both are
+cosmetic for mapping and navigation work, but the Fortress backend on Linux
+remains the physically faithful one.
+
+The two backends are separate pixi environments because
+`ros-humble-gazebo-ros-pkgs` and `ros-humble-ros-gz` cannot be solved together.
+They also use separate build trees, so neither overwrites the other.
+
 ### What does not work on macOS
 
 Two things are unavailable, both from the same upstream limitation. Gazebo
@@ -135,8 +181,10 @@ with no sensors at all, and with `--iterations` set — so no sensor data was ev
 produced. Whether that hang is fixable was not investigated further; it would
 also mean leaving Humble, which the rest of this repository targets.
 
-Consequences: **RViz replaces the Gazebo GUI** for viewing the robot, and
-anything needing `/scan` — SLAM, Nav2, the docking demo — must run on Linux.
+Consequences for this backend: **RViz replaces the Gazebo GUI**, and anything
+needing `/scan` cannot run on it. That is exactly what the Gazebo Classic
+backend above exists to solve; only the RGB-D camera stays unavailable on macOS
+either way, so the AprilTag docking demo remains Linux-only.
 The launch sets these defaults automatically; to override on a Linux machine
 nothing changes, and both flags can be forced explicitly:
 
