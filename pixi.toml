@@ -114,14 +114,17 @@ pkg-config = "*"
 # robot_localization, which belong to the Fortress environment.
 # yahboom_rosmaster_docking is included because the Nav2 params reference its
 # dock_database.yaml through $(find-pkg-share ...).
-build = "colcon build --symlink-install --build-base build_classic --install-base install_classic --packages-select yahboom_rosmaster_msgs yahboom_rosmaster_description yahboom_rosmaster_gazebo yahboom_rosmaster_navigation yahboom_rosmaster_docking --cmake-args -DCMAKE_BUILD_TYPE=Release -DPython_FIND_VIRTUALENV=ONLY -DPython3_FIND_VIRTUALENV=ONLY"
-sim = "ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_classic.launch.py"
-sim-headless = "ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_classic.launch.py gui:=false rviz:=false"
+# Names are distinct from the default environment's tasks, so `pixi run
+# build-classic` picks the classic environment on its own and plain
+# `pixi run build` stays unambiguously Fortress.
+build-classic = "colcon build --symlink-install --build-base build_classic --install-base install_classic --packages-select yahboom_rosmaster_msgs yahboom_rosmaster_description yahboom_rosmaster_gazebo yahboom_rosmaster_navigation yahboom_rosmaster_docking --cmake-args -DCMAKE_BUILD_TYPE=Release -DPython_FIND_VIRTUALENV=ONLY -DPython3_FIND_VIRTUALENV=ONLY"
+sim-classic = "ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_classic.launch.py"
+sim-classic-headless = "ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_classic.launch.py gui:=false rviz:=false"
 slam = "ros2 launch yahboom_rosmaster_gazebo rosmaster_slam_classic.launch.py"
 nav2 = "ros2 launch yahboom_rosmaster_gazebo rosmaster_slam_classic.launch.py nav2:=true"
 teleop = "ros2 run teleop_twist_keyboard teleop_twist_keyboard"
-stop = "bash scripts/stop_sim.sh"
-clean = "rm -rf build_classic install_classic log"
+stop-classic = "bash scripts/stop_sim.sh"
+clean-classic = "rm -rf build_classic install_classic log"
 
 [feature.classic.activation]
 scripts = ["scripts/pixi_activate_classic.sh"]

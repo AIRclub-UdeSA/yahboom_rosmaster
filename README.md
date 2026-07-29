@@ -113,26 +113,27 @@ on macOS (see the next section for why). A second backend runs the same robot on
 **Gazebo Classic**, which does both, and therefore supports SLAM and Nav2:
 
 ```bash
-pixi run -e classic build     # build into build_classic/ install_classic/
-pixi run -e classic sim       # Gazebo Classic GUI + RViz, robot in a walled room
+pixi run build-classic     # build into build_classic/ install_classic/
+pixi run sim-classic       # Gazebo Classic GUI + RViz, robot in a walled room
 ```
 
 Then, in another terminal:
 
 ```bash
-pixi run -e classic teleop    # drive it: i/, forward-back, j/l turn
-pixi run -e classic nav2      # SLAM + Nav2; set goals with RViz's "2D Goal Pose"
+pixi run teleop            # drive it: i and , forward-back, j and l turn
+pixi run nav2              # SLAM + Nav2; set goals with RViz's "2D Goal Pose"
 ```
 
-`pixi run -e classic slam` runs mapping without Nav2, and
-`pixi run -e classic stop` tears everything down.
+`pixi run slam` runs mapping without Nav2, and `pixi run stop-classic` tears
+everything down. These names are distinct from the Fortress tasks, so pixi picks
+the right environment automatically and `pixi run sim` still means Fortress.
 
 Verified on an M4 Max: the robot drives 0.579 m in 2 s at 0.3 m/s, strafes the
 same distance sideways with no forward drift, the LiDAR reads 2.925 m to a wall
 2.95 m away, slam_toolbox grows the map from 278 to 691 occupied cells while
 driving, and Nav2 reaches a goal 2 m away to within 0.01 m.
 
-| | Fortress (`pixi run sim`) | Classic (`pixi run -e classic sim`) |
+| | Fortress (`pixi run sim`) | Classic (`pixi run sim-classic`) |
 | --- | --- | --- |
 | Gazebo GUI | unavailable | **works** |
 | Driving, mecanum strafe | works | works |
