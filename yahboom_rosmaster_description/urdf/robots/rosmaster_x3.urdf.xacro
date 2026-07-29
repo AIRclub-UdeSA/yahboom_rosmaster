@@ -8,6 +8,16 @@
   <xacro:arg name="robot_name" default="rosmaster_x3"/>
   <xacro:arg name="prefix" default=""/>
   <xacro:arg name="use_gazebo" default="false"/>
+  <!-- Rendering sensors (gpu_lidar, rgbd_camera) need the ogre2 pipeline, which
+       the Gazebo Fortress server cannot initialise on macOS. Set false there to
+       keep the robot, its links and TF while omitting those two sensors. -->
+  <xacro:arg name="render_sensors" default="true"/>
+  <!-- gz_ros2_control only reports joint state here; MecanumDrive owns motion.
+       Activating a controller aborts the Gazebo server on macOS because
+       ros2_control waits on a condition variable holding an unlocked mutex,
+       which libc++ rejects. Set false to publish joint state straight from
+       Gazebo instead and skip ros2_control entirely. -->
+  <xacro:arg name="use_ros2_control" default="true"/>
   <!-- Contact parameters are supplied by the simulator motion profile. These
        defaults preserve the ideal description when xacro is expanded directly. -->
   <xacro:arg name="wheel_mu" default="1.0"/>
@@ -78,7 +88,8 @@
     prefix="$(arg prefix)"
     camera_name="cam_1"
     xyz_offset="0.105 0 0.05"
-    rpy_offset="0 0 0"/>
+    rpy_offset="0 0 0"
+    enable_gz_sensor="$(arg render_sensors)"/>
 
   <xacro:lidar_sensor
     prefix="$(arg prefix)"
@@ -89,7 +100,8 @@
     mesh_xyz_offset="0 0 0"
     mesh_rpy_offset="${-M_PI/2} 0 0"
     update_rate="5"
-    topic_name="scan"/>
+    topic_name="scan"
+    enable_gz_sensor="$(arg render_sensors)"/>
 
   <xacro:imu_sensor
     prefix="$(arg prefix)"
@@ -104,9 +116,20 @@
        wheel and IMU state; native MecanumDrive owns wheel velocity commands. -->
   <xacro:if value="$(arg use_gazebo)">
     <gazebo>
-      <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
-        <parameters>$(find yahboom_rosmaster_gazebo)/config/ros2_control.yaml</parameters>
-      </plugin>
+      <xacro:if value="$(arg use_ros2_control)">
+        <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+          <parameters>$(find yahboom_rosmaster_gazebo)/config/ros2_control.yaml</parameters>
+        </plugin>
+      </xacro:if>
+
+      <!-- Same wheel-state source as joint_state_broadcaster, published by
+           Gazebo itself. ros_gz_bridge turns it into /joint_states. -->
+      <xacro:unless value="$(arg use_ros2_control)">
+        <plugin filename="ignition-gazebo-joint-state-publisher-system"
+                name="ignition::gazebo::systems::JointStatePublisher">
+          <topic>joint_states_gz</topic>
+        </plugin>
+      </xacro:unless>
 
       <plugin filename="ignition-gazebo-mecanum-drive-system"
               name="ignition::gazebo::systems::MecanumDrive">

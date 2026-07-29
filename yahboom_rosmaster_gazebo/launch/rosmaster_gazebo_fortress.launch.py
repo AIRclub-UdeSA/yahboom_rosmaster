@@ -6,8 +6,10 @@ Uses the native Gazebo MecanumDrive system for wheel velocity commands, with
 gz_ros2_control kept read-only for joint states and wheel-link TF.
 """
 import os
+import platform
 import shutil
 import subprocess
+import tempfile
 import time
 
 import yaml
@@ -17,12 +19,13 @@ from launch.actions import (
     AppendEnvironmentVariable,
     DeclareLaunchArgument,
     ExecuteProcess,
+    LogInfo,
     RegisterEventHandler,
     SetEnvironmentVariable,
     TimerAction,
     OpaqueFunction,
 )
-from launch.conditions import UnlessCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnShutdown
 from launch.logging import get_logger
 from launch.substitutions import LaunchConfiguration
@@ -78,11 +81,18 @@ def _launch_robot(context, xacro_path, profile_config):
     """Expand the selected motion profile once for RSP and Gazebo spawn."""
     profile_name = LaunchConfiguration("motion_profile").perform(context)
     profile = _load_motion_profile(profile_config, profile_name)
+    render_sensors = LaunchConfiguration("render_sensors").perform(context)
+    if render_sensors.lower() not in ("true", "1", "yes"):
+        get_logger("rosmaster_gazebo_render_sensors").warning(
+            "Rendering sensors (LiDAR, RGB-D camera) are disabled; /scan and "
+            "/cam_1 topics will stay silent")
     command = [
         "xacro", xacro_path,
         "use_gazebo:=true",
         "robot_name:=rosmaster_x3",
         "prefix:=",
+        f"render_sensors:={render_sensors}",
+        f"use_ros2_control:={LaunchConfiguration('use_ros2_control').perform(context)}",
     ]
     command.extend(f"{key}:={profile[key]}" for key in MOTION_PROFILE_KEYS)
     robot_description = subprocess.check_output(command, text=True)
@@ -119,11 +129,37 @@ def _launch_robot(context, xacro_path, profile_config):
     ]
 
 
+def _rviz_config_for_platform(default_rviz):
+    """Return an RViz config the host can actually open.
+
+    The Camera display builds a second OGRE render panel, which aborts RViz on
+    macOS with "mutex lock failed". macOS has no simulated camera anyway, so
+    drop that one display and keep a single config as the source of truth.
+    """
+    if platform.system() != "Darwin":
+        return default_rviz
+
+    with open(default_rviz, encoding="utf-8") as config_file:
+        config = yaml.safe_load(config_file)
+
+    displays = config.get("Visualization Manager", {}).get("Displays", [])
+    config["Visualization Manager"]["Displays"] = [
+        display for display in displays
+        if display.get("Class") != "rviz_default_plugins/Camera"
+    ]
+
+    patched = os.path.join(tempfile.gettempdir(), "rosmaster_gazebo_macos.rviz")
+    with open(patched, "w", encoding="utf-8") as config_file:
+        yaml.safe_dump(config, config_file, sort_keys=False)
+    return patched
+
+
 def _launch_rviz(context):
     launch_rviz = context.launch_configurations.get("rviz", "true")
     if launch_rviz.lower() in ("true", "1", "yes"):
         pkg_gz = get_package_share_directory("yahboom_rosmaster_gazebo")
-        default_rviz = os.path.join(pkg_gz, "rviz", "gazebo.rviz")
+        default_rviz = _rviz_config_for_platform(
+            os.path.join(pkg_gz, "rviz", "gazebo.rviz"))
         use_sim_time = context.launch_configurations.get("use_sim_time", "true")
         rviz_node = Node(
             package="rviz2",
@@ -227,6 +263,30 @@ def generate_launch_description():
     declare_headless = DeclareLaunchArgument(
         "headless", default_value="false",
         description="Skip Gazebo GUI client — server-only for autonomous/CI debugging")
+    # The Gazebo Fortress server initialises ogre2 on its own render thread,
+    # which macOS forbids (NSWindow is main-thread only) and which segfaults the
+    # server as soon as a gpu_lidar or rgbd_camera spawns. Default those sensors
+    # off on macOS so the rest of the simulation runs.
+    declare_render_sensors = DeclareLaunchArgument(
+        "render_sensors",
+        default_value="false" if platform.system() == "Darwin" else "true",
+        choices=["true", "false"],
+        description=(
+            "Spawn the rendering sensors (LiDAR, RGB-D camera). Unsupported by "
+            "the Gazebo Fortress server on macOS"),
+    )
+    # Activating a controller calls ControllerManager::switch_controller, which
+    # waits on a condition variable holding a deferred (unlocked) mutex. libc++
+    # raises EPERM there inside a noexcept function, so the Gazebo server
+    # aborts. Publish joint state directly from Gazebo on macOS instead.
+    declare_use_ros2_control = DeclareLaunchArgument(
+        "use_ros2_control",
+        default_value="false" if platform.system() == "Darwin" else "true",
+        choices=["true", "false"],
+        description=(
+            "Use gz_ros2_control for joint state. When false, Gazebo's "
+            "JointStatePublisher feeds /joint_states through ros_gz_bridge"),
+    )
     declare_motion_profile = DeclareLaunchArgument(
         "motion_profile",
         default_value="stress",
@@ -252,6 +312,12 @@ def generate_launch_description():
     # Gazebo Fortress GUI — skipped when headless:=true.
     # QT_QPA_PLATFORM=xcb forces X11/XWayland mode on Wayland sessions;
     # without it the Qt platform default fails on AMD Wayland, leaving a white window.
+    # The Gazebo GUI cannot run on macOS: ign-gui builds its 3D scene on a
+    # secondary thread, and creating the ogre2 render window there trips the
+    # same NSWindow main-thread rule that blocks rendering sensors. The `ign
+    # gazebo` CLI refuses `-g` there for this reason (gazebosim/gz-sim#44).
+    # Use RViz for visualisation instead.
+    gazebo_client_supported = platform.system() != "Darwin"
     gazebo_client = ExecuteProcess(
         cmd=[
             "ruby", ign_executable, "gazebo", "-g",
@@ -259,7 +325,8 @@ def generate_launch_description():
         ],
         output="screen",
         condition=UnlessCondition(headless),
-    )
+    ) if gazebo_client_supported else LogInfo(
+        msg="macOS: skipping the Gazebo GUI (unsupported); use RViz to view the robot")
 
     # Bridge Gazebo command input and sensor topics.
     ros_gz_bridge = Node(
@@ -284,6 +351,8 @@ def generate_launch_description():
     # Load and activate the read-only joint state broadcaster. The spawner waits
     # longer than `ros2 control load_controller`, which helps GUI starts on busy
     # machines where the controller manager is late to answer service calls.
+    use_ros2_control = LaunchConfiguration("use_ros2_control")
+
     load_joint_state_broadcaster = ExecuteProcess(
         cmd=[
             "ros2", "run", "controller_manager", "spawner",
@@ -293,6 +362,17 @@ def generate_launch_description():
             "--service-call-timeout", "60",
         ],
         output="screen",
+        condition=IfCondition(use_ros2_control),
+    )
+
+    # Stands in for joint_state_broadcaster when ros2_control is disabled.
+    joint_state_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        arguments=["/joint_states_gz@sensor_msgs/msg/JointState[ignition.msgs.Model"],
+        remappings=[("/joint_states_gz", "/joint_states")],
+        output="screen",
+        condition=UnlessCondition(use_ros2_control),
     )
 
     # Native MecanumDrive has no command timeout in Fortress 6.16, so keep the
@@ -315,9 +395,14 @@ def generate_launch_description():
         declare_world,
         declare_rviz,
         declare_headless,
+        declare_render_sensors,
+        declare_use_ros2_control,
         declare_motion_profile,
-        # Force X11/XWayland for Gazebo GUI — prevents white window on Wayland + AMD GPU
-        SetEnvironmentVariable("QT_QPA_PLATFORM", "xcb"),
+        # Force X11/XWayland for Gazebo GUI — prevents white window on Wayland + AMD GPU.
+        # macOS has no xcb platform plugin; setting it there breaks every Qt app,
+        # RViz included.
+        *([] if platform.system() == "Darwin"
+          else [SetEnvironmentVariable("QT_QPA_PLATFORM", "xcb")]),
         # Match ros_gz_sim's plugin search environment for ROS-installed Gazebo
         # systems such as gz_ros2_control while bypassing its shell wrapper.
         AppendEnvironmentVariable(
@@ -341,6 +426,7 @@ def generate_launch_description():
         TimerAction(period=5.0, actions=[
             ros_gz_bridge,
             ros_gz_image_bridge,
+            joint_state_bridge,
             cmd_vel_watchdog,
         ]),
         TimerAction(period=12.0, actions=[

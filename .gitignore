@@ -10,3 +10,6 @@ __pycache__/
 
 # Local audit workspace (findings, command logs, and agent handoffs)
 /AGENT/
+
+# pixi (macOS/RoboStack workflow) — the solved environment, not the manifest
+.pixi/

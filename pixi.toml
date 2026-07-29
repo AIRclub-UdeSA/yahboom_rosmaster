@@ -1,0 +1,76 @@
+[workspace]
+name = "yahboom_rosmaster"
+version = "1.0.0"
+description = "RoboStack (conda) environment for the Yahboom ROSMASTER X3 simulation on macOS"
+authors = ["AIRclub UdeSA"]
+channels = ["https://prefix.dev/robostack-humble", "https://prefix.dev/conda-forge"]
+platforms = ["osx-arm64"]
+
+[dependencies]
+# --- ROS 2 Humble core + GUI tools (RViz2, rqt, common messages) ---
+ros-humble-desktop = "*"
+
+# --- Gazebo Fortress integration (README-supported pairing) ---
+ros-humble-ros-gz-sim = "*"
+ros-humble-ros-gz-bridge = "*"
+ros-humble-ros-gz-image = "*"
+ros-humble-ros-gz-interfaces = "*"
+ros-humble-gz-ros2-control = "*"
+
+# --- Control stack ---
+ros-humble-ros2-control = "*"
+ros-humble-ros2-controllers = "*"
+ros-humble-controller-manager = "*"
+ros-humble-ros2controlcli = "*"
+
+# --- Navigation / localization ---
+ros-humble-navigation2 = "*"
+ros-humble-nav2-bringup = "*"
+ros-humble-nav2-simple-commander = "*"
+ros-humble-slam-toolbox = "*"
+ros-humble-robot-localization = "*"
+
+# --- Perception / docking ---
+ros-humble-apriltag-ros = "*"
+ros-humble-image-proc = "*"
+
+# --- Model / TF utilities ---
+ros-humble-xacro = "*"
+ros-humble-robot-state-publisher = "*"
+ros-humble-joint-state-publisher = "*"
+ros-humble-joint-state-publisher-gui = "*"
+ros-humble-tf-transformations = "*"
+ros-humble-topic-tools = "*"
+ros-humble-rviz-imu-plugin = "*"
+ros-humble-rqt-robot-steering = "*"
+
+# --- Python runtime deps (package.xml: python3-numpy, python3-yaml) ---
+numpy = "*"
+pyyaml = "*"
+setuptools = "*"
+
+# --- Build toolchain ---
+colcon-common-extensions = "*"
+compilers = "*"
+cmake = "3.*"
+make = "*"
+ninja = "*"
+pkg-config = "*"
+
+[tasks]
+# Python_FIND_VIRTUALENV=ONLY keeps CMake's FindPython inside the conda env;
+# without it, packages with pre-3.15 cmake_minimum_required scan newest-first
+# and latch onto Homebrew/system Python frameworks (missing NumPy) on macOS.
+build = "colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release -DPython_FIND_VIRTUALENV=ONLY -DPython3_FIND_VIRTUALENV=ONLY"
+clean = "rm -rf build install log"
+stop = "bash scripts/stop_sim.sh"
+
+[tasks.sim]
+cmd = "ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py"
+depends-on = []
+
+[tasks.sim-headless]
+cmd = "ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py rviz:=false headless:=true"
+
+[activation]
+scripts = ["scripts/pixi_activate.sh"]

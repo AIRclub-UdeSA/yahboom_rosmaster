@@ -46,7 +46,8 @@
     update_rate:=2
     always_on:=1
     visualize:=false
-    enable_collision:=false">
+    enable_collision:=false
+    enable_gz_sensor:=true">
 
     <!-- Fortress 6.8 populates RGB-D CameraInfo before configuring the
          renderer, so its implicit values remain the SDFormat 320x240 defaults
@@ -154,6 +155,9 @@
          by the world. Data is bridged to ROS by ros_gz_bridge and ros_gz_image.
          libgazebo_ros_camera.so is Classic-only and must NOT be used here. -->
     <gazebo reference="${prefix}${camera_name}_link">
+      <!-- See lidar.urdf.xacro: the ogre2 render pipeline cannot initialise in
+           the Gazebo server's render thread on macOS. -->
+      <xacro:if value="${enable_gz_sensor}">
       <sensor name="${prefix}${camera_name}" type="rgbd_camera">
         <camera>
           <!-- Gazebo renders cameras with +X forward, while ROS image data
@@ -197,6 +201,7 @@
         <topic>${prefix}${camera_name}</topic>
         <gz_frame_id>${prefix}${camera_name}_depth_frame</gz_frame_id>
       </sensor>
+      </xacro:if>
     </gazebo>
 
   </xacro:macro>

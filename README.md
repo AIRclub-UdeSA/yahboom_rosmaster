@@ -14,6 +14,10 @@ robot-facing odometry.
 Gazebo Fortress is the supported simulator backend. Gazebo Classic is not
 supported by the current mecanum simulator.
 
+Ubuntu 22.04 is the fully supported platform. Apple Silicon Macs run the
+simulation natively through RoboStack — see [macOS (Apple Silicon)](#macos-apple-silicon),
+which also documents the two sensors macOS cannot simulate.
+
 ## Requirements
 
 - Ubuntu 22.04
@@ -74,6 +78,90 @@ simulator:
 source /opt/ros/humble/setup.bash
 source ~/rosmaster_ws/install/setup.bash
 ```
+
+## macOS (Apple Silicon)
+
+macOS has no ROS 2 Humble debs, so the environment comes from
+[RoboStack](https://robostack.github.io/) conda packages managed by
+[pixi](https://pixi.sh). `pixi.toml` pins ROS 2 Humble, Gazebo Fortress 6 and
+the build toolchain; `pixi.lock` makes every machine resolve identically.
+
+```bash
+brew install pixi
+
+git clone https://github.com/AIRclub-UdeSA/yahboom_rosmaster.git
+cd yahboom_rosmaster
+
+pixi install        # solve and download the ROS 2 + Gazebo environment
+pixi run build      # colcon build all nine packages
+pixi run sim        # launch the simulation and RViz
+```
+
+`pixi run <task>` runs inside the environment, so no `source` step is needed.
+For an interactive shell with ROS 2 on the path, use `pixi shell`. Other tasks:
+`pixi run sim-headless` (no RViz), `pixi run stop` (tear down every simulation
+process), and `pixi run clean`.
+
+Verified on an M4 Max: the robot spawns and drives, mecanum strafing works, and
+`/clock`, `/joint_states`, `/odom`, `/imu/data`, `/tf` and `/cmd_vel` all behave
+as they do on Ubuntu.
+
+### What does not work on macOS
+
+Two things are unavailable, both from the same upstream limitation. Gazebo
+initialises its ogre2 renderer on a secondary thread, and macOS only permits
+window creation on the main thread, so the render context cannot be created:
+
+| Feature | Status |
+| --- | --- |
+| LiDAR `/scan`, RGB-D `/cam_1/*` | Unavailable — would crash the server, so the launch omits both sensors |
+| Gazebo GUI | Unavailable — `ign gazebo -g` refuses to start on macOS |
+| Everything else | Works natively |
+
+The fix for this exists only in Gazebo Garden and newer
+([gz-sim#960](https://github.com/gazebosim/gz-sim/issues/960),
+[gz-sim#1225](https://github.com/gazebosim/gz-sim/pull/1225)) and was never
+backported to Fortress. It cannot be worked around from this repository:
+`libignition-rendering6` requires `ogre-next 2.2.x`, and no conda-forge build of
+that series ships the Metal render system. Gazebo's own macOS CI has had these
+sensors failing since 2022
+([gz-rendering#654](https://github.com/gazebosim/gz-rendering/issues/654)).
+
+Consequences: **RViz replaces the Gazebo GUI** for viewing the robot, and
+anything needing `/scan` — SLAM, Nav2, the docking demo — must run on Linux.
+The launch sets these defaults automatically; to override on a Linux machine
+nothing changes, and both flags can be forced explicitly:
+
+```bash
+ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
+  render_sensors:=true use_ros2_control:=true
+```
+
+### macOS-specific settings
+
+`scripts/pixi_activate.sh` exports four settings on activation. Each fixes a
+failure that otherwise looks like a hang or a network fault:
+
+- `ROS_LOCALHOST_ONLY=1` — a Mac exposes ~20 multicast interfaces (`en0`,
+  `awdl0`, `bridge0`, `utun0-5`). DDS participants pick different ones and never
+  discover each other, leaving each node with a partial ROS graph. Set it to `0`
+  after activation to reach a physical robot over the network.
+- `IGN_IP` / `GZ_IP=127.0.0.1` — the same problem in Gazebo's own transport;
+  without it `ign service -l` returns nothing.
+- `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` — the more reliable middleware here.
+- `IGN_GAZEBO_SYSTEM_PLUGIN_PATH` — Gazebo seeds its plugin search from
+  `LD_LIBRARY_PATH`, which conda never sets and macOS does not use.
+
+Two further macOS behaviours are handled inside the launch file: `ros2_control`
+is bypassed in favour of Gazebo's own `JointStatePublisher` (activating a
+controller aborts the server, because `ros2_control` waits on a condition
+variable holding an unlocked mutex and libc++ rejects that), and RViz's Camera
+display is stripped from the config (it builds a second render panel and aborts
+RViz).
+
+If a run ends badly, `pixi run stop` clears every leftover process. This matters
+more than it sounds: a stale `robot_state_publisher` creates a duplicate node
+name that breaks discovery for the next run.
 
 ## Quick Start
 

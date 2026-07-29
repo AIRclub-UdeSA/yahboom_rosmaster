@@ -36,7 +36,8 @@
     topic_name:='scan'
     always_on:=true
     visualize:=false
-    enable_collision:=false">
+    enable_collision:=false
+    enable_gz_sensor:=true">
 
     <xacro:property name="radius" value="${lidar_width/2}" />
     <xacro:property name="ixx_iyy" value="${(mass/12) * (3 * radius * radius + lidar_height * lidar_height)}" />
@@ -93,6 +94,11 @@
            type="gpu_lidar" uses the ogre2 render pipeline (enabled in empty.world).
            libgazebo_ros_ray_sensor.so is Classic-only and must not be used here.
            Data flows via ros_gz_bridge (gz.msgs.LaserScan → sensor_msgs/LaserScan). -->
+      <!-- gpu_lidar drives the ogre2 render pipeline, which cannot initialise in
+           the Gazebo server's render thread on macOS (NSWindow is main-thread
+           only). Set enable_gz_sensor to false there to keep the link and TF
+           while leaving the rendering sensor out. -->
+      <xacro:if value="${enable_gz_sensor}">
       <sensor name="${prefix}lidar_sensor" type="gpu_lidar">
         <update_rate>${update_rate}</update_rate>
         <always_on>${always_on}</always_on>
@@ -128,6 +134,7 @@
           </noise>
         </lidar>
       </sensor>
+      </xacro:if>
     </gazebo>
   </xacro:macro>
 </robot>
