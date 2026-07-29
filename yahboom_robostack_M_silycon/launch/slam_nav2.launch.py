@@ -2,11 +2,11 @@
 """
 SLAM (and optionally Nav2) on top of the Gazebo Classic backend.
 
-Run rosmaster_gazebo_classic.launch.py first, then this. The lidar feeding it is
-Gazebo Classic's CPU raycast sensor, which is the only lidar that works on macOS.
+Start the simulation first, then this. The lidar feeding it is Gazebo Classic's
+CPU raycast sensor, the only lidar that works on macOS.
 
-  ros2 launch yahboom_rosmaster_gazebo rosmaster_slam_classic.launch.py
-  ros2 launch yahboom_rosmaster_gazebo rosmaster_slam_classic.launch.py nav2:=true
+  ./run slam      # mapping only
+  ./run nav2      # mapping plus navigation
 """
 import os
 

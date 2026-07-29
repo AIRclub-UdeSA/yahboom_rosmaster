@@ -108,50 +108,41 @@ as they do on Ubuntu.
 
 ### Gazebo Classic backend — the full stack on macOS
 
-The Fortress backend above cannot show a Gazebo window or produce a LiDAR scan
-on macOS (see the next section for why). A second backend runs the same robot on
-**Gazebo Classic**, which does both, and therefore supports SLAM and Nav2:
+The Fortress backend above cannot open a Gazebo window or produce a LiDAR scan on
+macOS (see the next section for why). A second backend runs the same robot on
+**Gazebo Classic**, which does both, and therefore supports SLAM and Nav2.
+
+It lives in its own folder with a single entry point and its own guide:
 
 ```bash
-pixi run build-classic     # build into build_classic/ install_classic/
-pixi run sim-classic       # Gazebo Classic GUI + RViz, robot in a walled room
+cd yahboom_robostack_M_silycon
+./run setup && ./run build && ./run sim
 ```
 
-Then, in another terminal:
+See [`yahboom_robostack_M_silycon/README.md`](yahboom_robostack_M_silycon/README.md)
+for the full walkthrough, including teleop, mapping and navigation. The same
+launches are also available from the repository root as `pixi run sim-classic`,
+`pixi run slam` and `pixi run nav2`.
 
-```bash
-pixi run teleop            # drive it: i and , forward-back, j and l turn
-pixi run nav2              # SLAM + Nav2; set goals with RViz's "2D Goal Pose"
-```
-
-`pixi run slam` runs mapping without Nav2, and `pixi run stop-classic` tears
-everything down. These names are distinct from the Fortress tasks, so pixi picks
-the right environment automatically and `pixi run sim` still means Fortress.
-
-Verified on an M4 Max: the robot drives 0.579 m in 2 s at 0.3 m/s, strafes the
-same distance sideways with no forward drift, the LiDAR reads 2.925 m to a wall
-2.95 m away, slam_toolbox grows the map from 278 to 691 occupied cells while
-driving, and Nav2 reaches a goal 2 m away to within 0.01 m.
-
-| | Fortress (`pixi run sim`) | Classic (`pixi run sim-classic`) |
+| | Fortress (`pixi run sim`) | Classic (`./run sim`) |
 | --- | --- | --- |
 | Gazebo GUI | unavailable | **works** |
 | Driving, mecanum strafe | works | works |
 | LiDAR `/scan` | unavailable | **works** (CPU raycast) |
 | SLAM, Nav2 | needs `/scan`, so no | **works** |
-| Wheels spin visually | yes | no — welded, see below |
+| Wheels spin visually | yes | no — welded |
+| Obstacles block the robot | yes | no |
 | RGB-D camera | unavailable | unavailable |
 | Matches upstream | yes | macOS-only addition |
 
-Two compromises are worth knowing about. `gazebo_ros_planar_move` imposes a body
-velocity rather than torquing the wheels, so the wheels are welded and do not
-rotate, and the robot is not stopped by obstacles it drives into. Both are
-cosmetic for mapping and navigation work, but the Fortress backend on Linux
-remains the physically faithful one.
+`gazebo_ros_planar_move` imposes a body velocity rather than torquing the wheels,
+which is why the wheels do not turn and collisions do not stop the base. Both are
+cosmetic for mapping and navigation, but the Fortress backend on Linux remains
+the physically faithful one.
 
 The two backends are separate pixi environments because
-`ros-humble-gazebo-ros-pkgs` and `ros-humble-ros-gz` cannot be solved together.
-They also use separate build trees, so neither overwrites the other.
+`ros-humble-gazebo-ros-pkgs` and `ros-humble-ros-gz` cannot be solved together,
+and they use separate build trees so neither overwrites the other.
 
 ### What does not work on macOS
 

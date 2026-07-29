@@ -68,10 +68,12 @@ def _robot_description(context):
 
 
 def generate_launch_description():
-    pkg_gz = get_package_share_directory("yahboom_rosmaster_gazebo")
+    # This folder owns its world and RViz config, so resolve them next to this
+    # file rather than through an installed package share.
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    default_world = os.path.join(pkg_gz, "worlds", "classic_obstacles.world")
-    default_rviz = os.path.join(pkg_gz, "rviz", "classic.rviz")
+    default_world = os.path.join(here, "worlds", "classic_obstacles.world")
+    default_rviz = os.path.join(here, "rviz", "classic.rviz")
 
     declare_world = DeclareLaunchArgument("world", default_value=default_world)
     declare_use_sim_time = DeclareLaunchArgument("use_sim_time", default_value="true")
