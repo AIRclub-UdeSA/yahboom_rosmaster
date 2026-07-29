@@ -366,11 +366,24 @@ def generate_launch_description():
     )
 
     # Stands in for joint_state_broadcaster when ros2_control is disabled.
+    # Gazebo's JointStatePublisher has no rate control and fires every sim step,
+    # so the raw topic arrives near 1 kHz; throttle it to the same 30 Hz
+    # joint_state_broadcaster uses, which also paces /odom and /tf downstream.
     joint_state_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
+        name="joint_state_bridge",
         arguments=["/joint_states_gz@sensor_msgs/msg/JointState[ignition.msgs.Model"],
-        remappings=[("/joint_states_gz", "/joint_states")],
+        remappings=[("/joint_states_gz", "/joint_states_raw")],
+        output="screen",
+        condition=UnlessCondition(use_ros2_control),
+    )
+
+    joint_state_throttle = Node(
+        package="topic_tools",
+        executable="throttle",
+        name="joint_state_throttle",
+        arguments=["messages", "/joint_states_raw", "30.0", "/joint_states"],
         output="screen",
         condition=UnlessCondition(use_ros2_control),
     )
@@ -427,6 +440,7 @@ def generate_launch_description():
             ros_gz_bridge,
             ros_gz_image_bridge,
             joint_state_bridge,
+            joint_state_throttle,
             cmd_vel_watchdog,
         ]),
         TimerAction(period=12.0, actions=[
