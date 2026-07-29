@@ -127,6 +127,14 @@ that series ships the Metal render system. Gazebo's own macOS CI has had these
 sensors failing since 2022
 ([gz-rendering#654](https://github.com/gazebosim/gz-rendering/issues/654)).
 
+Newer Gazebo does carry the fix, so moving off Fortress is the only real
+alternative. That was tried and did not pan out: in a scratch RoboStack Jazzy
+environment, Gazebo Harmonic 8.10 does ship `RenderSystem_Metal` and starts
+without the macOS window error, but `gz sim -s` then hung during world load —
+with no sensors at all, and with `--iterations` set — so no sensor data was ever
+produced. Whether that hang is fixable was not investigated further; it would
+also mean leaving Humble, which the rest of this repository targets.
+
 Consequences: **RViz replaces the Gazebo GUI** for viewing the robot, and
 anything needing `/scan` — SLAM, Nav2, the docking demo — must run on Linux.
 The launch sets these defaults automatically; to override on a Linux machine
