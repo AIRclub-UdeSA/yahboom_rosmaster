@@ -40,6 +40,24 @@ for f in launch/simulation.launch.py launch/slam_nav2.launch.py \
   [ -f "${HERE}/${f}" ] && ok "$f" || bad "$f missing"
 done
 
+# The drift model lives in the shared gazebo package, not this folder.
+bias="${REPO}/yahboom_rosmaster_gazebo/config/motion_bias.yaml"
+[ -f "$bias" ] && ok "motion_bias.yaml" || bad "motion_bias.yaml missing"
+
+# colcon --symlink-install links these into the install tree instead of copying,
+# so a source file without the executable bit makes ros2 launch report the node
+# as "not found on the libexec directory".
+for s in cmd_vel_watchdog.py wheel_state_odometry.py; do
+  script="${REPO}/yahboom_rosmaster_gazebo/scripts/${s}"
+  if [ ! -f "$script" ]; then
+    bad "${s} missing"
+  elif [ -x "$script" ]; then
+    ok "${s} is executable"
+  else
+    bad "${s} is not executable - run: chmod +x ${script}"
+  fi
+done
+
 echo "Runtime checks"
 if [ -d "${REPO}/.pixi/envs/classic" ]; then
   cd "$REPO"

@@ -365,7 +365,7 @@ a physical ROSMASTER X3. See
 | `/ground_truth/odom` | `nav_msgs/msg/Odometry` | `world` -> `base_footprint` / 50 Hz | Measurement-only Gazebo ground truth; not TF |
 | `/tf` | `tf2_msgs/msg/TFMessage` | — | Dynamic transforms |
 | `/tf_static` | `tf2_msgs/msg/TFMessage` | — | Static robot transforms |
-| `/scan` | `sensor_msgs/msg/LaserScan` | `laser_frame` / 5 Hz | 720-sample 2D LiDAR scan |
+| `/scan` | `sensor_msgs/msg/LaserScan` | `laser_frame` / 5 Hz | 1080-sample 2D LiDAR scan |
 | `/imu/data` | `sensor_msgs/msg/Imu` | `imu_link` / 15 Hz | Simulated IMU data |
 | `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | `cam_1_depth_optical_frame` / 2 Hz | 424x240 `rgb8` image |
 | `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | `cam_1_depth_optical_frame` / 2 Hz | 424x240 `32FC1` depth in metres |

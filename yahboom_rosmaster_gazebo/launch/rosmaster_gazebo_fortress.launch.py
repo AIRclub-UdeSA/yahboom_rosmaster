@@ -287,6 +287,14 @@ def generate_launch_description():
             "Use gz_ros2_control for joint state. When false, Gazebo's "
             "JointStatePublisher feeds /joint_states through ros_gz_bridge"),
     )
+    declare_motion_bias = DeclareLaunchArgument(
+        "motion_bias",
+        default_value="true",
+        description=(
+            "Add the per-direction drift of an uncalibrated mecanum base to "
+            "/cmd_vel. Sampled randomly per launch, so switch it off for tests "
+            "that assert an exact trajectory"),
+    )
     declare_motion_profile = DeclareLaunchArgument(
         "motion_profile",
         default_value="stress",
@@ -391,13 +399,22 @@ def generate_launch_description():
     # Native MecanumDrive has no command timeout in Fortress 6.16, so keep the
     # public /cmd_vel contract and publish zero to the internal bridge topic when
     # commands stop. motion_bias_file adds the per-direction drift that makes an
-    # uncalibrated mecanum base behave like the real one.
-    cmd_vel_watchdog = Node(
-        package="yahboom_rosmaster_gazebo",
-        executable="cmd_vel_watchdog.py",
-        output="screen",
-        parameters=[{"motion_bias_file": motion_bias_config}],
-    )
+    # uncalibrated mecanum base behave like the real one; it is sampled afresh
+    # each launch, so tests asserting an exact trajectory must switch it off.
+    # An empty motion_bias_file is how the watchdog is told to relay unmodified,
+    # so the two variants differ only in that parameter.
+    def _watchdog(bias_file, condition):
+        return Node(
+            package="yahboom_rosmaster_gazebo",
+            executable="cmd_vel_watchdog.py",
+            output="screen",
+            parameters=[{"motion_bias_file": bias_file}],
+            condition=condition,
+        )
+
+    motion_bias = LaunchConfiguration("motion_bias")
+    cmd_vel_watchdog = _watchdog(motion_bias_config, IfCondition(motion_bias))
+    cmd_vel_watchdog_unbiased = _watchdog("", UnlessCondition(motion_bias))
 
     # Encoder-style odometry from wheel joint states remains separate from the
     # measurement-only /ground_truth/odom bridge and owns odom->base TF.
@@ -413,6 +430,7 @@ def generate_launch_description():
         declare_headless,
         declare_render_sensors,
         declare_use_ros2_control,
+        declare_motion_bias,
         declare_motion_profile,
         # Force X11/XWayland for Gazebo GUI — prevents white window on Wayland + AMD GPU.
         # macOS has no xcb platform plugin; setting it there breaks every Qt app,
@@ -445,6 +463,7 @@ def generate_launch_description():
             joint_state_bridge,
             joint_state_throttle,
             cmd_vel_watchdog,
+            cmd_vel_watchdog_unbiased,
         ]),
         TimerAction(period=12.0, actions=[
             load_joint_state_broadcaster,

@@ -69,7 +69,7 @@ unmapped — drive closer and try again.
 
 | Topic | Meaning |
 | --- | --- |
-| `/scan` | LiDAR, 720 beams over 360° |
+| `/scan` | LiDAR, 1080 beams over 360°, 0.25–12 m |
 | `/odom` | position and velocity estimate |
 | `/tf`, `/tf_static` | coordinate frames |
 | `/cmd_vel` | velocity commands (publish here to drive it) |
@@ -78,6 +78,24 @@ unmapped — drive closer and try again.
 
 Inspect them with `cd .. && pixi run -e classic bash`, then ordinary
 `ros2 topic list`, `ros2 topic echo /scan`, and so on.
+
+## The robot drifts on purpose
+
+Drive straight and you will see the robot curve gently to one side. That is
+deliberate. A real mecanum base is never perfectly calibrated: its wheels differ
+slightly, so a "go forward" command also produces a little sideways and rotational
+motion. The simulation copies that, with the amount drawn at random each time you
+launch, so you cannot tune your code to one fixed error.
+
+This is the point of closed-loop control — SLAM and Nav2 correct for it
+continuously, which is why they still reach their goals. If you want the ideal,
+drift-free robot while debugging something else:
+
+```bash
+cd .. && pixi run -e classic ros2 launch yahboom_robostack_M_silycon/launch/simulation.launch.py motion_bias:=false
+```
+
+The amounts live in `../yahboom_rosmaster_gazebo/config/motion_bias.yaml`.
 
 ## Two things this simulation does not do
 

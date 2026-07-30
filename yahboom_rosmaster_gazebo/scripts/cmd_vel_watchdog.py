@@ -50,7 +50,8 @@ class CmdVelWatchdog(Node):
                                 sampled_val = random.uniform(-float(max_val), float(max_val))
                                 self.biases[category][axis] = sampled_val
 
-                        self.get_logger().info(f"Sampled randomized motion biases from {bias_file}")
+                        self.get_logger().info(
+                            f"Sampled randomized motion biases from {bias_file}")
                         self.get_logger().debug(f"Session Biases: {self.biases}")
             except Exception as e:
                 self.get_logger().error(f"Failed to load motion bias file '{bias_file}': {e}")

@@ -24,6 +24,10 @@ PATTERNS=(
   "ros_gz_sim/create"
   "robot_state_publisher"
   "parameter_bridge"
+  # topic_tools installs the throttle as a bare binary, so it matches neither
+  # "ros2 launch" nor its own node name without this.
+  "topic_tools/throttle"
+  "joint_state_throttle"
   "ros_gz_image/image_bridge"
   "cmd_vel_watchdog.py"
   "wheel_state_odometry.py"
