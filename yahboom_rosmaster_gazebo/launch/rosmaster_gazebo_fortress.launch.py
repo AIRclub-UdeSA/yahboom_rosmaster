@@ -253,7 +253,7 @@ def generate_launch_description():
     default_xacro = os.path.join(pkg_desc, "urdf", "robots", "rosmaster_x3.urdf.xacro")
     bridge_config = os.path.join(pkg_gz, "config", "ros_gz_bridge.yaml")
     motion_profile_config = os.path.join(pkg_gz, "config", "motion_profiles.yaml")
-    cmd_vel_watchdog_script = os.path.join(pkg_gz, "scripts", "cmd_vel_watchdog.py")
+    motion_bias_config = os.path.join(pkg_gz, "config", "motion_bias.yaml")
     wheel_odometry_script = os.path.join(pkg_gz, "scripts", "wheel_state_odometry.py")
 
     declare_use_sim_time = DeclareLaunchArgument("use_sim_time", default_value="true")
@@ -390,10 +390,13 @@ def generate_launch_description():
 
     # Native MecanumDrive has no command timeout in Fortress 6.16, so keep the
     # public /cmd_vel contract and publish zero to the internal bridge topic when
-    # commands stop.
-    cmd_vel_watchdog = ExecuteProcess(
-        cmd=["python3", cmd_vel_watchdog_script],
+    # commands stop. motion_bias_file adds the per-direction drift that makes an
+    # uncalibrated mecanum base behave like the real one.
+    cmd_vel_watchdog = Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="cmd_vel_watchdog.py",
         output="screen",
+        parameters=[{"motion_bias_file": motion_bias_config}],
     )
 
     # Encoder-style odometry from wheel joint states remains separate from the
