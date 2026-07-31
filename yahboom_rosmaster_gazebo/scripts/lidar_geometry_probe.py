@@ -15,14 +15,56 @@ from sensor_msgs.msg import LaserScan
 from tf2_ros import Buffer, TransformListener
 
 
-EXPECTED_SAMPLES = 720
+EXPECTED_SAMPLES = 1080
 EXPECTED_RATE_HZ = 5.0
 EXPECTED_SCAN_PERIOD = 1.0 / EXPECTED_RATE_HZ
-EXPECTED_RANGE_MIN = 0.20
-EXPECTED_RANGE_MAX = 30.0
-EXPECTED_FRONT_RANGE = 1.90
+EXPECTED_RANGE_MIN = 0.05
+EXPECTED_RANGE_MAX = 12.0
+
+# laser_frame is mounted at xyz "0.043 0 0.110" rpy "0 0 ${M_PI}" on base_link
+# (rosmaster_x3.urdf.xacro). The pi yaw is intentional and validated live on the
+# Classic backend, so this probe models it instead of asserting it away. Two
+# consequences drive every constant below:
+#   * a ray declared at angle theta points along (cos theta, sin theta) in
+#     laser_frame, which the pi yaw maps to (-cos theta, -sin theta) in
+#     base_link. Inverting (-cos theta, -sin theta) = (cos phi, sin phi) gives
+#     theta = wrap(phi + pi): a base_link bearing phi is declared at phi + pi.
+#   * the ray originates at (LIDAR_MOUNT_X, 0) in base_link, not at the origin,
+#     so anything ahead is nearer and anything behind is farther by that offset.
+# The test spawns the robot at world x=y=0 with zero yaw, so base_link
+# coordinates equal the world coordinates the targets are spawned in.
+LIDAR_MOUNT_X = 0.043
+
+# Front target: a 0.2 x 0.6 x 1.0 box centred at world x=2.0, so its near face
+# is the plane x = 2.0 - 0.1 = 1.90, spanning y in [-0.30, +0.30]. It sits dead
+# ahead (phi = 0), declared at theta = wrap(0 + pi) = pi, i.e. exactly on the
+# wrap seam, which is why sector selection below has to be wrap-aware.
+FRONT_TARGET_BEARING = math.pi
+FRONT_TARGET_X_FACE = 1.90
+# Range along theta = pi: the ray leaves x = 0.043 travelling in base_link +x
+# and reaches the face after 1.90 - 0.043 = 1.857 m. The forward mount offset
+# makes the front target 43 mm nearer than the old origin-mounted contract.
+EXPECTED_FRONT_RANGE = FRONT_TARGET_X_FACE - LIDAR_MOUNT_X  # 1.857 m
+
+# Positive-y target: a 0.2 x 0.3 x 1.0 box centred at world (2.4, 1.2), so its
+# near face is the plane x = 2.4 - 0.1 = 2.30, spanning y in [1.05, 1.35].
 LEFT_TARGET_X_FACE = 2.30
-LEFT_TARGET_BEARING = math.atan2(1.20, 2.40)
+# Bearing from the sensor (not from base_link's origin) to the box centre:
+#   phi = atan2(1.20 - 0.00, 2.40 - 0.043) = atan2(1.20, 2.357) = +0.470918 rad.
+# The old contract used atan2(1.20, 2.40) = +0.463648 rad, which ignored the
+# 43 mm offset. Declared angle = wrap(phi + pi) = 0.470918 - pi = -2.670674 rad,
+# so the positive-y target now reads out at a NEGATIVE declared angle.
+# Aim at the middle of the near FACE, not at the box centre: the sector is
+# validated against that face, so centring on it keeps the margin symmetric.
+#   phi = atan2(1.20, 2.30 - 0.043) = atan2(1.20, 2.257) = +0.488669 rad.
+LEFT_TARGET_BASE_BEARING = math.atan2(1.20, LEFT_TARGET_X_FACE - LIDAR_MOUNT_X)
+LEFT_TARGET_BEARING = LEFT_TARGET_BASE_BEARING - math.pi  # -2.652924
+# Reviewer sanity check: along phi the ray crosses x = 2.30 at
+# y = (2.30 - 0.043) * tan(0.488669) = 2.257 * 0.531897 = 1.200 m, the centre of
+# the face's [1.05, 1.35] span, and the +/-0.025 rad sector crosses it between
+# y = 1.129 and y = 1.274, leaving ~0.08 m of face on either side so every
+# selected ray lands on the near face rather than clipping an edge. The expected
+# range at the sector centre is 2.257 / cos(0.488669) = 2.257 / 0.883 = 2.556 m.
 
 
 class LidarGeometryProbe(Node):
@@ -67,14 +109,43 @@ class LidarGeometryProbe(Node):
         """Return the declared angle of a sample index."""
         return scan.angle_min + index * scan.angle_increment
 
+    @staticmethod
+    def angular_difference(first, second):
+        """Return the shortest signed difference ``first - second``."""
+        # A plain subtraction is off by 2*pi for a sector straddling the wrap
+        # seam, and the yawed mount puts the front target exactly on that seam.
+        return math.atan2(math.sin(first - second), math.cos(first - second))
+
     @classmethod
     def sector_samples(cls, scan, center, half_width):
         """Return ``(angle, range)`` samples in an angular sector."""
         return [
             (cls.angle_at(scan, index), value)
             for index, value in enumerate(scan.ranges)
-            if abs(cls.angle_at(scan, index) - center) <= half_width
+            if abs(cls.angular_difference(
+                cls.angle_at(scan, index), center)) <= half_width
         ]
+
+    @staticmethod
+    def x_face_range(x_face, angle):
+        """Return the range from the sensor to the plane ``x = x_face``.
+
+        The ray starts at ``(LIDAR_MOUNT_X, 0)`` in base_link and advances along
+        ``(-cos angle, -sin angle)``, so after a distance ``d`` its base_link x
+        coordinate is ``LIDAR_MOUNT_X - d * cos(angle)``. Solving that for
+        ``x_face`` gives ``d = (x_face - LIDAR_MOUNT_X) / -cos(angle)``. Note
+        the sign: with the pi yaw, rays that reach a plane ahead of the robot
+        have ``cos(angle) < 0``, so dividing by ``cos(angle)`` as the old
+        origin-mounted contract did would return a negative distance.
+
+        Defined for planes ahead of the sensor, which is all this probe spawns.
+        A ray with no forward component never reaches such a plane, so it
+        returns infinity and the residual check rejects it.
+        """
+        forward = -math.cos(angle)
+        if forward <= 1e-6:
+            return math.inf
+        return (x_face - LIDAR_MOUNT_X) / forward
 
     @staticmethod
     def finite_sector_values(samples):
@@ -161,20 +232,26 @@ class LidarGeometryProbe(Node):
 
         for scan in self.scans:
             front = self.finite_sector_values(
-                self.sector_samples(scan, center=0.0, half_width=0.04))
+                self.sector_samples(
+                    scan, center=FRONT_TARGET_BEARING, half_width=0.04))
             if front:
                 front_medians.append(statistics.median(front))
 
             left_samples = self.sector_samples(
                 scan, center=LEFT_TARGET_BEARING, half_width=0.025)
             left_residuals = [
-                abs(float(value) - LEFT_TARGET_X_FACE / math.cos(angle))
+                abs(float(value) - self.x_face_range(LEFT_TARGET_X_FACE, angle))
                 for angle, value in left_samples
                 if math.isfinite(float(value))
             ]
             if left_residuals:
                 left_residual_medians.append(statistics.median(left_residuals))
 
+            # Negating a declared angle flips its base_link y component and
+            # leaves x alone, so -LEFT_TARGET_BEARING is exactly the base_link
+            # bearing -phi: the mirror image of the target about the forward
+            # axis. Nothing is spawned there, so a handedness flip in the scan
+            # would show up as returns in this sector.
             mirror = self.sector_samples(
                 scan, center=-LEFT_TARGET_BEARING, half_width=0.025)
             if mirror:
@@ -201,7 +278,7 @@ class LidarGeometryProbe(Node):
                 if left_residual_medians else "no finite returns")
             errors.append(
                 f"positive-y target: {good_left}/{len(self.scans)} scans match "
-                f"the +{LEFT_TARGET_BEARING:.3f}rad geometry ({detail})")
+                f"the {LEFT_TARGET_BEARING:+.3f}rad geometry ({detail})")
 
         good_mirror = sum(value >= 0.8 for value in mirror_invalid_fractions)
         if good_mirror < required_good_scans:
@@ -280,12 +357,13 @@ class LidarGeometryProbe(Node):
         first_latency = self.arrival_times[0] - self.started_at
         scan = self.scans[-1]
         front = self.finite_sector_values(
-            self.sector_samples(scan, center=0.0, half_width=0.04))
+            self.sector_samples(
+                scan, center=FRONT_TARGET_BEARING, half_width=0.04))
         front_text = f"{statistics.median(front):.3f}m" if front else "missing"
         left_samples = self.sector_samples(
             scan, center=LEFT_TARGET_BEARING, half_width=0.025)
         left_residuals = [
-            abs(float(value) - LEFT_TARGET_X_FACE / math.cos(angle))
+            abs(float(value) - self.x_face_range(LEFT_TARGET_X_FACE, angle))
             for angle, value in left_samples
             if math.isfinite(float(value))
         ]

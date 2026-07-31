@@ -19,7 +19,7 @@ class CmdVelWatchdog(Node):
         self.declare_parameter("output_topic", "/cmd_vel_gz")
         self.declare_parameter("timeout", 0.5)
         self.declare_parameter("publish_rate", 30.0)
-        
+
         self.declare_parameter("motion_bias_file", "")
 
         self.input_topic = self.get_parameter("input_topic").value
@@ -36,21 +36,22 @@ class CmdVelWatchdog(Node):
                     doc = yaml.safe_load(f)
                     if doc and "motion_bias" in doc:
                         raw_biases = doc["motion_bias"]
-                        
+
                         # Sample static biases once per launch based on max values
                         for category, axes in raw_biases.items():
                             if category == "randomization":
                                 self.biases[category] = axes
                                 continue
-                            
+
                             self.biases[category] = {}
                             for axis, max_val in axes.items():
                                 # Sample randomly between -max_val and max_val.
                                 # This honors the user's specific +/- sign limit.
                                 sampled_val = random.uniform(-float(max_val), float(max_val))
                                 self.biases[category][axis] = sampled_val
-                                
-                        self.get_logger().info(f"Sampled randomized motion biases from {bias_file}")
+
+                        self.get_logger().info(
+                            f"Sampled randomized motion biases from {bias_file}")
                         self.get_logger().debug(f"Session Biases: {self.biases}")
             except Exception as e:
                 self.get_logger().error(f"Failed to load motion bias file '{bias_file}': {e}")
@@ -76,7 +77,7 @@ class CmdVelWatchdog(Node):
 
         vx = msg.linear.x
         vy = msg.linear.y
-        w  = msg.angular.z
+        w = msg.angular.z
 
         if self.biases:
             # 1. Apply sampled static biases based on the primary inputs
@@ -97,7 +98,7 @@ class CmdVelWatchdog(Node):
             elif vy < 0:
                 cmd.linear.x += self._get_bias("right", "x") * abs(vy)
                 cmd.angular.z += self._get_bias("right", "omega") * abs(vy)
-            
+
             # Rotate CCW (+Z)
             if w > 0:
                 cmd.linear.x += self._get_bias("rotate_ccw", "x") * w
@@ -106,7 +107,7 @@ class CmdVelWatchdog(Node):
             elif w < 0:
                 cmd.linear.x += self._get_bias("rotate_cw", "x") * abs(w)
                 cmd.linear.y += self._get_bias("rotate_cw", "y") * abs(w)
-            
+
             # 2. Apply Randomization noise based on standard fraction
             std_fraction = self._get_bias("randomization", "std_fraction", 0.0)
             if std_fraction > 0:

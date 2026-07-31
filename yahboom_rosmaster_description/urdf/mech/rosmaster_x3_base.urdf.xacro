@@ -12,8 +12,22 @@
 <xacro:property name="base_size_z" value="${total_height - (2 * wheel_radius)}" />
 <xacro:property name="base_mass" value="1.5" />  <!-- Real X3: ~1.3 kg chassis+motors+PCBs + ~0.2 kg SBC/mount. Old value 4.6 kg was ~3× too heavy. -->
 
-<xacro:macro name="rosmaster_x3_base" params="prefix">
-  <link name="${prefix}base_footprint"/>
+<xacro:macro name="rosmaster_x3_base" params="prefix footprint_inertial:=false">
+  <!-- base_footprint is the URDF root and therefore the model's canonical link.
+       Gazebo Classic builds no physics body for a massless link, so queries like
+       Model::WorldLinearVel() return NaN and gazebo_ros_planar_move can never
+       move the robot. A token inertia gives it a body; the mass is four orders
+       of magnitude below the chassis, so dynamics are unaffected. Fortress does
+       not need this and leaves the link empty. -->
+  <link name="${prefix}base_footprint">
+    <xacro:if value="${footprint_inertial}">
+      <inertial>
+        <mass value="0.001"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <inertia ixx="1e-6" ixy="0.0" ixz="0.0" iyy="1e-6" iyz="0.0" izz="1e-6"/>
+      </inertial>
+    </xacro:if>
+  </link>
   <link name="${prefix}base_link">
     <visual>
         <geometry>

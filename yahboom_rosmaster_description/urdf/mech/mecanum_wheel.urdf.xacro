@@ -35,7 +35,9 @@
     mu:=1.0
     mu2:=0.0
     slip1:=0.0
-    slip2:=0.0">
+    slip2:=0.0
+    simple_friction:=false
+    joint_type:=continuous">
     <link name="${prefix}${side}_wheel_link">
       <visual>
         <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
@@ -67,7 +69,13 @@
       </inertial>
     </link>
 
-    <joint name="${prefix}${side}_wheel_joint" type="continuous">
+    <!-- Gazebo Classic drives the base with planar_move, which forces an
+         angular velocity onto every link. A revolute wheel must be free to
+         spin about its own axis, so that command contradicts the joint and
+         the ODE solver diverges to NaN, leaving the robot immobile. Welding
+         the wheels makes the base a single rigid body and planar_move works.
+         Fortress keeps them continuous: MecanumDrive spins them properly. -->
+    <joint name="${prefix}${side}_wheel_joint" type="${joint_type}">
       <axis xyz="0 1 0"/>
       <parent link="${prefix}base_link"/>
       <child  link="${prefix}${side}_wheel_link"/>
@@ -81,16 +89,28 @@
         <surface>
           <friction>
             <ode>
-              <!-- High friction along fdir1 (roller grip axis) -->
-              <mu>${mu}</mu>
-              <!-- Zero friction perpendicular (roller free-rolling direction) -->
-              <mu2>${mu2}</mu2>
-              <!-- ignition:expressed_in locks fdir1 to the chassis frame.
-                   base_footprint is the model root frame, equivalent to "chassis"
-                   in the official Gazebo mecanum demo. -->
-              <fdir1 ignition:expressed_in="${prefix}base_footprint">${fdir1}</fdir1>
-              <slip1>${slip1}</slip1>
-              <slip2>${slip2}</slip2>
+              <xacro:unless value="${simple_friction}">
+                <!-- High friction along fdir1 (roller grip axis) -->
+                <mu>${mu}</mu>
+                <!-- Zero friction perpendicular (roller free-rolling direction) -->
+                <mu2>${mu2}</mu2>
+                <!-- ignition:expressed_in locks fdir1 to the chassis frame.
+                     base_footprint is the model root frame, equivalent to "chassis"
+                     in the official Gazebo mecanum demo. -->
+                <fdir1 ignition:expressed_in="${prefix}base_footprint">${fdir1}</fdir1>
+                <slip1>${slip1}</slip1>
+                <slip2>${slip2}</slip2>
+              </xacro:unless>
+              <!-- Gazebo Classic. The roller model above pairs mu2=0 with a
+                   directional fdir1, which leaves ODE a degenerate friction
+                   pyramid: the moment planar_move drives the body, the solver
+                   returns NaN velocities and the robot never moves. Classic gets
+                   plain low isotropic friction instead; planar_move imposes the
+                   body velocity directly, so it does not rely on wheel grip. -->
+              <xacro:if value="${simple_friction}">
+                <mu>0.1</mu>
+                <mu2>0.1</mu2>
+              </xacro:if>
             </ode>
           </friction>
           <contact>
