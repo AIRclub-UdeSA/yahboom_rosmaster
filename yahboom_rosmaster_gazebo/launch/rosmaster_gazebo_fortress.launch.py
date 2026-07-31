@@ -217,6 +217,10 @@ def generate_launch_description():
     default_xacro = os.path.join(pkg_desc, "urdf", "robots", "rosmaster_x3.urdf.xacro")
     bridge_config = os.path.join(pkg_gz, "config", "ros_gz_bridge.yaml")
     motion_profile_config = os.path.join(pkg_gz, "config", "motion_profiles.yaml")
+    
+    # Path to your new motion_bias.yaml
+    motion_bias_yaml = os.path.join(pkg_gz, "config", "motion_bias.yaml")
+    
     cmd_vel_watchdog_script = os.path.join(pkg_gz, "scripts", "cmd_vel_watchdog.py")
     wheel_odometry_script = os.path.join(pkg_gz, "scripts", "wheel_state_odometry.py")
 
@@ -237,9 +241,6 @@ def generate_launch_description():
     )
     headless = LaunchConfiguration("headless")
 
-    # Own the Ruby/Gazebo process directly so launch's SIGINT reaches it. The
-    # Humble ros_gz_sim wrapper uses ExecuteProcess(shell=True), which signals a
-    # waiting /bin/sh instead; after escalation that can orphan the real server.
     gazebo_server = ExecuteProcess(
         cmd=[
             "ruby", ign_executable, "gazebo",
@@ -249,9 +250,6 @@ def generate_launch_description():
         output="screen",
     )
 
-    # Gazebo Fortress GUI — skipped when headless:=true.
-    # QT_QPA_PLATFORM=xcb forces X11/XWayland mode on Wayland sessions;
-    # without it the Qt platform default fails on AMD Wayland, leaving a white window.
     gazebo_client = ExecuteProcess(
         cmd=[
             "ruby", ign_executable, "gazebo", "-g",
@@ -261,7 +259,6 @@ def generate_launch_description():
         condition=UnlessCondition(headless),
     )
 
-    # Bridge Gazebo command input and sensor topics.
     ros_gz_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
@@ -269,7 +266,6 @@ def generate_launch_description():
         output="screen",
     )
 
-    # Optimized image bridge for the native Fortress RGB-D camera outputs.
     ros_gz_image_bridge = Node(
         package="ros_gz_image",
         executable="image_bridge",
@@ -281,9 +277,6 @@ def generate_launch_description():
         output="screen",
     )
 
-    # Load and activate the read-only joint state broadcaster. The spawner waits
-    # longer than `ros2 control load_controller`, which helps GUI starts on busy
-    # machines where the controller manager is late to answer service calls.
     load_joint_state_broadcaster = ExecuteProcess(
         cmd=[
             "ros2", "run", "controller_manager", "spawner",
@@ -295,18 +288,36 @@ def generate_launch_description():
         output="screen",
     )
 
-    # Native MecanumDrive has no command timeout in Fortress 6.16, so keep the
-    # public /cmd_vel contract and publish zero to the internal bridge topic when
-    # commands stop.
-    cmd_vel_watchdog = ExecuteProcess(
-        cmd=["python3", cmd_vel_watchdog_script],
+    # Watchdog node now configured via file path parameter
+    cmd_vel_watchdog = Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="cmd_vel_watchdog.py",
+        output="screen",
+        parameters=[{
+            "motion_bias_file": motion_bias_yaml
+        }],
+    )
+
+    wheel_state_odometry = ExecuteProcess(
+        cmd=["python3", wheel_odometry_script],
         output="screen",
     )
 
-    # Encoder-style odometry from wheel joint states remains separate from the
-    # measurement-only /ground_truth/odom bridge and owns odom->base TF.
-    wheel_state_odometry = ExecuteProcess(
-        cmd=["python3", wheel_odometry_script],
+    calculated_odometry_node = Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="calculated_odometry.py",
+        output="screen",
+        parameters=[{
+            "use_sim_time": LaunchConfiguration("use_sim_time"),
+            "publish_rate": 50.0,
+            "odom_frame_id": "odom",
+            "base_frame_id": "calc_base"
+        }],
+    )
+
+    ground_truth_tf_node = Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="ground_truth_contract_probe.py", # Make sure this matches your file name
         output="screen",
     )
 
@@ -316,19 +327,13 @@ def generate_launch_description():
         declare_rviz,
         declare_headless,
         declare_motion_profile,
-        # Force X11/XWayland for Gazebo GUI — prevents white window on Wayland + AMD GPU
         SetEnvironmentVariable("QT_QPA_PLATFORM", "xcb"),
-        # Match ros_gz_sim's plugin search environment for ROS-installed Gazebo
-        # systems such as gz_ros2_control while bypassing its shell wrapper.
         AppendEnvironmentVariable(
             "IGN_GAZEBO_SYSTEM_PLUGIN_PATH", os.environ.get("LD_LIBRARY_PATH", "")),
         AppendEnvironmentVariable(
             "GZ_SIM_SYSTEM_PLUGIN_PATH", os.environ.get("LD_LIBRARY_PATH", "")),
         AppendEnvironmentVariable("IGN_GAZEBO_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
         AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
-        # Gazebo occasionally misses process-level SIGINT after sequential test
-        # runs. Its control service cleanly stops the server first; launch's
-        # normal SIGINT/SIGTERM escalation remains available as a fallback.
         RegisterEventHandler(OnShutdown(
             on_shutdown=lambda event, context: _request_gazebo_stop(
                 event, context, gazebo_server))),
@@ -346,6 +351,8 @@ def generate_launch_description():
         TimerAction(period=12.0, actions=[
             load_joint_state_broadcaster,
             wheel_state_odometry,
+            calculated_odometry_node,
+            ground_truth_tf_node,
         ]),
         OpaqueFunction(function=_launch_rviz),
     ])

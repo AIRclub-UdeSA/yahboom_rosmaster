@@ -7,8 +7,8 @@
     parent:='base_link'
     frame_id:='laser_frame'
     mesh_file:='file://$(find yahboom_rosmaster_description)/meshes/rplidar/rplidar_s2.stl'
-    xyz_offset:='0 0 0.0825'
-    rpy_offset:='0 0 0'
+    xyz_offset:='0.043 0 0.110'
+    rpy_offset:='0 0 ${M_PI}'
     mesh_xyz_offset:='0 0 0'
     mesh_rpy_offset:='${-M_PI/2} 0 0'
     mesh_scale:='0.001 0.001 0.001'
@@ -25,14 +25,14 @@
     gazebo_material_diffuse:='0.1 0.1 0.1 1'
     gazebo_material_specular:='0.1 0.1 0.1 1'
     update_rate:=10
-    ray_count:=720
+    ray_count:=1080
     min_angle:='-3.14159'
     max_angle:='3.14159'
-    min_range:='0.20'
-    max_range:='30.0'
+    min_range:='0.05'
+    max_range:='12.0'
     range_resolution:='0.013'
     noise_mean:='0.0'
-    noise_stddev:='0.02'
+    noise_stddev:='0.005'
     topic_name:='scan'
     always_on:=true
     visualize:=false
@@ -43,6 +43,7 @@
     <xacro:property name="izz" value="${(mass/2) * (radius * radius)}" />
 
     <link name="${prefix}${frame_id}">
+      <!--
       <visual>
         <origin xyz="${mesh_xyz_offset}" rpy="${mesh_rpy_offset}"/>
         <geometry>
@@ -52,6 +53,7 @@
           <color rgba="${material_color}"/>
         </material>
       </visual>
+      -->
 
       <xacro:if value="${enable_collision}">
         <collision>
