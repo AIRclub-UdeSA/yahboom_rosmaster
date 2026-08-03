@@ -42,11 +42,6 @@ def generate_test_description():
             "use_sim_time": "true",
             "world": os.path.join(package_share, "worlds", "empty.world"),
             "motion_profile": motion_profile,
-            # This test pins the divergence between the commanded and achieved
-            # trajectory to a numeric window, so the only perturbation must be
-            # the wheel-contact profile. The /cmd_vel motion bias is resampled
-            # at random on every launch and would make the result irreproducible.
-            "motion_bias": "false",
         }.items(),
     )
     probe = Node(

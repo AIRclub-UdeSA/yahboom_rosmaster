@@ -130,8 +130,7 @@ def _launch_robot(context, xacro_path, profile_config):
 
 
 def _rviz_config_for_platform(default_rviz):
-    """
-    Return an RViz config the host can actually open.
+    """Return an RViz config the host can actually open.
 
     The Camera display builds a second OGRE render panel, which aborts RViz on
     macOS with "mutex lock failed". macOS has no simulated camera anyway, so
@@ -254,7 +253,7 @@ def generate_launch_description():
     default_xacro = os.path.join(pkg_desc, "urdf", "robots", "rosmaster_x3.urdf.xacro")
     bridge_config = os.path.join(pkg_gz, "config", "ros_gz_bridge.yaml")
     motion_profile_config = os.path.join(pkg_gz, "config", "motion_profiles.yaml")
-    motion_bias_config = os.path.join(pkg_gz, "config", "motion_bias.yaml")
+    cmd_vel_watchdog_script = os.path.join(pkg_gz, "scripts", "cmd_vel_watchdog.py")
     wheel_odometry_script = os.path.join(pkg_gz, "scripts", "wheel_state_odometry.py")
 
     declare_use_sim_time = DeclareLaunchArgument("use_sim_time", default_value="true")
@@ -287,14 +286,6 @@ def generate_launch_description():
         description=(
             "Use gz_ros2_control for joint state. When false, Gazebo's "
             "JointStatePublisher feeds /joint_states through ros_gz_bridge"),
-    )
-    declare_motion_bias = DeclareLaunchArgument(
-        "motion_bias",
-        default_value="true",
-        description=(
-            "Add the per-direction drift of an uncalibrated mecanum base to "
-            "/cmd_vel. Sampled randomly per launch, so switch it off for tests "
-            "that assert an exact trajectory"),
     )
     declare_motion_profile = DeclareLaunchArgument(
         "motion_profile",
@@ -399,49 +390,16 @@ def generate_launch_description():
 
     # Native MecanumDrive has no command timeout in Fortress 6.16, so keep the
     # public /cmd_vel contract and publish zero to the internal bridge topic when
-    # commands stop. motion_bias_file adds the per-direction drift that makes an
-    # uncalibrated mecanum base behave like the real one; it is sampled afresh
-    # each launch, so tests asserting an exact trajectory must switch it off.
-    # An empty motion_bias_file is how the watchdog is told to relay unmodified,
-    # so the two variants differ only in that parameter.
-    def _watchdog(bias_file, condition):
-        return Node(
-            package="yahboom_rosmaster_gazebo",
-            executable="cmd_vel_watchdog.py",
-            output="screen",
-            parameters=[{"motion_bias_file": bias_file}],
-            condition=condition,
-        )
-
-    motion_bias = LaunchConfiguration("motion_bias")
-    cmd_vel_watchdog = _watchdog(motion_bias_config, IfCondition(motion_bias))
-    cmd_vel_watchdog_unbiased = _watchdog("", UnlessCondition(motion_bias))
+    # commands stop.
+    cmd_vel_watchdog = ExecuteProcess(
+        cmd=["python3", cmd_vel_watchdog_script],
+        output="screen",
+    )
 
     # Encoder-style odometry from wheel joint states remains separate from the
     # measurement-only /ground_truth/odom bridge and owns odom->base TF.
     wheel_state_odometry = ExecuteProcess(
         cmd=["python3", wheel_odometry_script],
-        output="screen",
-    )
-
-    calculated_odometry_node = Node(
-        package="yahboom_rosmaster_gazebo",
-        executable="calculated_odometry.py",
-        output="screen",
-        parameters=[{
-            "use_sim_time": LaunchConfiguration("use_sim_time"),
-            "publish_rate": 50.0,
-            "odom_frame_id": "odom",
-            "base_frame_id": "calc_base"
-        }],
-    )
-
-    # A runtime node, not the contract probe. The probe validates and exits, so
-    # launching it here left a process that always exits non-zero and broke
-    # test_all_processes_exit_cleanly in every launch test that includes this file.
-    ground_truth_tf_node = Node(
-        package="yahboom_rosmaster_gazebo",
-        executable="ground_truth_tf.py",
         output="screen",
     )
 
@@ -452,7 +410,6 @@ def generate_launch_description():
         declare_headless,
         declare_render_sensors,
         declare_use_ros2_control,
-        declare_motion_bias,
         declare_motion_profile,
         # Force X11/XWayland for Gazebo GUI — prevents white window on Wayland + AMD GPU.
         # macOS has no xcb platform plugin; setting it there breaks every Qt app,
@@ -485,13 +442,10 @@ def generate_launch_description():
             joint_state_bridge,
             joint_state_throttle,
             cmd_vel_watchdog,
-            cmd_vel_watchdog_unbiased,
         ]),
         TimerAction(period=12.0, actions=[
             load_joint_state_broadcaster,
             wheel_state_odometry,
-            calculated_odometry_node,
-            ground_truth_tf_node,
         ]),
         OpaqueFunction(function=_launch_rviz),
     ])

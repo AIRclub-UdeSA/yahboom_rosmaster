@@ -24,10 +24,6 @@ install(
     scripts/motion_profile_divergence_probe.py
     scripts/sensor_contract_probe.py
     scripts/wheel_odometry_resilience_probe.py
-    scripts/cmd_vel_watchdog.py
-    scripts/wheel_state_odometry.py
-    scripts/calculated_odometry.py
-    scripts/ground_truth_tf.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

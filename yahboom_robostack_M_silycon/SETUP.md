@@ -273,12 +273,13 @@ Sanity checks on a robot sitting at its spawn point in the 6 × 6 m room:
 
 | Field | Expected |
 | --- | --- |
-| `ranges` length | **1080** beams |
-| `range_min` / `range_max` | **0.25** / **12.0** m |
-| Distance to the walls | roughly **2.9–3.0 m** in every direction |
+| `ranges` length | **720** beams |
+| `range_min` / `range_max` | **0.20** / **30.0** m |
+| Distance to the walls | roughly **2.95 m** in every direction |
 
-If every range is under 0.25 m, the LiDAR is seeing the robot's own body — that
-is a known failure mode and means something is wrong with the model.
+If every range comes back tiny — a fraction of a metre — the LiDAR is seeing the
+robot's own body rather than the room, which means the sensor mount and
+`range_min` disagree.
 
 Type `exit` to leave the environment.
 
@@ -312,25 +313,11 @@ repeat.
 | A window never appears, or a command hangs | A previous run left processes behind. `./run stop`, then retry. |
 | Nothing publishes, nodes cannot see each other | A Mac exposes ~20 network interfaces and ROS can pick different ones for different programs. This folder pins everything to loopback automatically. If you changed `ROS_LOCALHOST_ONLY`, set it back to `1`. |
 | `./run build` fails | Make sure `./run setup` finished. Then `cd .. && pixi run clean-classic` and build again. |
-| Robot drifts when you drive straight | **This is deliberate** — see below. |
 | Very slow, or fans spinning up | Normal during `./run setup`. If it persists during simulation, close the Gazebo window and use `./run sim-headless`. |
 
 ---
 
-## Two things that surprise people
-
-**The robot drifts on purpose.** Drive straight and it curves gently to one
-side. A real mecanum base is never perfectly calibrated, so a "go forward"
-command also produces a little sideways and rotational motion. The simulation
-copies that, with the amount drawn at random each launch, so you cannot tune
-your code to one fixed error. This is exactly what closed-loop control is for —
-SLAM and Nav2 correct for it continuously. To switch it off while debugging
-something else:
-
-```bash
-cd .. && pixi run -e classic ros2 launch \
-  yahboom_robostack_M_silycon/launch/simulation.launch.py motion_bias:=false
-```
+## One thing that surprises people
 
 **The wheels do not spin, and walls do not stop the robot.** The plugin that
 gives the robot its sideways motion drives the body directly rather than turning
@@ -363,9 +350,7 @@ system-wide except Homebrew and pixi themselves.
 ## Where to go next
 
 - `README.md` in this folder — day-to-day usage and what each topic means.
-- `../README.md` — the Linux / Gazebo Fortress reference simulation. That is the
-  backend this one stands in for, and it documents the full sensor set,
-  the odometry topics and the motion profiles.
+- `../README.md` — the full robot, both simulation backends, and the Linux path.
 - `launch/simulation.launch.py` — how Gazebo, the robot model and RViz are
   actually wired together. A good first file to read when you want to change
   something.

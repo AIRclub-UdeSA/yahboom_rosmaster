@@ -25,11 +25,6 @@
   <xacro:property name="backend" value="$(arg sim_backend)"/>
   <!-- Gazebo Classic plugin suffix: conda installs .dylib on macOS, .so on Linux. -->
   <xacro:arg name="plugin_ext" default=".so"/>
-  <!-- Topic planar_move drives from on the Classic backend. Fortress routes
-       /cmd_vel through cmd_vel_watchdog to add per-direction drift; pointing
-       this at the watchdog's output topic gives Classic the same treatment,
-       while the default keeps planar_move on /cmd_vel when no watchdog runs. -->
-  <xacro:arg name="cmd_vel_topic" default="cmd_vel"/>
   <!-- Contact parameters are supplied by the simulator motion profile. These
        defaults preserve the ideal description when xacro is expanded directly. -->
   <xacro:arg name="wheel_mu" default="1.0"/>
@@ -113,25 +108,16 @@
     rpy_offset="0 0 0"
     enable_gz_sensor="${backend == 'fortress' and '$(arg render_sensors)' in ['true', 'True', '1']}"/>
 
-  <!-- Classic's CPU raycast starts each ray at range_min, so anything nearer is
-       skipped rather than clamped. The chassis collision box spans x [-0.181,
-       0.119], y +/-0.069, z [0.008, 0.205] about base_link and therefore
-       encloses this mount, putting its rear face 0.224 m from the lidar. A
-       range_min under that starts every ray inside the hull and the scan
-       returns the robot instead of the room. 0.25 m clears the rear face with
-       margin for the 0.005 m noise; Fortress renders from the visual mesh, which
-       the mount clears, so it keeps the sensor's true 0.05 m minimum. -->
   <xacro:lidar_sensor
     prefix="$(arg prefix)"
     parent="base_link"
     frame_id="laser_frame"
-    xyz_offset="0.043 0 0.110"
-    rpy_offset="0 0 ${M_PI}"
+    xyz_offset="0 0 0.0825"
+    rpy_offset="0 0 0"
     mesh_xyz_offset="0 0 0"
     mesh_rpy_offset="${-M_PI/2} 0 0"
     update_rate="5"
     topic_name="scan"
-    min_range="${0.25 if backend == 'classic' else 0.05}"
     enable_gz_sensor="${backend == 'fortress' and '$(arg render_sensors)' in ['true', 'True', '1']}"
     classic_sensor="${backend == 'classic'}"
     plugin_ext="$(arg plugin_ext)"/>
@@ -158,7 +144,7 @@
            and the odom->base_footprint transform. -->
       <plugin name="planar_move" filename="libgazebo_ros_planar_move$(arg plugin_ext)">
         <ros>
-          <remapping>cmd_vel:=$(arg cmd_vel_topic)</remapping>
+          <remapping>cmd_vel:=cmd_vel</remapping>
           <remapping>odom:=odom</remapping>
         </ros>
         <update_rate>50</update_rate>
