@@ -11,8 +11,16 @@ point cloud, along with RGB and depth camera images and camera calibration
 messages. It also exposes timestamped simulation ground truth separately from
 robot-facing odometry.
 
-Gazebo Fortress is the supported simulator backend. Gazebo Classic is not
-supported by the current mecanum simulator.
+Gazebo Fortress is the supported simulator backend on Linux, and the mecanum
+contact model described here is specific to it.
+
+**On an Apple Silicon Mac, use [`yahboom_robostack_M_silycon/`](yahboom_robostack_M_silycon/)
+instead** — start with its [SETUP.md](yahboom_robostack_M_silycon/SETUP.md).
+Fortress initialises its renderer off the main thread, which macOS forbids, so
+there it can open no GUI and run no rendering sensor. That folder runs the robot
+on Gazebo Classic through RoboStack, where the CPU raycast LiDAR needs no
+renderer, and it is the only way to get `/scan`, SLAM and Nav2 on a Mac. It does
+not reproduce the wheel-contact physics documented below.
 
 ## Requirements
 
@@ -44,7 +52,7 @@ Create a workspace and clone the repository:
 ```bash
 mkdir -p ~/rosmaster_ws/src
 cd ~/rosmaster_ws/src
-git https://github.com/bchax/yahboom_rosmaster.git
+git clone https://github.com/bchax/yahboom_rosmaster.git
 ```
 
 Initialize `rosdep` once on a new machine:

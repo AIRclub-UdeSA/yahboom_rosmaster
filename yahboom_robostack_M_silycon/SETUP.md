@@ -363,7 +363,9 @@ system-wide except Homebrew and pixi themselves.
 ## Where to go next
 
 - `README.md` in this folder — day-to-day usage and what each topic means.
-- `../README.md` — the full robot, both simulation backends, and the Linux path.
+- `../README.md` — the Linux / Gazebo Fortress reference simulation. That is the
+  backend this one stands in for, and it documents the full sensor set,
+  the odometry topics and the motion profiles.
 - `launch/simulation.launch.py` — how Gazebo, the robot model and RViz are
   actually wired together. A good first file to read when you want to change
   something.
