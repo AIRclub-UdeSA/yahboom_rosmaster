@@ -72,7 +72,7 @@ unmapped — drive closer and try again.
 
 | Topic | Meaning |
 | --- | --- |
-| `/scan` | LiDAR, 720 beams over 360° |
+| `/scan` | LiDAR, 1080 beams over 360°, 0.25–12 m |
 | `/odom` | position and velocity estimate |
 | `/tf`, `/tf_static` | coordinate frames |
 | `/cmd_vel` | velocity commands (publish here to drive it) |

@@ -273,9 +273,9 @@ Sanity checks on a robot sitting at its spawn point in the 6 × 6 m room:
 
 | Field | Expected |
 | --- | --- |
-| `ranges` length | **720** beams |
-| `range_min` / `range_max` | **0.20** / **30.0** m |
-| Distance to the walls | roughly **2.95 m** in every direction |
+| `ranges` length | **1080** beams |
+| `range_min` / `range_max` | **0.25** / **12.0** m |
+| Distance to the walls | roughly **2.9–3.0 m** in every direction |
 
 If every range comes back tiny — a fraction of a metre — the LiDAR is seeing the
 robot's own body rather than the room, which means the sensor mount and
@@ -317,7 +317,22 @@ repeat.
 
 ---
 
-## One thing that surprises people
+## Two things that surprise people
+
+**The robot drifts on purpose.** Drive straight and it curves gently to one
+side. A real mecanum base is never perfectly calibrated, so a "go forward"
+command also produces a little sideways and rotational motion. The simulation
+copies that, with the amount drawn at random each launch, so you cannot tune
+your code to one fixed error. This is exactly what closed-loop control is for —
+SLAM and Nav2 correct for it continuously. To switch it off while debugging
+something else:
+
+```bash
+cd .. && pixi run -e classic ros2 launch \
+  yahboom_robostack_M_silycon/launch/simulation.launch.py motion_bias:=false
+```
+
+The amounts live in `../yahboom_rosmaster_gazebo/config/motion_bias.yaml`.
 
 **The wheels do not spin, and walls do not stop the robot.** The plugin that
 gives the robot its sideways motion drives the body directly rather than turning
