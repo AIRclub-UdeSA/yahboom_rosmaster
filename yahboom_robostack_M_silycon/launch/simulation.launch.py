@@ -39,11 +39,20 @@ from launch_ros.parameter_descriptions import ParameterValue
 PLUGIN_EXT = ".dylib" if platform.system() == "Darwin" else ".so"
 
 
+def _is_true(value):
+    return value.lower() in ("true", "1", "yes")
+
+
 def _robot_description(context):
     """Expand the xacro with the Gazebo Classic plugin set."""
     pkg_desc = get_package_share_directory("yahboom_rosmaster_description")
     xacro_path = os.path.join(pkg_desc, "urdf", "robots", "rosmaster_x3.urdf.xacro")
     use_sim_time = LaunchConfiguration("use_sim_time").perform(context)
+
+    # With the bias on, planar_move must read the watchdog's output instead of
+    # /cmd_vel, or the drift would be computed and then bypassed.
+    motion_bias = _is_true(LaunchConfiguration("motion_bias").perform(context))
+    cmd_vel_topic = "cmd_vel_classic" if motion_bias else "cmd_vel"
 
     description = Command([
         "xacro ", xacro_path,
@@ -52,6 +61,7 @@ def _robot_description(context):
         " robot_name:=rosmaster_x3",
         " prefix:=",
         f" plugin_ext:={PLUGIN_EXT}",
+        f" cmd_vel_topic:={cmd_vel_topic}",
     ])
 
     return [Node(
@@ -80,6 +90,25 @@ def generate_launch_description():
     declare_gui = DeclareLaunchArgument(
         "gui", default_value="true", description="Open the Gazebo Classic GUI")
     declare_rviz = DeclareLaunchArgument("rviz", default_value="true")
+    declare_motion_bias = DeclareLaunchArgument(
+        "motion_bias", default_value="true",
+        description="Add the per-direction drift of an uncalibrated mecanum base")
+
+    # Same drift model the Fortress backend uses. planar_move has no command
+    # timeout either, so the watchdog's zero-on-silence also stops the robot
+    # when a teleop terminal is closed mid-command.
+    pkg_gz = get_package_share_directory("yahboom_rosmaster_gazebo")
+    cmd_vel_watchdog = Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="cmd_vel_watchdog.py",
+        output="screen",
+        parameters=[{
+            "input_topic": "/cmd_vel",
+            "output_topic": "/cmd_vel_classic",
+            "motion_bias_file": os.path.join(pkg_gz, "config", "motion_bias.yaml"),
+        }],
+        condition=IfCondition(LaunchConfiguration("motion_bias")),
+    )
 
     # libgazebo_ros_init provides /clock, libgazebo_ros_factory provides
     # /spawn_entity, libgazebo_ros_force_system provides the wrench services.
@@ -133,8 +162,10 @@ def generate_launch_description():
         declare_use_sim_time,
         declare_gui,
         declare_rviz,
+        declare_motion_bias,
         gzserver,
         gzclient,
+        cmd_vel_watchdog,
         OpaqueFunction(function=_robot_description),
         # gzserver needs a moment to advertise /spawn_entity.
         TimerAction(period=7.0, actions=[spawn]),

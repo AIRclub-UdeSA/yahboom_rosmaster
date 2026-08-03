@@ -1,0 +1,25 @@
+motion_bias:
+
+  forward:
+    y: 0.025
+    omega: 0.05
+
+  backward:
+    y: 0.025
+    omega: 0.05
+
+  right:
+    x: 0.025
+    omega: 0.05
+
+  left:
+    x: 0.025
+    omega: 0.05
+
+  rotate_ccw:
+    x: 0.003
+    y: 0.003
+
+  rotate_cw:
+    x: 0.003
+    y: 0.003
