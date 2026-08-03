@@ -130,7 +130,8 @@ def _launch_robot(context, xacro_path, profile_config):
 
 
 def _rviz_config_for_platform(default_rviz):
-    """Return an RViz config the host can actually open.
+    """
+    Return an RViz config the host can actually open.
 
     The Camera display builds a second OGRE render panel, which aborts RViz on
     macOS with "mutex lock failed". macOS has no simulated camera anyway, so

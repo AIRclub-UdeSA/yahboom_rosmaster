@@ -128,7 +128,8 @@ class LidarGeometryProbe(Node):
 
     @staticmethod
     def x_face_range(x_face, angle):
-        """Return the range from the sensor to the plane ``x = x_face``.
+        """
+        Return the range from the sensor to the plane ``x = x_face``.
 
         The ray starts at ``(LIDAR_MOUNT_X, 0)`` in base_link and advances along
         ``(-cos angle, -sin angle)``, so after a distance ``d`` its base_link x
