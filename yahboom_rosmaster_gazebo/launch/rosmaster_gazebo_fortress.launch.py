@@ -423,6 +423,24 @@ def generate_launch_description():
         output="screen",
     )
 
+    calculated_odometry_node = Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="calculated_odometry.py",
+        output="screen",
+        parameters=[{
+            "use_sim_time": LaunchConfiguration("use_sim_time"),
+            "publish_rate": 50.0,
+            "odom_frame_id": "odom",
+            "base_frame_id": "calc_base"
+        }],
+    )
+
+    ground_truth_tf_node = Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="ground_truth_contract_probe.py", # Make sure this matches your file name
+        output="screen",
+    )
+
     return LaunchDescription([
         declare_use_sim_time,
         declare_world,
@@ -468,6 +486,8 @@ def generate_launch_description():
         TimerAction(period=12.0, actions=[
             load_joint_state_broadcaster,
             wheel_state_odometry,
+            calculated_odometry_node,
+            ground_truth_tf_node,
         ]),
         OpaqueFunction(function=_launch_rviz),
     ])
