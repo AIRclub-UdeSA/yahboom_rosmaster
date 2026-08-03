@@ -130,7 +130,8 @@ def _launch_robot(context, xacro_path, profile_config):
 
 
 def _rviz_config_for_platform(default_rviz):
-    """Return an RViz config the host can actually open.
+    """
+    Return an RViz config the host can actually open.
 
     The Camera display builds a second OGRE render panel, which aborts RViz on
     macOS with "mutex lock failed". macOS has no simulated camera anyway, so
@@ -435,9 +436,12 @@ def generate_launch_description():
         }],
     )
 
+    # A runtime node, not the contract probe. The probe validates and exits, so
+    # launching it here left a process that always exits non-zero and broke
+    # test_all_processes_exit_cleanly in every launch test that includes this file.
     ground_truth_tf_node = Node(
         package="yahboom_rosmaster_gazebo",
-        executable="ground_truth_contract_probe.py", # Make sure this matches your file name
+        executable="ground_truth_tf.py",
         output="screen",
     )
 

@@ -7,13 +7,11 @@ import sys
 import time
 
 import rclpy
-from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from rosgraph_msgs.msg import Clock
 from tf2_msgs.msg import TFMessage
-from tf2_ros import TransformBroadcaster
 
 
 GROUND_TRUTH_TOPIC = "/ground_truth/odom"
@@ -42,8 +40,6 @@ class GroundTruthContractProbe(Node):
         self.dynamic_tf = []
         self.static_tf = []
         self._subscription_handles = []
-
-        self.tf_broadcaster = TransformBroadcaster(self)
 
         best_effort_qos = QoSProfile(
             depth=100,
@@ -87,34 +83,18 @@ class GroundTruthContractProbe(Node):
             f"Waiting up to {self.timeout:.1f}s for {GROUND_TRUTH_TOPIC}")
 
     def capture_ground_truth(self, message):
-        """Keep the requested number of ground-truth samples and publish TF."""
+        """Keep the requested number of ground-truth samples."""
         if len(self.ground_truth) < self.samples:
             self.ground_truth.append(message)
 
-        transform = TransformStamped()
-        transform.header.stamp = message.header.stamp
-        transform.header.frame_id = "odom"
-        transform.child_frame_id = "ground_truth_base"
-        transform.transform.translation.x = message.pose.pose.position.x
-        transform.transform.translation.y = message.pose.pose.position.y
-        transform.transform.translation.z = message.pose.pose.position.z
-        transform.transform.rotation = message.pose.pose.orientation
-        
-        self.tf_broadcaster.sendTransform(transform)
-
-    # def complete(self):
-    #     """Return whether enough data exists for every contract check."""
-    #     return (
-    #         len(self.ground_truth) >= self.samples
-    #         and len(self.clock_times) >= self.samples
-    #         and bool(self.dynamic_tf)
-    #         and bool(self.static_tf)
-    #     )
-
     def complete(self):
         """Return whether enough data exists for every contract check."""
-        # Return False so the node runs indefinitely and keeps broadcasting TF
-        return False
+        return (
+            len(self.ground_truth) >= self.samples
+            and len(self.clock_times) >= self.samples
+            and bool(self.dynamic_tf)
+            and bool(self.static_tf)
+        )
 
     @staticmethod
     def finite(values):
@@ -234,17 +214,26 @@ class GroundTruthContractProbe(Node):
 def main():
     rclpy.init()
     node = GroundTruthContractProbe()
+    deadline = time.monotonic() + node.timeout
     try:
-        rclpy.spin(node)
-    except (KeyboardInterrupt, SystemExit):
-        pass
+        while rclpy.ok() and time.monotonic() < deadline and not node.complete():
+            rclpy.spin_once(node, timeout_sec=0.1)
+
+        errors = node.validate()
+        if errors:
+            node.get_logger().error(
+                "Ground-truth contract FAILED: " + "; ".join(errors))
+            return 1
+        node.get_logger().info(
+            "Ground-truth contract PASSED: "
+            f"ground_truth={len(node.ground_truth)}, "
+            f"clock={len(node.clock_times)}, "
+            f"tf={len(node.dynamic_tf)}, tf_static={len(node.static_tf)}")
+        return 0
     finally:
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
-
-if __name__ == "__main__":
-    main()
 
 
 if __name__ == "__main__":

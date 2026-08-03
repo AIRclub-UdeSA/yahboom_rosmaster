@@ -27,6 +27,7 @@ install(
     scripts/cmd_vel_watchdog.py
     scripts/wheel_state_odometry.py
     scripts/calculated_odometry.py
+    scripts/ground_truth_tf.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

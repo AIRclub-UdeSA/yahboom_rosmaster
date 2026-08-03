@@ -59,18 +59,19 @@ class CmdVelOdometry(Node):
 
         self.odom_publisher = self.create_publisher(Odometry, "/calc_odom", 10)
         self.tf_broadcaster = TransformBroadcaster(self)
-        
+
         # Subscribe to pure /cmd_vel before errors are injected
         self.subscription = self.create_subscription(
             Twist, "/cmd_vel", self.cmd_vel_callback, 10)
 
         self.last_time = self.get_clock().now()
         self.last_cmd_vel_time = self.last_time
-        
+
         self.timer = self.create_timer(1.0 / publish_rate, self.timer_callback)
 
         self.get_logger().info(
-            f"Publishing pure cmd_vel odometry to /{self.odom_frame_id} with {self.timeout}s watchdog")
+            f"Publishing pure cmd_vel odometry to /{self.odom_frame_id} "
+            f"with {self.timeout}s watchdog")
 
     def cmd_vel_callback(self, msg: Twist):
         """Update current velocities and reset the watchdog timer."""
@@ -97,17 +98,17 @@ class CmdVelOdometry(Node):
 
         # Midpoint integration
         midpoint_heading = self.heading + (self.v_yaw * dt * 0.5)
-        
+
         self.x += (
-            self.v_x * math.cos(midpoint_heading) - 
+            self.v_x * math.cos(midpoint_heading) -
             self.v_y * math.sin(midpoint_heading)
         ) * dt
-        
+
         self.y += (
-            self.v_x * math.sin(midpoint_heading) + 
+            self.v_x * math.sin(midpoint_heading) +
             self.v_y * math.cos(midpoint_heading)
         ) * dt
-        
+
         self.heading = normalize_angle(self.heading + self.v_yaw * dt)
 
         stamp = current_time.to_msg()
@@ -120,7 +121,7 @@ class CmdVelOdometry(Node):
         odom.header.stamp = stamp
         odom.header.frame_id = self.odom_frame_id
         odom.child_frame_id = self.base_frame_id
-        
+
         odom.pose.pose.position.x = self.x
         odom.pose.pose.position.y = self.y
         odom.pose.pose.orientation.x = qx
@@ -128,12 +129,12 @@ class CmdVelOdometry(Node):
         odom.pose.pose.orientation.z = qz
         odom.pose.pose.orientation.w = qw
         odom.pose.covariance = self.pose_covariance
-        
+
         odom.twist.twist.linear.x = linear_x
         odom.twist.twist.linear.y = linear_y
         odom.twist.twist.angular.z = angular_z
         odom.twist.covariance = self.twist_covariance
-        
+
         self.odom_publisher.publish(odom)
 
         transform = TransformStamped()
@@ -146,7 +147,7 @@ class CmdVelOdometry(Node):
         transform.transform.rotation.y = qy
         transform.transform.rotation.z = qz
         transform.transform.rotation.w = qw
-        
+
         self.tf_broadcaster.sendTransform(transform)
 
 
