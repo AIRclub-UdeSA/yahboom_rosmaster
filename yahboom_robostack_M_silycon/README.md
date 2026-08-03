@@ -8,11 +8,14 @@ environment, and every command below is run from **inside this folder**.
 
 ## Get started
 
+New to this? **[SETUP.md](SETUP.md) is the full walkthrough** — Homebrew, pixi,
+cloning, and your first drive, assuming no ROS experience. The short version:
+
 ```bash
 brew install pixi          # once per machine
 cd yahboom_robostack_M_silycon
 
-./run setup                # downloads ROS 2 + Gazebo (~3 GB, once)
+./run setup                # downloads ROS 2 + Gazebo (4.3 GB, once)
 ./run build                # compiles the robot packages
 ./run sim                  # opens Gazebo and RViz
 ```
