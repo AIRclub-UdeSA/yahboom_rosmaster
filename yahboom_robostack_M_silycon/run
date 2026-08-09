@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+#
+# One entry point for the macOS (Apple Silicon) simulation.
+# Run it from inside this folder:  ./run sim
+#
+# Everything happens inside the repository's `classic` pixi environment, so
+# there is no `source` step and no ROS installation to manage.
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "${HERE}/.." && pwd)"
+
+usage() {
+  cat <<'EOF'
+Usage: ./run <command>
+
+  setup     install the ROS 2 + Gazebo environment (first time, ~3 GB)
+  build     compile the robot packages
+  sim       start the simulation: Gazebo window + RViz
+  teleop    drive the robot from the keyboard
+  slam      build a map while you drive
+  nav2      build a map and let Nav2 navigate to goals you set in RViz
+  stop      shut everything down
+  doctor    check that the environment is healthy
+
+Typical first run:
+  ./run setup && ./run build && ./run sim
+then, in a second terminal:
+  ./run teleop
+EOF
+}
+
+need_pixi() {
+  if ! command -v pixi >/dev/null 2>&1; then
+    echo "pixi is not installed. Install it with:  brew install pixi" >&2
+    exit 1
+  fi
+}
+
+# Run a command inside the classic environment, from the repository root.
+in_env() {
+  cd "$REPO"
+  pixi run -e classic bash -c "$1"
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  setup)
+    need_pixi
+    cd "$REPO" && pixi install -e classic
+    echo
+    echo "Environment ready. Next:  ./run build"
+    ;;
+  build)
+    need_pixi
+    cd "$REPO" && pixi run build-classic
+    echo
+    echo "Build complete. Next:  ./run sim"
+    ;;
+  sim)
+    need_pixi
+    in_env "ros2 launch '${HERE}/launch/simulation.launch.py'"
+    ;;
+  sim-headless)
+    need_pixi
+    in_env "ros2 launch '${HERE}/launch/simulation.launch.py' gui:=false rviz:=false"
+    ;;
+  teleop)
+    need_pixi
+    in_env "ros2 run teleop_twist_keyboard teleop_twist_keyboard"
+    ;;
+  slam)
+    need_pixi
+    in_env "ros2 launch '${HERE}/launch/slam_nav2.launch.py'"
+    ;;
+  nav2)
+    need_pixi
+    in_env "ros2 launch '${HERE}/launch/slam_nav2.launch.py' nav2:=true"
+    ;;
+  stop)
+    bash "${REPO}/scripts/stop_sim.sh"
+    ;;
+  doctor)
+    need_pixi
+    bash "${HERE}/scripts/doctor.sh"
+    ;;
+  ""|-h|--help|help)
+    usage
+    ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    echo
+    usage
+    exit 1
+    ;;
+esac

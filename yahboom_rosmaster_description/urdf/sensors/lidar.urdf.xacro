@@ -7,8 +7,8 @@
     parent:='base_link'
     frame_id:='laser_frame'
     mesh_file:='file://$(find yahboom_rosmaster_description)/meshes/rplidar/rplidar_s2.stl'
-    xyz_offset:='0 0 0.0825'
-    rpy_offset:='0 0 0'
+    xyz_offset:='0.043 0 0.110'
+    rpy_offset:='0 0 ${M_PI}'
     mesh_xyz_offset:='0 0 0'
     mesh_rpy_offset:='${-M_PI/2} 0 0'
     mesh_scale:='0.001 0.001 0.001'
@@ -25,24 +25,28 @@
     gazebo_material_diffuse:='0.1 0.1 0.1 1'
     gazebo_material_specular:='0.1 0.1 0.1 1'
     update_rate:=10
-    ray_count:=720
+    ray_count:=1080
     min_angle:='-3.14159'
     max_angle:='3.14159'
-    min_range:='0.20'
-    max_range:='30.0'
+    min_range:='0.05'
+    max_range:='12.0'
     range_resolution:='0.013'
     noise_mean:='0.0'
-    noise_stddev:='0.02'
+    noise_stddev:='0.005'
     topic_name:='scan'
     always_on:=true
     visualize:=false
-    enable_collision:=false">
+    enable_collision:=false
+    enable_gz_sensor:=true
+    classic_sensor:=false
+    plugin_ext:=.so">
 
     <xacro:property name="radius" value="${lidar_width/2}" />
     <xacro:property name="ixx_iyy" value="${(mass/12) * (3 * radius * radius + lidar_height * lidar_height)}" />
     <xacro:property name="izz" value="${(mass/2) * (radius * radius)}" />
 
     <link name="${prefix}${frame_id}">
+      <!--
       <visual>
         <origin xyz="${mesh_xyz_offset}" rpy="${mesh_rpy_offset}"/>
         <geometry>
@@ -52,6 +56,7 @@
           <color rgba="${material_color}"/>
         </material>
       </visual>
+      -->
 
       <xacro:if value="${enable_collision}">
         <collision>
@@ -93,6 +98,11 @@
            type="gpu_lidar" uses the ogre2 render pipeline (enabled in empty.world).
            libgazebo_ros_ray_sensor.so is Classic-only and must not be used here.
            Data flows via ros_gz_bridge (gz.msgs.LaserScan → sensor_msgs/LaserScan). -->
+      <!-- gpu_lidar drives the ogre2 render pipeline, which cannot initialise in
+           the Gazebo server's render thread on macOS (NSWindow is main-thread
+           only). Set enable_gz_sensor to false there to keep the link and TF
+           while leaving the rendering sensor out. -->
+      <xacro:if value="${enable_gz_sensor}">
       <sensor name="${prefix}lidar_sensor" type="gpu_lidar">
         <update_rate>${update_rate}</update_rate>
         <always_on>${always_on}</always_on>
@@ -128,6 +138,47 @@
           </noise>
         </lidar>
       </sensor>
+      </xacro:if>
+
+      <!-- Gazebo Classic. type="ray" is the CPU raycast lidar: it queries the
+           physics engine instead of the render pipeline, so unlike gpu_lidar it
+           produces correct ranges on macOS, where server-side rendering is
+           broken. -->
+      <xacro:if value="${classic_sensor}">
+        <sensor name="${prefix}lidar_sensor" type="ray">
+          <pose>0 0 0 0 0 0</pose>
+          <always_on>${always_on}</always_on>
+          <visualize>${visualize}</visualize>
+          <update_rate>${update_rate}</update_rate>
+          <ray>
+            <scan>
+              <horizontal>
+                <samples>${ray_count}</samples>
+                <resolution>1</resolution>
+                <min_angle>${min_angle}</min_angle>
+                <max_angle>${max_angle}</max_angle>
+              </horizontal>
+            </scan>
+            <range>
+              <min>${min_range}</min>
+              <max>${max_range}</max>
+              <resolution>${range_resolution}</resolution>
+            </range>
+            <noise>
+              <type>gaussian</type>
+              <mean>${noise_mean}</mean>
+              <stddev>${noise_stddev}</stddev>
+            </noise>
+          </ray>
+          <plugin name="${prefix}lidar_controller" filename="libgazebo_ros_ray_sensor${plugin_ext}">
+            <ros>
+              <remapping>~/out:=${topic_name}</remapping>
+            </ros>
+            <output_type>sensor_msgs/LaserScan</output_type>
+            <frame_name>${prefix}${frame_id}</frame_name>
+          </plugin>
+        </sensor>
+      </xacro:if>
     </gazebo>
   </xacro:macro>
 </robot>
