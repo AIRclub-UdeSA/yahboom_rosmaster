@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Derive a topic/frame/rate/noise contract from recorded real-robot bags.
+"""
+Derive a topic/frame/rate/noise contract from recorded real-robot bags.
 
 Reads one or more ROS 2 bags directly with rosbag2_py (never full playback),
 computes per-topic rate, frame, and noise statistics, and can emit a
@@ -162,7 +163,10 @@ def analyze_odom(accum, msg, bag_t):
     accum.metric("pose_cov_yawyaw", msg.pose.covariance[35])
     accum.metrics.setdefault("_frame_ids_extra", set()).add(
         (msg.header.frame_id, msg.child_frame_id))
-    accum.metrics.setdefault("_xy", []).append((msg.pose.pose.position.x, msg.pose.pose.position.y))
+    accum.metrics.setdefault("_xy", []).append((
+        msg.pose.pose.position.x,
+        msg.pose.pose.position.y,
+    ))
 
 
 def path_length(xy_samples):
@@ -305,9 +309,15 @@ def analyze_bag(bag_path, image_samples=3):
         orientation_cov = imu_accum.metrics.get("_orientation_cov_diag", [])
         angvel_cov = imu_accum.metrics.get("_angvel_cov_diag", [])
         accel_cov = imu_accum.metrics.get("_accel_cov_diag", [])
-        result["imu_data"]["orientation_covariance_diag"] = list(orientation_cov[0]) if orientation_cov else None
-        result["imu_data"]["angular_velocity_covariance_diag"] = list(angvel_cov[0]) if angvel_cov else None
-        result["imu_data"]["linear_acceleration_covariance_diag"] = list(accel_cov[0]) if accel_cov else None
+        result["imu_data"]["orientation_covariance_diag"] = (
+            list(orientation_cov[0]) if orientation_cov else None
+        )
+        result["imu_data"]["angular_velocity_covariance_diag"] = (
+            list(angvel_cov[0]) if angvel_cov else None
+        )
+        result["imu_data"]["linear_acceleration_covariance_diag"] = (
+            list(accel_cov[0]) if accel_cov else None
+        )
         gravity_mag = [
             math.hypot(math.hypot(ax, ay), az)
             for ax, ay, az in zip(
