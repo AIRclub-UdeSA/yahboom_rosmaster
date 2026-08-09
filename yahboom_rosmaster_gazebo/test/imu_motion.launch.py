@@ -36,7 +36,7 @@ def generate_test_description():
             "timeout": 45.0,
             "stationary_samples": 20,
             "warmup_samples": 5,
-            "nominal_rate": 15.0,
+            "nominal_rate": 10.0,
             "linear_command": 0.4,
             "linear_duration": 0.7,
             "yaw_command": 0.5,

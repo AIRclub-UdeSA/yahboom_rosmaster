@@ -19,7 +19,7 @@
         gazebo_material_ambient:='0.1 0.1 0.1 1'
         gazebo_material_diffuse:='0.1 0.1 0.1 1'
         gazebo_material_specular:='0.1 0.1 0.1 1'
-        update_rate:='15.0'
+        update_rate:='10.0'
         gyro_noise_stddev:='0.00873'
         accel_noise_stddev:='0.00175'
         topic_name:='imu/data'

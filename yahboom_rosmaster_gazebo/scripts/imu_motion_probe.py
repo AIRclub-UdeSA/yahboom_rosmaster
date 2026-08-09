@@ -16,6 +16,17 @@ from sensor_msgs.msg import Imu
 from tf2_ros import Buffer, TransformException, TransformListener
 
 
+# imu_link is mounted at rpy (0, pi, pi/2) relative to base_link (real-robot
+# mount parity; see real_robot_contract.yaml). That rotation is a signed-axis
+# permutation: body +X reads on sensor -Y, body +Y reads on sensor -X, and
+# body +Z reads on sensor -Z (confirmed empirically for +Z via stationary
+# gravity, which lands on accel.z ~= -9.8). All IMU vector fields -- linear
+# acceleration, angular velocity, and orientation-derived yaw -- are reported
+# in this same rotated sensor frame, so every body-frame check below reads
+# the mapped sensor axis with its sign flipped back to body-frame terms.
+BODY_TO_SENSOR_LINEAR_AXIS = {"x": "y", "y": "x"}
+
+
 def stamp_seconds(message):
     """Return a message header stamp in seconds."""
     return float(message.header.stamp.sec) + float(message.header.stamp.nanosec) * 1e-9
@@ -221,9 +232,9 @@ class ImuMotionProbe(Node):
             for message in messages
         ]
         gravity = statistics.median(gravity_magnitudes)
-        if acceleration_z < 8.0 or acceleration_z > 11.5:
+        if acceleration_z < -11.5 or acceleration_z > -8.0:
             errors.append(
-                f"stationary gravity must point +Z in imu_link; median az={acceleration_z:.3f}")
+                f"stationary gravity must point -Z in imu_link; median az={acceleration_z:.3f}")
         if abs(acceleration_x) > 0.75 or abs(acceleration_y) > 0.75:
             errors.append(
                 "stationary horizontal acceleration is too large: "
@@ -356,8 +367,9 @@ class ImuMotionProbe(Node):
                 [f"positive {axis} start produced only {len(messages)} IMU messages"],
                 "insufficient data",
             )
+        sensor_axis = BODY_TO_SENSOR_LINEAR_AXIS[axis]
         values = [
-            getattr(message.linear_acceleration, axis)
+            -getattr(message.linear_acceleration, sensor_axis)
             for message in messages
         ]
         positive_values = [value for value in values if value > 0.35]
@@ -393,7 +405,8 @@ class ImuMotionProbe(Node):
         ]
         if len(steady_messages) < 5:
             steady_messages = messages[len(messages) // 2:]
-        yaw_rates = [message.angular_velocity.z for message in steady_messages]
+        # body +Z (yaw) reads on sensor -Z; see BODY_TO_SENSOR_LINEAR_AXIS.
+        yaw_rates = [-message.angular_velocity.z for message in steady_messages]
         median_yaw_rate = statistics.median(yaw_rates)
         positive_fraction = sum(rate > 0.05 for rate in yaw_rates) / len(yaw_rates)
         if median_yaw_rate < 0.15:
@@ -403,8 +416,11 @@ class ImuMotionProbe(Node):
             errors.append(
                 f"only {positive_fraction:.0%} of steady yaw samples have positive wz")
 
-        yaws = [quaternion_rpy(stationary_last.orientation)[2]]
-        yaws.extend(quaternion_rpy(message.orientation)[2] for message in messages)
+        # Orientation is reported in the same rotated sensor frame as the
+        # angular velocity and linear acceleration fields, so its yaw
+        # component is also negated here to read as body-frame yaw.
+        yaws = [-quaternion_rpy(stationary_last.orientation)[2]]
+        yaws.extend(-quaternion_rpy(message.orientation)[2] for message in messages)
         accumulated_yaw = sum(
             shortest_angle(current, previous)
             for previous, current in zip(yaws, yaws[1:])

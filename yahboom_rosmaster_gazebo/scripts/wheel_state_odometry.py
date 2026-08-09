@@ -40,7 +40,7 @@ class WheelStateOdometry(Node):
         self.declare_parameter("back_left_joint", "back_left_wheel_joint")
         self.declare_parameter("back_right_joint", "back_right_wheel_joint")
         self.declare_parameter("wheel_base", 0.16)
-        self.declare_parameter("wheel_separation", 0.149)
+        self.declare_parameter("wheel_separation", 0.169)
         self.declare_parameter("wheel_radius", 0.0325)
         self.declare_parameter("max_wheel_position_jump", 2.0 * math.pi)
         self.declare_parameter("odom_frame_id", "odom")

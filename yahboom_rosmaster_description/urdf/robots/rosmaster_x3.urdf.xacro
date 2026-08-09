@@ -139,9 +139,9 @@
     prefix="$(arg prefix)"
     parent="base_link"
     frame_id="imu"
-    xyz_offset="0 0 0.006"
-    rpy_offset="0 0 0"
-    update_rate="15.0"
+    xyz_offset="-0.06 0.01 0.01"
+    rpy_offset="0 3.1415 1.5707"
+    update_rate="10.0"
     topic_name="imu/data"/>
 
   <!-- Gazebo Fortress simulation plugins. gz_ros2_control is read-only for
@@ -201,7 +201,7 @@
         <back_left_joint>$(arg prefix)back_left_wheel_joint</back_left_joint>
         <back_right_joint>$(arg prefix)back_right_wheel_joint</back_right_joint>
         <wheelbase>0.16</wheelbase>
-        <wheel_separation>0.149</wheel_separation>
+        <wheel_separation>${wheel_separation}</wheel_separation>
         <wheel_radius>0.0325</wheel_radius>
         <min_acceleration>-1.0</min_acceleration>
         <max_acceleration>1.0</max_acceleration>

@@ -24,6 +24,7 @@ EXPECTED_WHEEL_JOINTS = {
     "back_right_wheel_joint",
 }
 CAMERA_HORIZONTAL_FOV = 1.5184
+REQUIRED_DYNAMIC_TF_EDGE = ("odom", "base_footprint")
 
 
 class SensorContractProbe(Node):
@@ -51,6 +52,7 @@ class SensorContractProbe(Node):
             "/tf_static": 1,
         }
         self.messages = {topic: [] for topic in self.required_counts}
+        self.observed_dynamic_tf_edges = set()
         self.started_at = time.monotonic()
         self.first_arrivals = {}
         self._subscription_handles = []
@@ -114,16 +116,27 @@ class SensorContractProbe(Node):
             f"Waiting up to {self.timeout:.1f}s for the standalone sensor contract")
 
     def capture(self, topic, message):
-        """Keep only the number of messages needed by the contract."""
+        """Keep bounded samples and continuously track dynamic TF edges."""
         self.first_arrivals.setdefault(topic, time.monotonic())
+        if topic == "/tf":
+            self.observed_dynamic_tf_edges.update(
+                (
+                    transform.header.frame_id.lstrip("/"),
+                    transform.child_frame_id.lstrip("/"),
+                )
+                for transform in message.transforms
+            )
         if len(self.messages[topic]) < self.required_counts[topic]:
             self.messages[topic].append(message)
 
     def complete(self):
         """Return whether all topics have produced the required samples."""
-        return all(
-            len(self.messages[topic]) >= count
-            for topic, count in self.required_counts.items()
+        return (
+            all(
+                len(self.messages[topic]) >= count
+                for topic, count in self.required_counts.items()
+            )
+            and REQUIRED_DYNAMIC_TF_EDGE in self.observed_dynamic_tf_edges
         )
 
     @staticmethod
@@ -225,7 +238,7 @@ class SensorContractProbe(Node):
 
         rate_contracts = {
             "/scan": (4.5, 5.5),
-            "/imu/data": (12.0, 18.0),
+            "/imu/data": (8.0, 12.0),
             "/cam_1/color/image_raw": (1.7, 2.3),
             "/cam_1/depth/image_raw": (1.7, 2.3),
             "/cam_1/color/camera_info": (1.7, 2.3),
@@ -348,12 +361,7 @@ class SensorContractProbe(Node):
             errors.append(
                 f"odom: expected child base_footprint, got {odometry.child_frame_id}")
 
-        dynamic_children = {
-            transform.child_frame_id
-            for message in self.messages["/tf"]
-            for transform in message.transforms
-        }
-        if "base_footprint" not in dynamic_children:
+        if REQUIRED_DYNAMIC_TF_EDGE not in self.observed_dynamic_tf_edges:
             errors.append("/tf: odom -> base_footprint transform was not observed")
 
         static_children = {
