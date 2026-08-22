@@ -28,7 +28,7 @@ from launch.actions import (
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnShutdown
 from launch.logging import get_logger
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
@@ -241,9 +241,40 @@ def _request_gazebo_stop(event, context, gazebo_server):
     return None
 
 
-def generate_launch_description():
-    world = LaunchConfiguration("world")
+def _launch_gazebo_server(context, ign_executable, pkg_gz):
+    raw_world = LaunchConfiguration("world").perform(context)
+    if os.path.isabs(raw_world) and os.path.exists(raw_world):
+        world_path = raw_world
+    else:
+        candidate = os.path.join(pkg_gz, "worlds", raw_world)
+        if os.path.exists(candidate):
+            world_path = candidate
+        else:
+            candidate_ext = os.path.join(pkg_gz, "worlds", f"{raw_world}.world")
+            if os.path.exists(candidate_ext):
+                world_path = candidate_ext
+            else:
+                world_path = raw_world
 
+    get_logger("rosmaster_gazebo_server").info(f"Loading Gazebo world from: {world_path}")
+
+    gazebo_server = ExecuteProcess(
+        cmd=[
+            "ruby", ign_executable, "gazebo",
+            "-r", "-s", "-v", "4", world_path,
+            "--force-version", "6",
+        ],
+        output="screen",
+    )
+    return [
+        RegisterEventHandler(OnShutdown(
+            on_shutdown=lambda event, ctx: _request_gazebo_stop(
+                event, ctx, gazebo_server))),
+        gazebo_server,
+    ]
+
+
+def generate_launch_description():
     pkg_desc = get_package_share_directory("yahboom_rosmaster_description")
     pkg_gz = get_package_share_directory("yahboom_rosmaster_gazebo")
     ign_executable = shutil.which("ign")
@@ -261,6 +292,8 @@ def generate_launch_description():
     declare_world = DeclareLaunchArgument("world", default_value=default_world)
     declare_rviz = DeclareLaunchArgument(
         "rviz", default_value="true", description="Launch RViz (true/false)")
+    declare_gui = DeclareLaunchArgument(
+        "gui", default_value="true", description="Launch Gazebo GUI client (true/false)")
     declare_headless = DeclareLaunchArgument(
         "headless", default_value="false",
         description="Skip Gazebo GUI client — server-only for autonomous/CI debugging")
@@ -305,20 +338,9 @@ def generate_launch_description():
             "ideal preserves the zero-slip baseline"),
     )
     headless = LaunchConfiguration("headless")
+    gui = LaunchConfiguration("gui")
 
-    # Own the Ruby/Gazebo process directly so launch's SIGINT reaches it. The
-    # Humble ros_gz_sim wrapper uses ExecuteProcess(shell=True), which signals a
-    # waiting /bin/sh instead; after escalation that can orphan the real server.
-    gazebo_server = ExecuteProcess(
-        cmd=[
-            "ruby", ign_executable, "gazebo",
-            "-r", "-s", "-v", "4", world,
-            "--force-version", "6",
-        ],
-        output="screen",
-    )
-
-    # Gazebo Fortress GUI — skipped when headless:=true.
+    # Gazebo Fortress GUI — skipped when headless:=true or gui:=false.
     # QT_QPA_PLATFORM=xcb forces X11/XWayland mode on Wayland sessions;
     # without it the Qt platform default fails on AMD Wayland, leaving a white window.
     # The Gazebo GUI cannot run on macOS: ign-gui builds its 3D scene on a
@@ -333,7 +355,12 @@ def generate_launch_description():
             "--force-version", "6",
         ],
         output="screen",
-        condition=UnlessCondition(headless),
+        condition=UnlessCondition(
+            PythonExpression([
+                "'", headless, "'.lower() in ('true', '1', 'yes') or ",
+                "'", gui, "'.lower() in ('false', '0', 'no')"
+            ])
+        ),
     ) if gazebo_client_supported else LogInfo(
         msg="macOS: skipping the Gazebo GUI (unsupported); use RViz to view the robot")
 
@@ -451,6 +478,7 @@ def generate_launch_description():
         declare_use_sim_time,
         declare_world,
         declare_rviz,
+        declare_gui,
         declare_headless,
         declare_render_sensors,
         declare_use_ros2_control,
@@ -468,14 +496,13 @@ def generate_launch_description():
         AppendEnvironmentVariable(
             "GZ_SIM_SYSTEM_PLUGIN_PATH", os.environ.get("LD_LIBRARY_PATH", "")),
         AppendEnvironmentVariable("IGN_GAZEBO_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
+        AppendEnvironmentVariable("IGN_GAZEBO_RESOURCE_PATH", os.path.join(pkg_gz, "worlds")),
         AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(pkg_gz, "models")),
-        # Gazebo occasionally misses process-level SIGINT after sequential test
-        # runs. Its control service cleanly stops the server first; launch's
-        # normal SIGINT/SIGTERM escalation remains available as a fallback.
-        RegisterEventHandler(OnShutdown(
-            on_shutdown=lambda event, context: _request_gazebo_stop(
-                event, context, gazebo_server))),
-        gazebo_server,
+        AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(pkg_gz, "worlds")),
+        OpaqueFunction(
+            function=_launch_gazebo_server,
+            args=[ign_executable, pkg_gz],
+        ),
         gazebo_client,
         OpaqueFunction(
             function=_launch_robot,

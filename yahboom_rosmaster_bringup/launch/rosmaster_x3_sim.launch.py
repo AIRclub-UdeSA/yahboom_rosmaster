@@ -29,6 +29,11 @@ def generate_launch_description():
         default_value="true",
         description="Launch Gazebo UI"
     )
+    headless_arg = DeclareLaunchArgument(
+        "headless",
+        default_value="false",
+        description="Skip Gazebo UI client (true/false)"
+    )
     rviz_arg = DeclareLaunchArgument(
         "rviz",
         default_value="true",
@@ -55,6 +60,7 @@ def generate_launch_description():
         launch_arguments={
             "world": LaunchConfiguration("world"),
             "gui": LaunchConfiguration("gui"),
+            "headless": LaunchConfiguration("headless"),
             "rviz": LaunchConfiguration("rviz"),
             "motion_profile": LaunchConfiguration("motion_profile"),
             "motion_bias": LaunchConfiguration("motion_bias"),
@@ -65,9 +71,11 @@ def generate_launch_description():
     return LaunchDescription([
         world_arg,
         gui_arg,
+        headless_arg,
         rviz_arg,
         motion_profile_arg,
         motion_bias_arg,
         use_sim_time_arg,
         include_sim,
     ])
+
