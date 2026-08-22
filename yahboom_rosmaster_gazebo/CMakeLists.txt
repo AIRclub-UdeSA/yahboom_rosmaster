@@ -29,6 +29,7 @@ install(
     scripts/wheel_state_odometry.py
     scripts/calculated_odometry.py
     scripts/ground_truth_tf.py
+    scripts/pointcloud_frame_relay.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

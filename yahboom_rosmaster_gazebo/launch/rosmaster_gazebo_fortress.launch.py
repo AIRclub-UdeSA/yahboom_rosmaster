@@ -384,6 +384,17 @@ def generate_launch_description():
         output="screen",
     )
 
+    # Fortress 6.18 labels the RGB-D cloud with the optical frame even though
+    # its XYZ data is +X-forward. Relabel the header to the true regular frame
+    # so TF, RViz, and depth pipelines stay mutually consistent without
+    # collapsing the REP-104 optical rotation.
+    pointcloud_frame_relay = Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="pointcloud_frame_relay.py",
+        name="pointcloud_frame_relay",
+        output="screen",
+    )
+
     # Load and activate the read-only joint state broadcaster. The spawner waits
     # longer than `ros2 control load_controller`, which helps GUI starts on busy
     # machines where the controller manager is late to answer service calls.
@@ -511,6 +522,7 @@ def generate_launch_description():
         TimerAction(period=5.0, actions=[
             ros_gz_bridge,
             ros_gz_image_bridge,
+            pointcloud_frame_relay,
             joint_state_bridge,
             joint_state_throttle,
             cmd_vel_watchdog,
