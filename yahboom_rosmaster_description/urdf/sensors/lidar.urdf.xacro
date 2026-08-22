@@ -86,6 +86,14 @@
       <origin xyz="${xyz_offset}" rpy="${rpy_offset}"/>
     </joint>
 
+    <!-- Alias link: provides laser_link in TF for stacks expecting laser_link rather than laser_frame -->
+    <link name="${prefix}laser_link"/>
+    <joint name="${prefix}laser_link_alias_joint" type="fixed">
+      <parent link="${prefix}${frame_id}"/>
+      <child link="${prefix}laser_link"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+
     <gazebo reference="${prefix}${frame_id}">
       <visual>
         <material>
