@@ -42,7 +42,7 @@
     image_width:=424
     image_height:=240
     clip_near:=0.05
-    clip_far:=1.5
+    clip_far:=8.0
     update_rate:=2
     always_on:=1
     visualize:=false

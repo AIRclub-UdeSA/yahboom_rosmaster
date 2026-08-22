@@ -156,9 +156,9 @@ class LidarGeometryProbe(Node):
     def validate_scan_structure(self, scan, scan_index, errors):
         """Validate one scan's frame, angular grid, ranges, and temporal fields."""
         label = f"scan[{scan_index}]"
-        if scan.header.frame_id != "laser_frame":
+        if scan.header.frame_id != "laser_link":
             errors.append(
-                f"{label}: expected frame laser_frame, got {scan.header.frame_id!r}")
+                f"{label}: expected frame laser_link, got {scan.header.frame_id!r}")
         if len(scan.ranges) != EXPECTED_SAMPLES:
             errors.append(
                 f"{label}: expected {EXPECTED_SAMPLES} ranges, got {len(scan.ranges)}")
@@ -301,7 +301,7 @@ class LidarGeometryProbe(Node):
                     "odom", scan.header.frame_id, stamp,
                     timeout=Duration(seconds=0.25)):
                 errors.append(
-                    "TF: cannot resolve odom -> laser_frame at scan stamp "
+                    "TF: cannot resolve odom -> laser_link at scan stamp "
                     f"{self.stamp_seconds(scan):.9f}")
 
     def validate(self):

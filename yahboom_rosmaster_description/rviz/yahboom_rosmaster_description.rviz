@@ -123,7 +123,7 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        laser_frame:
+        laser_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -175,7 +175,7 @@ Visualization Manager:
           Value: true
         imu_link:
           Value: true
-        laser_frame:
+        laser_link:
           Value: true
       Marker Scale: 0.25
       Name: TF
@@ -208,7 +208,7 @@ Visualization Manager:
               {}
             imu_link:
               {}
-            laser_frame:
+            laser_link:
               {}
       Update Interval: 0
       Value: true

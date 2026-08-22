@@ -178,9 +178,8 @@ geometry:
       0.149 m inconsistency with the wheel geometry.
     - >
       The simulator uses 1080 rays, a 0.05-12 m Fortress range, and a rounded
-      (0.043, 0, 0.110) m mount. It deliberately retains simulation-specific
-      differences: laser_frame rather than laser_link, 5 Hz rather than the
-      measured 7.4 Hz, a pi yaw offset, and a 0.25 m minimum range in Classic
+      (0.043, 0, 0.110) m mount. It now uses the canonical laser_link frame,
+      a pi yaw mount offset, and a 0.25 m minimum range in Classic
       to prevent the CPU raycast from detecting the chassis.
 
 command_response:

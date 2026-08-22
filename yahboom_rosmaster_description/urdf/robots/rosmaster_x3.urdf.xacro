@@ -123,7 +123,7 @@
   <xacro:lidar_sensor
     prefix="$(arg prefix)"
     parent="base_link"
-    frame_id="laser_frame"
+    frame_id="laser_link"
     xyz_offset="0.043 0 0.110"
     rpy_offset="0 0 ${M_PI}"
     min_range="${0.25 if backend == 'classic' else 0.05}"

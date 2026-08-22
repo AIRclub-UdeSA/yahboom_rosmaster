@@ -5,7 +5,7 @@
   <xacro:macro name="lidar_sensor" params="
     prefix:=''
     parent:='base_link'
-    frame_id:='laser_frame'
+    frame_id:='laser_link'
     mesh_file:='file://$(find yahboom_rosmaster_description)/meshes/rplidar/rplidar_s2.stl'
     xyz_offset:='0.043 0 0.110'
     rpy_offset:='0 0 ${M_PI}'
@@ -46,18 +46,6 @@
     <xacro:property name="izz" value="${(mass/2) * (radius * radius)}" />
 
     <link name="${prefix}${frame_id}">
-      <!--
-      <visual>
-        <origin xyz="${mesh_xyz_offset}" rpy="${mesh_rpy_offset}"/>
-        <geometry>
-          <mesh filename="${mesh_file}" scale="${mesh_scale}"/>
-        </geometry>
-        <material name="${material_name}">
-          <color rgba="${material_color}"/>
-        </material>
-      </visual>
-      -->
-
       <xacro:if value="${enable_collision}">
         <collision>
           <origin xyz="${collision_xyz_offset}" rpy="${collision_rpy_offset}"/>

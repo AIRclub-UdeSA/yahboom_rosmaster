@@ -68,11 +68,8 @@ produce correct physical strafing after URDF-to-SDF conversion.
   `odom -> base_footprint` on `/tf`.
 - `yahboom_rosmaster_gazebo/package.xml`
   adds runtime dependencies for the new Python nodes.
-- `yahboom_rosmaster_localization/config/ekf.yaml`
-  consumes `/odom` without publishing TF, leaving wheel odometry as the sole
-  `odom -> base_footprint` authority.
 - `README.md`
-  documents the new command, odometry, controller, and physics interfaces.
+  documents the command, odometry, controller, and physics interfaces.
 
 ## Public interfaces
 

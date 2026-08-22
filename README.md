@@ -79,6 +79,22 @@ source /opt/ros/humble/setup.bash
 source ~/rosmaster_ws/install/setup.bash
 ```
 
+## Docker (Containerized Linux Simulation)
+
+For a fully isolated environment on Linux (with automatic X11 display forwarding and GPU acceleration support):
+
+```bash
+cd dockerfiles
+
+./container.sh start         # build image & start container
+./container.sh build         # compile workspace inside container
+./container.sh sim           # launch Gazebo + RViz simulation
+./container.sh teleop        # drive robot from keyboard in another terminal
+./container.sh stop          # stop simulation container
+```
+
+Run `./container.sh doctor` anytime to check GPU and display forwarding health.
+
 ## macOS (Apple Silicon)
 
 macOS has no ROS 2 Humble debs, so the environment comes from
@@ -365,8 +381,8 @@ a physical ROSMASTER X3. See
 | `/ground_truth/odom` | `nav_msgs/msg/Odometry` | `world` -> `base_footprint` / 50 Hz | Measurement-only Gazebo ground truth; not TF |
 | `/tf` | `tf2_msgs/msg/TFMessage` | — | Dynamic transforms |
 | `/tf_static` | `tf2_msgs/msg/TFMessage` | — | Static robot transforms |
-| `/scan` | `sensor_msgs/msg/LaserScan` | `laser_frame` / 5 Hz | 720-sample 2D LiDAR scan |
-| `/imu/data` | `sensor_msgs/msg/Imu` | `imu_link` / 15 Hz | Simulated IMU data |
+| `/scan` | `sensor_msgs/msg/LaserScan` | `laser_link` / 5 Hz | 1080-sample 2D LiDAR scan |
+| `/imu/data` | `sensor_msgs/msg/Imu` | `imu_link` / 10 Hz | Simulated IMU data |
 | `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | `cam_1_depth_optical_frame` / 2 Hz | 424x240 `rgb8` image |
 | `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | `cam_1_depth_optical_frame` / 2 Hz | 424x240 `32FC1` depth in metres |
 | `/cam_1/color/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_depth_optical_frame` / 2 Hz | RGB camera intrinsics |
@@ -376,7 +392,12 @@ a physical ROSMASTER X3. See
 The images and camera information use the ROS optical convention (+Z forward,
 +X right, +Y down). Gazebo's native point cloud is correctly labelled in the
 camera's regular sensor frame (+X forward, +Y left, +Z up); TF provides the
-fixed transform between the two frames.
+fixed transform between the two frames. Fortress stamps its native cloud with
+the optical frame id, so the bridge publishes it to the private handoff topic
+`/internal/cam_1/points_raw` and `pointcloud_frame_relay.py` relabels the
+header to the true frame before publishing `/cam_1/depth/color/points`.
+Topics under `/internal/` are implementation details: subscribe to the public
+contract topics instead.
 
 The current camera is an idealized, pre-registered, single-aperture RGB-D
 model. Fortress renders the combined color and depth streams from one pose, so
@@ -603,17 +624,15 @@ stopped.
 
 ## Repository Layout
 
-| Package | Contents |
-|---------|----------|
+| Package / Directory | Contents |
+|---------------------|----------|
 | `yahboom_rosmaster` | Repository metapackage |
-| `yahboom_rosmaster_description` | Xacro/URDF, meshes, robot-state launch files, and RViz configuration |
-| `yahboom_rosmaster_gazebo` | Fortress worlds, bridge configuration, simulator launch, command watchdog, and wheel odometry |
-| `yahboom_rosmaster_bringup` | Integration launch files and command-line helpers |
-| `yahboom_rosmaster_navigation` | Navigation parameters, maps, and helper code |
-| `yahboom_rosmaster_localization` | `robot_localization` EKF configuration and launch files |
-| `yahboom_rosmaster_docking` | AprilTag and docking-related helper code |
-| `yahboom_rosmaster_msgs` | Custom messages, service, and action definitions |
-| `yahboom_rosmaster_system_tests` | Manual example and demo nodes for commands, messages, services, and actions |
+| `yahboom_rosmaster_bringup` | Canonical simulator launch entrypoints and helpers |
+| `yahboom_rosmaster_description` | Xacro/URDF, kinematic parameters, visual/collision meshes, and RViz configs |
+| `yahboom_rosmaster_gazebo` | Fortress worlds, bridge configs, simulator launch, watchdog, odometry, and test probes |
+| `yahboom_rosmaster_msgs` | Custom interface definitions |
+| `yahboom_robostack_M_silycon` | macOS Apple Silicon pixi + Gazebo Classic simulation environment |
+| `dockerfiles` | Docker container setup (`Dockerfile`, `container.sh`) for isolated Linux simulation |
 
 ## Provenance
 

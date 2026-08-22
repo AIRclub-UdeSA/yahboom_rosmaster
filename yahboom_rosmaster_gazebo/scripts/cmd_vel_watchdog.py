@@ -121,6 +121,15 @@ class CmdVelWatchdog(Node):
         self.last_cmd = cmd
         self.last_cmd_time = time.monotonic()
 
+    def stop_robot(self):
+        """Send explicit zero velocities to bring base to a complete stop."""
+        zero = Twist()
+        for _ in range(3):
+            try:
+                self.publisher.publish(zero)
+            except Exception:
+                pass
+
     def timer_callback(self):
         if self.last_cmd_time is None:
             self.publisher.publish(Twist())
@@ -131,6 +140,10 @@ class CmdVelWatchdog(Node):
             return
 
         self.publisher.publish(self.last_cmd)
+
+    def destroy_node(self):
+        self.stop_robot()
+        super().destroy_node()
 
 
 def main():

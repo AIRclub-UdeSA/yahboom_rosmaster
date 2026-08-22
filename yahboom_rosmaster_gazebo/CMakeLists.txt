@@ -10,7 +10,7 @@ find_package(ament_cmake REQUIRED)
 
 # Copy necessary files to designated locations in the project
 install(
-  DIRECTORY config launch models rviz scripts worlds
+  DIRECTORY config launch maps models rviz scripts worlds
   DESTINATION share/${PROJECT_NAME}
 )
 
@@ -29,6 +29,7 @@ install(
     scripts/wheel_state_odometry.py
     scripts/calculated_odometry.py
     scripts/ground_truth_tf.py
+    scripts/pointcloud_frame_relay.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
