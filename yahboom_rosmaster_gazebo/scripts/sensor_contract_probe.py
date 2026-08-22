@@ -318,8 +318,8 @@ class SensorContractProbe(Node):
             errors.append("point cloud: data length does not match row_step*height")
 
         scan = self.messages["/scan"][-1]
-        if scan.header.frame_id != "laser_frame":
-            errors.append(f"scan: expected laser_frame, got {scan.header.frame_id}")
+        if scan.header.frame_id != "laser_link":
+            errors.append(f"scan: expected laser_link, got {scan.header.frame_id}")
         if not scan.ranges or scan.angle_increment <= 0.0:
             errors.append("scan: ranges are empty or angle increment is invalid")
         if not 0.0 < scan.range_min < scan.range_max:
@@ -370,7 +370,7 @@ class SensorContractProbe(Node):
             for transform in message.transforms
         }
         required_static_frames = {
-            "base_link", "laser_frame", "imu_link",
+            "base_link", "laser_link", "imu_link",
             "cam_1_depth_optical_frame", "cam_1_color_optical_frame",
         }
         missing_static = required_static_frames - static_children
