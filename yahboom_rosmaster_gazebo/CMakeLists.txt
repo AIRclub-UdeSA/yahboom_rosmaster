@@ -10,7 +10,7 @@ find_package(ament_cmake REQUIRED)
 
 # Copy necessary files to designated locations in the project
 install(
-  DIRECTORY config launch models rviz scripts worlds
+  DIRECTORY config launch maps models rviz scripts worlds
   DESTINATION share/${PROJECT_NAME}
 )
 
