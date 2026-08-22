@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Republish the Fortress RGB-D point cloud under its true frame id.
+"""
+Republish the Fortress RGB-D point cloud under its true frame id.
 
 Fortress 6.18 stamps the rgbd_camera's PointCloudPacked with the sensor's
 ``optical_frame_id`` even though the XYZ data is expressed in the camera's
