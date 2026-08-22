@@ -25,10 +25,10 @@
   lazy: false
 
 # Fortress stamps the cloud with the optical frame id even though its XYZ
-# data is +X-forward regular-frame coordinates. Bridge it to a private raw
-# topic; pointcloud_frame_relay relabels the header to the true frame and
-# publishes the public cam_1/depth/color/points contract.
-- ros_topic_name: "cam_1/depth/color/points_raw"
+# data is +X-forward regular-frame coordinates. Bridge it to a private
+# internal handoff topic; pointcloud_frame_relay relabels the header to the
+# true frame and publishes the public cam_1/depth/color/points contract.
+- ros_topic_name: "/internal/cam_1/points_raw"
   gz_topic_name: "/cam_1/points"
   ros_type_name: "sensor_msgs/msg/PointCloud2"
   gz_type_name: "gz.msgs.PointCloudPacked"

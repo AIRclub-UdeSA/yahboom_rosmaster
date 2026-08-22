@@ -392,7 +392,12 @@ a physical ROSMASTER X3. See
 The images and camera information use the ROS optical convention (+Z forward,
 +X right, +Y down). Gazebo's native point cloud is correctly labelled in the
 camera's regular sensor frame (+X forward, +Y left, +Z up); TF provides the
-fixed transform between the two frames.
+fixed transform between the two frames. Fortress stamps its native cloud with
+the optical frame id, so the bridge publishes it to the private handoff topic
+`/internal/cam_1/points_raw` and `pointcloud_frame_relay.py` relabels the
+header to the true frame before publishing `/cam_1/depth/color/points`.
+Topics under `/internal/` are implementation details: subscribe to the public
+contract topics instead.
 
 The current camera is an idealized, pre-registered, single-aperture RGB-D
 model. Fortress renders the combined color and depth streams from one pose, so

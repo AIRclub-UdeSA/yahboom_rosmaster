@@ -21,7 +21,7 @@ class PointCloudFrameRelay(Node):
 
     def __init__(self):
         super().__init__("pointcloud_frame_relay")
-        self.declare_parameter("input_topic", "cam_1/depth/color/points_raw")
+        self.declare_parameter("input_topic", "/internal/cam_1/points_raw")
         self.declare_parameter("output_topic", "cam_1/depth/color/points")
         self.declare_parameter("target_frame", "cam_1_depth_frame")
         self.input_topic = self.get_parameter("input_topic").value
