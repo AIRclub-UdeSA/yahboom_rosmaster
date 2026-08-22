@@ -36,24 +36,6 @@ mecanum robot, so it can strafe without turning.
 
 When you're done, `./run stop`.
 
-## Mapping and navigation
-
-With the simulation running, in a second terminal:
-
-```bash
-./run slam       # builds a map as you drive
-./run nav2       # builds a map AND navigates on its own
-```
-
-**Drive around the room first.** The robot can only navigate through space it has
-already seen with its LiDAR, so open a teleop terminal and tour the room before
-sending a goal. Watch the map fill in inside RViz as you go.
-
-Once the room is mapped, use RViz's **2D Goal Pose** button and click anywhere in
-it. The robot plans a route and drives there by itself, avoiding the pillars. If
-a goal is ignored, it is almost always in a part of the room that is still
-unmapped — drive closer and try again.
-
 ## All commands
 
 | Command | What it does |
@@ -63,8 +45,6 @@ unmapped — drive closer and try again.
 | `./run sim` | Gazebo + RViz |
 | `./run sim-headless` | no windows, useful for tests |
 | `./run teleop` | drive from the keyboard |
-| `./run slam` | build a map while driving |
-| `./run nav2` | map + autonomous navigation |
 | `./run stop` | shut everything down |
 | `./run doctor` | check the setup and report problems |
 

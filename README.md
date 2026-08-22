@@ -79,6 +79,22 @@ source /opt/ros/humble/setup.bash
 source ~/rosmaster_ws/install/setup.bash
 ```
 
+## Docker (Containerized Linux Simulation)
+
+For a fully isolated environment on Linux (with automatic X11 display forwarding and GPU acceleration support):
+
+```bash
+cd dockerfiles
+
+./container.sh start         # build image & start container
+./container.sh build         # compile workspace inside container
+./container.sh sim           # launch Gazebo + RViz simulation
+./container.sh teleop        # drive robot from keyboard in another terminal
+./container.sh stop          # stop simulation container
+```
+
+Run `./container.sh doctor` anytime to check GPU and display forwarding health.
+
 ## macOS (Apple Silicon)
 
 macOS has no ROS 2 Humble debs, so the environment comes from
@@ -603,17 +619,15 @@ stopped.
 
 ## Repository Layout
 
-| Package | Contents |
-|---------|----------|
+| Package / Directory | Contents |
+|---------------------|----------|
 | `yahboom_rosmaster` | Repository metapackage |
-| `yahboom_rosmaster_description` | Xacro/URDF, meshes, robot-state launch files, and RViz configuration |
-| `yahboom_rosmaster_gazebo` | Fortress worlds, bridge configuration, simulator launch, command watchdog, and wheel odometry |
-| `yahboom_rosmaster_bringup` | Integration launch files and command-line helpers |
-| `yahboom_rosmaster_navigation` | Navigation parameters, maps, and helper code |
-| `yahboom_rosmaster_localization` | `robot_localization` EKF configuration and launch files |
-| `yahboom_rosmaster_docking` | AprilTag and docking-related helper code |
-| `yahboom_rosmaster_msgs` | Custom messages, service, and action definitions |
-| `yahboom_rosmaster_system_tests` | Manual example and demo nodes for commands, messages, services, and actions |
+| `yahboom_rosmaster_bringup` | Canonical simulator launch entrypoints and helpers |
+| `yahboom_rosmaster_description` | Xacro/URDF, kinematic parameters, visual/collision meshes, and RViz configs |
+| `yahboom_rosmaster_gazebo` | Fortress worlds, bridge configs, simulator launch, watchdog, odometry, and test probes |
+| `yahboom_rosmaster_msgs` | Custom interface definitions |
+| `yahboom_robostack_M_silycon` | macOS Apple Silicon pixi + Gazebo Classic simulation environment |
+| `dockerfiles` | Docker container setup (`Dockerfile`, `container.sh`) for isolated Linux simulation |
 
 ## Provenance
 

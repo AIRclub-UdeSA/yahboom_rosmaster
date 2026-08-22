@@ -149,15 +149,13 @@ the same package versions. If it works for one of you, it works for all of you.
 ./run build
 ```
 
-Fast — a few seconds. You will see five packages finish:
+Fast — a few seconds. You will see three packages finish:
 
 ```
 Finished <<< yahboom_rosmaster_description
-Finished <<< yahboom_rosmaster_docking
 Finished <<< yahboom_rosmaster_gazebo
-Finished <<< yahboom_rosmaster_navigation
 Finished <<< yahboom_rosmaster_msgs
-Summary: 5 packages finished
+Summary: 3 packages finished
 ```
 
 You may see warnings about `install_name_tool` and *"code signature"* from
@@ -215,33 +213,7 @@ slide sideways without turning. Ordinary differential-drive robots cannot.
 
 **This terminal must stay focused for the keys to register.**
 
-## Step 10 — Mapping and navigation
-
-With the simulation still running, in that second terminal (press `Ctrl+C` to
-stop teleop first):
-
-```bash
-./run slam        # builds a map as you drive
-```
-
-or
-
-```bash
-./run nav2        # builds a map AND navigates on its own
-```
-
-Then open a **third terminal** for `./run teleop` and drive around. Watch the
-map fill in inside RViz.
-
-**Drive the whole room before setting a goal.** The robot can only plan through
-space its LiDAR has already seen. Once the room is mapped, click RViz's
-**2D Goal Pose** button and then click somewhere in the map — the robot plans a
-route and drives there by itself, avoiding the pillars.
-
-If a goal is ignored or the robot reports success without moving, the goal was
-almost certainly in unmapped space. Drive closer and try again.
-
-## Step 11 — Shut down
+## Step 10 — Shut down
 
 ```bash
 ./run stop
@@ -294,8 +266,6 @@ Type `exit` to leave the environment.
 | `./run sim` | Gazebo + RViz |
 | `./run sim-headless` | no windows — useful for testing |
 | `./run teleop` | drive from the keyboard |
-| `./run slam` | build a map while driving |
-| `./run nav2` | map + autonomous navigation |
 | `./run stop` | shut everything down |
 | `./run doctor` | check the setup and report problems |
 

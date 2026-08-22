@@ -16,12 +16,10 @@ Usage: ./run <command>
 
   setup     install the ROS 2 + Gazebo environment (first time, ~3 GB)
   build     compile the robot packages
-  sim       start the simulation: Gazebo window + RViz
-  teleop    drive the robot from the keyboard
-  slam      build a map while you drive
-  nav2      build a map and let Nav2 navigate to goals you set in RViz
-  stop      shut everything down
-  doctor    check that the environment is healthy
+  sim-headless  start the simulation without windows
+  teleop        drive the robot from the keyboard
+  stop          shut everything down
+  doctor        check that the environment is healthy
 
 Typical first run:
   ./run setup && ./run build && ./run sim
@@ -68,14 +66,6 @@ case "$cmd" in
   teleop)
     need_pixi
     in_env "ros2 run teleop_twist_keyboard teleop_twist_keyboard"
-    ;;
-  slam)
-    need_pixi
-    in_env "ros2 launch '${HERE}/launch/slam_nav2.launch.py'"
-    ;;
-  nav2)
-    need_pixi
-    in_env "ros2 launch '${HERE}/launch/slam_nav2.launch.py' nav2:=true"
     ;;
   stop)
     bash "${REPO}/scripts/stop_sim.sh"
