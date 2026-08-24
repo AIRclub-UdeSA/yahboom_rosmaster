@@ -1,0 +1,86 @@
+<?xml version="1.0" ?>
+<sdf version="1.5">
+  <world name="maze_6x5_v2">
+
+    <physics type="ode">
+      <max_step_size>0.00625</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>160</real_time_update_rate>
+      <gravity>0 0 -9.8</gravity>
+      <!--   <gravity>0 0 0</gravity> -->
+    </physics>
+
+    <!-- Disable shadows, disable grid -->
+    <scene>
+      <shadows>false</shadows>
+      <ambient>0.2 0.2 0.2 1</ambient>
+      <background>1 1 1 1</background>
+      <grid>false</grid>
+      <origin_visual>false</origin_visual>
+    </scene>
+
+    <!-- A global light source -->
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+    <!-- A directed light source -->
+    <light name="camera_spot_1_light" type='spot'>
+      <pose>-6 4 4 0 -1 -0.8</pose>
+      <diffuse>0.5 0.5 0.5 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <direction>0 0 -1</direction>
+      <attenuation>
+        <range>20</range>
+        <constant>0.2</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <cast_shadows>0</cast_shadows>
+      <spot>
+        <inner_angle>0.6</inner_angle>
+        <outer_angle>1</outer_angle>
+        <falloff>1</falloff>
+      </spot>
+    </light>
+
+    <!-- A second directed light source -->
+    <light name="camera_spot_2_light" type='spot'>
+      <pose>5 -3 4 0 0.8 -0.6</pose>
+      <diffuse>0.5 0.5 0.5 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <direction>0 0 -1</direction>
+      <attenuation>
+        <range>20</range>
+        <constant>0.3</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <cast_shadows>0</cast_shadows>
+      <spot>
+        <inner_angle>0.6</inner_angle>
+        <outer_angle>1</outer_angle>
+        <falloff>1</falloff>
+      </spot>
+    </light>
+
+    <!-- A wooden parquet ground plane -->
+    <include>
+      <uri>model://floor_parquet2</uri>
+      <pose>0 0 0 0 0 0</pose>
+    </include>
+
+    <!-- A maze made of plywood panels -->
+    <include>
+      <uri>model://maze_2_6x5</uri>
+      <pose>-2.5 -2.5 0 0 0 0</pose>
+    </include>
+
+    <!-- A set of tag36h11 AprilTags -->
+    <include>
+      <uri>model://maze_2_tags</uri>
+      <pose>-2.5 -2.5 0 0 0 0</pose>
+    </include>
+
+  </world>
+</sdf>
