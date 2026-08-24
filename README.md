@@ -273,6 +273,31 @@ ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
   world:="$(ros2 pkg prefix yahboom_rosmaster_gazebo)/share/yahboom_rosmaster_gazebo/worlds/cafe.world"
 ```
 
+### Maze Worlds
+
+The repository also ships six maze worlds for practice and competition
+runs -- two authored for this project and four imported from
+[plywood_mazes](https://github.com/rfzeg/plywood_mazes). They launch the
+same way as the cafe world; a bare file name resolves inside `worlds/`:
+
+```bash
+ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
+  world:=laberinto_simple.world
+```
+
+| World | Description |
+|-------|-------------|
+| `laberinto_simple.world` | Small 6x6 m maze with three internal partition walls |
+| `laberinto_1.world` | Larger, more convoluted maze exported from Gazebo's Building Editor |
+| `maze_1_6x5.world` | plywood_mazes maze 1, 6x5 m |
+| `maze_2_6x5.world` | plywood_mazes maze 2, 6x5 m |
+| `maze_3_6x6.world` | plywood_mazes maze 3, 6x6 m -- ships a matching Nav2 map at `maps/maze_3.yaml` |
+| `maze_4_metal_6x6.world` | plywood_mazes maze 4, metal panels, 6x6 m |
+
+Walls are 0.5 m tall in all six -- clear of the LiDAR (0.11 m) and camera
+(0.05 m) mount heights, but low enough to inspect the layout from the
+Gazebo GUI.
+
 ### Simulator Launch Arguments
 
 | Argument | Default | Description |
@@ -615,6 +640,11 @@ are not part of the supported workflow described above:
   measured covariance.
 - `simple_room.world` and `willowgarage.world` are retained migration assets;
   they are not supported Fortress worlds.
+- The six maze worlds (`laberinto_simple.world`, `laberinto_1.world`,
+  `maze_1_6x5.world`, `maze_2_6x5.world`, `maze_3_6x6.world`,
+  `maze_4_metal_6x6.world`) are usable Fortress worlds but are not part of
+  the automated headless contract above. Only `maze_3_6x6.world` ships a
+  matching Nav2 map (`maps/maze_3.yaml`); the others have no pre-built map.
 - Multi-robot operation and real-hardware bringup are not provided.
 
 The 0.5-second watchdog handles normal command loss. It is not a safety-rated
