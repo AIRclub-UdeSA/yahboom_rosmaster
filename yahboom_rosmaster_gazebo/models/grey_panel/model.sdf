@@ -23,11 +23,10 @@
                     </box>
                 </geometry>
                 <material>
-                    <script>
-                        <uri>file://media/materials/scripts/gazebo.material</uri>
-                        <name>Gazebo/Grey</name>
-                    </script>
-                </material>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
             </visual>
         </link>
 

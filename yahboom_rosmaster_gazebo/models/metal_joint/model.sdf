@@ -20,11 +20,9 @@
           </box>
         </geometry>
         <material>
-          <script>
-            <uri>model://metal_joint/materials/scripts</uri>
-            <uri>model://metal_joint/materials/textures</uri>
-            <name>metal_joint</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
     </link>

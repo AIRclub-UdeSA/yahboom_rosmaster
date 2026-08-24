@@ -37,11 +37,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00000</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -55,11 +53,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00001</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -73,11 +69,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00002</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -91,11 +85,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00003</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -109,11 +101,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00004</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -127,11 +117,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00005</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -149,11 +137,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00010</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -167,11 +153,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00011</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -188,11 +172,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00012</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -206,11 +188,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00013</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -227,11 +207,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00014</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -245,11 +223,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00015</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -266,11 +242,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00016</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -284,11 +258,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00017</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -304,11 +276,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00018</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -322,11 +292,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00019</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -342,11 +310,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00020</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -360,11 +326,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00021</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -383,11 +347,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00030</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -401,11 +363,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00031</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -422,11 +382,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00032</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -440,11 +398,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00033</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -460,11 +416,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00034</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -478,11 +432,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00035</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -499,11 +451,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00036</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -517,11 +467,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00037</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -538,11 +486,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00038</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -556,11 +502,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00039</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -577,11 +521,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00040</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -595,11 +537,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00041</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -618,11 +558,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00050</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -636,11 +574,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00051</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -656,11 +592,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00052</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -674,11 +608,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00053</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -693,11 +625,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00054</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -711,11 +641,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00055</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -731,11 +659,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00056</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -749,11 +675,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00057</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -769,11 +693,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00058</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -787,11 +709,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00059</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -807,11 +727,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00060</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -825,11 +743,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00061</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -848,11 +764,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00070</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -866,11 +780,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00071</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -886,11 +798,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00072</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -904,11 +814,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00073</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -925,11 +833,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00074</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -943,11 +849,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00075</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -964,11 +868,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00076</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -982,11 +884,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00077</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1003,11 +903,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00078</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1021,11 +919,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00079</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1042,11 +938,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00080</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1060,11 +954,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00081</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1082,11 +974,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00090</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1100,11 +990,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00091</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1120,11 +1008,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00092</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1138,11 +1024,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00093</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1158,11 +1042,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00094</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1176,11 +1058,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00095</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1196,11 +1076,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00096</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1214,11 +1092,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00097</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1234,11 +1110,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00098</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1252,11 +1126,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00099</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1272,11 +1144,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00100</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1290,11 +1160,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00101</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1313,11 +1181,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00110</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1331,11 +1197,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00111</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1351,11 +1215,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00112</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1369,11 +1231,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00113</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1389,11 +1249,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00114</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1407,11 +1265,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00115</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1427,11 +1283,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00116</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1445,11 +1299,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00117</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1465,11 +1317,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00118</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1483,11 +1333,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00119</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1503,11 +1351,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00120</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1521,11 +1367,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00121</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1554,11 +1398,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00300</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1572,11 +1414,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00301</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1590,11 +1430,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00302</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1608,11 +1446,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00303</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1626,11 +1462,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00304</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 <!-- 
@@ -1644,11 +1478,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00305</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1667,11 +1499,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00310</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1685,11 +1515,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00311</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1706,11 +1534,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00312</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1724,11 +1550,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00313</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1745,11 +1569,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00314</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1763,11 +1585,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00315</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1782,11 +1602,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00316</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1800,11 +1618,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00317</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1820,11 +1636,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00318</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1838,11 +1652,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00319</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1859,11 +1671,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00320</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1877,11 +1687,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00321</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1900,11 +1708,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00330</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1918,11 +1724,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00331</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -1938,11 +1742,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00332</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1956,11 +1758,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00333</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1976,11 +1776,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00334</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -1994,11 +1792,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00335</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2015,11 +1811,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00336</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2033,11 +1827,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00337</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2054,11 +1846,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00338</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2072,11 +1862,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00339</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2093,11 +1881,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00340</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2111,11 +1897,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00341</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2134,11 +1918,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00350</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2152,11 +1934,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00351</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2173,11 +1953,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00352</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2191,11 +1969,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00353</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2212,11 +1988,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00354</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2230,11 +2004,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00355</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2251,11 +2023,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00356</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2269,11 +2039,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00357</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2290,11 +2058,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00358</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2308,11 +2074,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00359</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2329,11 +2093,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00360</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2347,11 +2109,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00361</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2370,11 +2130,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00370</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2388,11 +2146,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00371</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2408,11 +2164,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00372</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2426,11 +2180,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00373</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2446,11 +2198,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00374</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2464,11 +2214,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00375</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2484,11 +2232,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00376</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2502,11 +2248,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00377</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2523,11 +2267,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00378</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2541,11 +2283,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00379</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2561,11 +2301,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00380</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2579,11 +2317,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00381</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2602,11 +2338,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00390</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2620,11 +2354,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00391</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2640,11 +2372,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00392</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2658,11 +2388,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00393</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2679,11 +2407,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00394</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2697,11 +2423,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00395</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2717,11 +2441,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00396</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2735,11 +2457,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00397</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2756,11 +2476,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00398</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2774,11 +2492,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00399</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2794,11 +2510,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00400</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2812,11 +2526,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00401</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2835,11 +2547,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00410</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2853,11 +2563,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00411</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2873,11 +2581,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00412</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2891,11 +2597,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00413</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2911,11 +2615,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00414</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2929,11 +2631,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00415</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2949,11 +2649,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00416</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -2967,11 +2665,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00417</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -2987,11 +2683,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00418</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
@@ -3005,11 +2699,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00419</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -3025,11 +2717,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00420</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 
@@ -3043,11 +2733,9 @@
           </plane>
         </geometry>
         <material>
-          <script>
-            <uri>model://maze_1_tags/materials/scripts</uri>
-            <uri>model://maze_1_tags/materials/textures</uri>
-            <name>tag36_11/00421</name>
-          </script>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
 -->
