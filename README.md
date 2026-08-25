@@ -275,8 +275,8 @@ ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
 
 ### Maze Worlds
 
-The repository also ships six maze worlds for practice and competition
-runs -- two authored for this project and four imported from
+The repository also ships seven maze worlds for practice and competition
+runs -- three authored for this project and four imported from
 [plywood_mazes](https://github.com/rfzeg/plywood_mazes). They launch the
 same way as the cafe world; a bare file name resolves inside `worlds/`:
 
@@ -288,6 +288,7 @@ ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
 | World | Description |
 |-------|-------------|
 | `laberinto_simple.world` | Small 6x6 m maze with three internal partition walls |
+| `laberinto_simple_obs.world` | `laberinto_simple.world` layout plus three color-marker obstacle cubes (two red, one blue; 0.25x0.25x0.3 m, with collision) for camera/LiDAR color-detection workshops |
 | `laberinto_1.world` | Larger, more convoluted maze exported from Gazebo's Building Editor |
 | `maze_1_6x5.world` | plywood_mazes maze 1, 6x5 m |
 | `maze_2_6x5.world` | plywood_mazes maze 2, 6x5 m |
@@ -640,11 +641,15 @@ are not part of the supported workflow described above:
   measured covariance.
 - `simple_room.world` and `willowgarage.world` are retained migration assets;
   they are not supported Fortress worlds.
-- The six maze worlds (`laberinto_simple.world`, `laberinto_1.world`,
-  `maze_1_6x5.world`, `maze_2_6x5.world`, `maze_3_6x6.world`,
-  `maze_4_metal_6x6.world`) are usable Fortress worlds but are not part of
-  the automated headless contract above. Only `maze_3_6x6.world` ships a
-  matching Nav2 map (`maps/maze_3.yaml`); the others have no pre-built map.
+- The seven maze worlds (`laberinto_simple.world`, `laberinto_simple_obs.world`,
+  `laberinto_1.world`, `maze_1_6x5.world`, `maze_2_6x5.world`,
+  `maze_3_6x6.world`, `maze_4_metal_6x6.world`) are usable Fortress worlds
+  but are not part of the automated headless contract above. Only
+  `maze_3_6x6.world` ships a matching Nav2 map (`maps/maze_3.yaml`); the
+  others have no pre-built map. The obstacle cubes in
+  `laberinto_simple_obs.world` have collision but are not part of any map
+  either -- they are meant to be detected live via camera/LiDAR, not
+  pre-mapped.
 - Multi-robot operation and real-hardware bringup are not provided.
 
 The 0.5-second watchdog handles normal command loss. It is not a safety-rated
