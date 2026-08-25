@@ -1,7 +1,7 @@
-# Running the ROSMASTER X3 on a Mac (Apple Silicon)
+# Running Donatello on a Mac (Apple Silicon)
 
-Everything you need to simulate the robot on an M-series MacBook: drive it,
-see its LiDAR, build a map, and let it navigate on its own.
+Everything you need to simulate the ROSMASTER X3 robot on an M-series MacBook,
+inspect its LiDAR, and drive it with mecanum keyboard controls.
 
 You do not need to install ROS 2. One tool (`pixi`) sets up the whole
 environment, and every command below is run from **inside this folder**.
@@ -15,7 +15,7 @@ cloning, and your first drive, assuming no ROS experience. The short version:
 brew install pixi          # once per machine
 cd yahboom_robostack_M_silycon
 
-./run setup                # downloads ROS 2 + Gazebo (4.3 GB, once)
+./run setup                # downloads ROS 2 + Gazebo (once)
 ./run build                # compiles the robot packages
 ./run sim                  # opens Gazebo and RViz
 ```
@@ -40,7 +40,7 @@ When you're done, `./run stop`.
 
 | Command | What it does |
 | --- | --- |
-| `./run setup` | install the environment (first time, ~3 GB) |
+| `./run setup` | install the environment (first time only) |
 | `./run build` | compile the robot packages |
 | `./run sim` | Gazebo + RViz |
 | `./run sim-headless` | no windows, useful for tests |
@@ -57,7 +57,6 @@ When you're done, `./run stop`.
 | `/tf`, `/tf_static` | coordinate frames |
 | `/cmd_vel` | velocity commands (publish here to drive it) |
 | `/clock` | simulation time |
-| `/map` | occupancy grid, once SLAM is running |
 
 Inspect them with `cd .. && pixi run -e classic bash`, then ordinary
 `ros2 topic list`, `ros2 topic echo /scan`, and so on.
@@ -67,11 +66,10 @@ Inspect them with `cd .. && pixi run -e classic bash`, then ordinary
 **The wheels do not spin, and walls do not stop the robot.** The plugin that
 gives the robot its sideways motion drives the body directly instead of turning
 the wheels, so wheel rotation is not simulated and a collision will not physically
-halt the base. Navigation still avoids obstacles, because it plans using the map
-built from the LiDAR.
+halt the base.
 
 **There is no camera.** macOS renders Gazebo camera images blank, so the RGB-D
-camera and the AprilTag docking demo only work on Linux.
+camera is available only in the Linux Fortress simulation.
 
 If you need exact mecanum wheel physics, use the Gazebo Fortress backend on
 Linux (`pixi run sim` from the repository root) — that is the reference
@@ -87,14 +85,13 @@ fix only exists in newer Gazebo and was never backported.
 
 Gazebo Classic, used here, opens its window normally, and its LiDAR works by
 asking the physics engine where the walls are instead of drawing them. That is
-the whole reason `/scan`, SLAM and Nav2 work on a Mac at all.
+why `/scan` works on a Mac.
 
 ## Contents
 
 ```
 run                     the only command you need
 launch/simulation.launch.py   Gazebo + RViz
-launch/slam_nav2.launch.py    SLAM and Nav2
 worlds/                 the room the robot drives in
 rviz/                   RViz layout
 scripts/activate.sh     macOS environment fixes, applied automatically

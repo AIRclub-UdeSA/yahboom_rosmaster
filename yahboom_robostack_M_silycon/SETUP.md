@@ -1,7 +1,7 @@
-# Installing the ROSMASTER X3 simulation on a Mac
+# Installing the Donatello simulation on a Mac
 
 A complete walkthrough, from a Mac you have never used for robotics to a robot
-driving around a simulated room, building a map, and navigating on its own.
+driving around a simulated room with working LiDAR and mecanum controls.
 
 No prior ROS experience is assumed. **You will not install ROS 2.** One tool,
 `pixi`, downloads a self-contained copy of ROS 2 Humble and Gazebo into this
@@ -30,7 +30,7 @@ creation on the main thread, so on a Mac Fortress cannot open its GUI and cannot
 run any sensor that needs rendering — the LiDAR would crash the simulator.
 Gazebo Classic opens its window normally and its LiDAR works by asking the
 physics engine where the walls are instead of drawing them. That is the entire
-reason `/scan`, SLAM and Nav2 work on a Mac at all.
+reason `/scan` works on a Mac.
 
 ---
 
@@ -40,7 +40,7 @@ reason `/scan`, SLAM and Nav2 work on a Mac at all.
 | --- | --- |
 | **Apple Silicon Mac** (M1/M2/M3/M4) | The environment is built for `osx-arm64`. Intel Macs are not supported. |
 | **macOS 12 or newer** | Older versions have not been tested. |
-| **~6 GB free disk** | The environment alone is 4.3 GB once installed. |
+| **~6 GB free disk** | The environment and build artifacts use several GB. |
 | **A decent internet connection** | The first setup downloads several GB. |
 
 Check your chip if you are unsure — this must print `arm64`:
@@ -108,14 +108,9 @@ Then restart your terminal so `~/.pixi/bin` lands on your PATH.
 
 ## Step 4 — Get the code
 
-> **Which repository?** The macOS support currently lives on the fork below.
-> The club repository `AIRclub-UdeSA/yahboom_rosmaster` does **not** have the
-> `yahboom_robostack_M_silycon/` folder yet — it arrives there when pull
-> request #2 is merged. Until then, clone the fork.
-
 ```bash
 mkdir -p ~/Gits && cd ~/Gits
-git clone https://github.com/bchax/yahboom_rosmaster.git
+git clone https://github.com/AIRclub-UdeSA/yahboom_rosmaster.git
 cd yahboom_rosmaster/yahboom_robostack_M_silycon
 ```
 
@@ -134,9 +129,8 @@ ls
 ./run setup
 ```
 
-This is the long one. It downloads ROS 2 Humble, Gazebo Classic, RViz, Nav2 and
-slam_toolbox — **4.3 GB on disk** when finished. Ten to thirty minutes is
-normal on a first run.
+This is the long one. It downloads ROS 2 Humble, Gazebo Classic, RViz, and the
+build tools. Ten to thirty minutes is normal on a first run.
 
 It is safe to re-run if it is interrupted; it resumes rather than restarting.
 
@@ -261,7 +255,7 @@ Type `exit` to leave the environment.
 
 | Command | What it does |
 | --- | --- |
-| `./run setup` | install the environment (first time only, 4.3 GB) |
+| `./run setup` | install the environment (first time only) |
 | `./run build` | compile the robot packages |
 | `./run sim` | Gazebo + RViz |
 | `./run sim-headless` | no windows — useful for testing |
@@ -293,9 +287,7 @@ repeat.
 side. A real mecanum base is never perfectly calibrated, so a "go forward"
 command also produces a little sideways and rotational motion. The simulation
 copies that, with the amount drawn at random each launch, so you cannot tune
-your code to one fixed error. This is exactly what closed-loop control is for —
-SLAM and Nav2 correct for it continuously. To switch it off while debugging
-something else:
+your code to one fixed error. To switch it off while debugging something else:
 
 ```bash
 cd .. && pixi run -e classic ros2 launch \
@@ -307,13 +299,11 @@ The amounts live in `../yahboom_rosmaster_gazebo/config/motion_bias.yaml`.
 **The wheels do not spin, and walls do not stop the robot.** The plugin that
 gives the robot its sideways motion drives the body directly rather than turning
 the wheels, so wheel rotation is not simulated and a collision will not
-physically halt the base. Navigation still avoids obstacles, because it plans
-from the map the LiDAR built.
+physically halt the base.
 
-There is also **no camera** — macOS renders Gazebo camera images blank, so the
-RGB-D camera and the AprilTag docking demo only work on Linux. If you need exact
-mecanum wheel physics or the camera, use the Gazebo Fortress backend on Linux
-(`pixi run sim` from the repository root).
+There is also **no camera** — macOS renders Gazebo camera images blank. If you
+need exact mecanum wheel physics or the RGB-D camera, use the Gazebo Fortress
+backend on Linux (`pixi run sim` from the repository root).
 
 ---
 
@@ -324,7 +314,7 @@ Everything lives inside the cloned folder. To reclaim the disk:
 ```bash
 cd ~/Gits/yahboom_rosmaster
 pixi run clean-classic     # remove build output only
-rm -rf .pixi               # remove the 4.3 GB environment
+rm -rf .pixi               # remove the downloaded environment
 ```
 
 Or simply delete `~/Gits/yahboom_rosmaster`. Nothing was installed

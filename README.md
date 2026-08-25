@@ -1,22 +1,32 @@
 # yahboom_rosmaster
 
+> Meet **Donatello** — the little mecanum robot living in this simulated world.
+
+<p align="center">
+  <img src="docs/media/donatello-simulator.gif" alt="Donatello driving in Gazebo alongside its sensor visualization in RViz" width="100%">
+  <br>
+  <a href="docs/media/donatello-gazebo-cafe.webm">Gazebo recording</a>
+  ·
+  <a href="docs/media/donatello-rviz-sensors.webm">RViz recording</a>
+</p>
+
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04-orange)
 ![ROS 2](https://img.shields.io/badge/ROS%202-Humble-blue)
 ![Gazebo](https://img.shields.io/badge/Gazebo-Fortress%206-blue)
 
-ROS 2 Humble packages for simulating the Yahboom ROSMASTER X3 mecanum robot
-with Gazebo Fortress. The supported standalone workflow provides contact-driven
-holonomic motion, wheel-state odometry, TF, 2D LiDAR, IMU data, and a depth
-point cloud, along with RGB and depth camera images and camera calibration
-messages. It also exposes timestamped simulation ground truth separately from
-robot-facing odometry.
+This repository provides a Yahboom ROSMASTER X3 mecanum robot simulation for
+ROS 2 Humble and Gazebo Fortress. The supported standalone workflow includes
+contact-driven holonomic motion, wheel-state odometry, TF, 2D LiDAR, IMU data,
+and a depth point cloud, along with RGB and depth camera images and camera
+calibration messages. It also exposes timestamped simulation ground truth
+separately from robot-facing odometry.
 
-Gazebo Fortress is the supported simulator backend. Gazebo Classic is not
-supported by the current mecanum simulator.
+Gazebo Fortress is the reference simulator backend. A reduced Gazebo Classic
+compatibility backend is available on Apple Silicon and documented below.
 
 Ubuntu 22.04 is the fully supported platform. Apple Silicon Macs run the
-simulation natively through RoboStack — see [macOS (Apple Silicon)](#macos-apple-silicon),
-which also documents the two sensors macOS cannot simulate.
+simulation natively through RoboStack — see [macOS (Apple Silicon)](#macos-apple-silicon)
+for its rendering limits and Classic compatibility backend.
 
 ## Requirements
 
@@ -81,19 +91,22 @@ source ~/rosmaster_ws/install/setup.bash
 
 ## Docker (Containerized Linux Simulation)
 
-For a fully isolated environment on Linux (with automatic X11 display forwarding and GPU acceleration support):
+For an isolated Linux environment, install Docker Engine first. GUI forwarding
+uses X11; install `xauth` on the host, and install the NVIDIA Container Toolkit
+when using an NVIDIA GPU.
 
 ```bash
 cd dockerfiles
 
-./container.sh start         # build image & start container
-./container.sh build         # compile workspace inside container
-./container.sh sim           # launch Gazebo + RViz simulation
-./container.sh teleop        # drive robot from keyboard in another terminal
-./container.sh stop          # stop simulation container
+./container.sh start         # build the image and start the container
+./container.sh build         # install dependencies and compile the workspace
+./container.sh sim           # launch Gazebo + RViz
+./container.sh teleop        # drive the robot from another terminal
+./container.sh stop          # stop the container
 ```
 
-Run `./container.sh doctor` anytime to check GPU and display forwarding health.
+Use `./container.sh sim-headless` when no GUI is needed. Run
+`./container.sh doctor` to inspect the container, GPU, and X11 connection.
 
 ## macOS (Apple Silicon)
 
@@ -109,7 +122,7 @@ git clone https://github.com/AIRclub-UdeSA/yahboom_rosmaster.git
 cd yahboom_rosmaster
 
 pixi install        # solve and download the ROS 2 + Gazebo environment
-pixi run build      # colcon build all nine packages
+pixi run build      # colcon build the simulator packages
 pixi run sim        # launch the simulation and RViz
 ```
 
@@ -122,11 +135,11 @@ Verified on an M4 Max: the robot spawns and drives, mecanum strafing works, and
 `/clock`, `/joint_states`, `/odom`, `/imu/data`, `/tf` and `/cmd_vel` all behave
 as they do on Ubuntu.
 
-### Gazebo Classic backend — the full stack on macOS
+### Gazebo Classic backend — GUI and LiDAR on macOS
 
 The Fortress backend above cannot open a Gazebo window or produce a LiDAR scan on
-macOS (see the next section for why). A second backend runs the same robot on
-**Gazebo Classic**, which does both, and therefore supports SLAM and Nav2.
+macOS (see the next section for why). A second backend runs the robot on
+**Gazebo Classic**, which provides both the Gazebo GUI and CPU-raycast LiDAR.
 
 It lives in its own folder with a single entry point and its own guide:
 
@@ -136,25 +149,22 @@ cd yahboom_robostack_M_silycon
 ```
 
 See [`yahboom_robostack_M_silycon/README.md`](yahboom_robostack_M_silycon/README.md)
-for the full walkthrough, including teleop, mapping and navigation. The same
-launches are also available from the repository root as `pixi run sim-classic`,
-`pixi run slam` and `pixi run nav2`.
+for the full walkthrough, including setup and teleoperation. The same simulation
+is available from the repository root as `pixi run sim-classic`.
 
 | | Fortress (`pixi run sim`) | Classic (`./run sim`) |
 | --- | --- | --- |
 | Gazebo GUI | unavailable | **works** |
 | Driving, mecanum strafe | works | works |
 | LiDAR `/scan` | unavailable | **works** (CPU raycast) |
-| SLAM, Nav2 | needs `/scan`, so no | **works** |
 | Wheels spin visually | yes | no — welded |
 | Obstacles block the robot | yes | no |
 | RGB-D camera | unavailable | unavailable |
-| Matches upstream | yes | macOS-only addition |
 
 `gazebo_ros_planar_move` imposes a body velocity rather than torquing the wheels,
 which is why the wheels do not turn and collisions do not stop the base. Both are
-cosmetic for mapping and navigation, but the Fortress backend on Linux remains
-the physically faithful one.
+limitations of the Classic backend; the Fortress backend on Linux remains the
+physically faithful one.
 
 The two backends are separate pixi environments because
 `ros-humble-gazebo-ros-pkgs` and `ros-humble-ros-gz` cannot be solved together,
@@ -189,10 +199,11 @@ with no sensors at all, and with `--iterations` set — so no sensor data was ev
 produced. Whether that hang is fixable was not investigated further; it would
 also mean leaving Humble, which the rest of this repository targets.
 
-Consequences for this backend: **RViz replaces the Gazebo GUI**, and anything
-needing `/scan` cannot run on it. That is exactly what the Gazebo Classic
-backend above exists to solve; only the RGB-D camera stays unavailable on macOS
-either way, so the AprilTag docking demo remains Linux-only.
+Consequences for this backend: **RViz replaces the Gazebo GUI**, and `/scan` is
+unavailable. The Gazebo Classic backend above supplies a GUI and LiDAR when
+those simulator outputs are needed. The RGB-D camera remains unavailable on
+macOS with either backend.
+
 The launch sets these defaults automatically; to override on a Linux machine
 nothing changes, and both flags can be forced explicitly:
 
@@ -238,7 +249,7 @@ cd ~/rosmaster_ws
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 
-ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py
+ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py
 ```
 
 Startup is staged while Gazebo creates the robot and starts its ROS interfaces.
@@ -258,7 +269,8 @@ baseline, launch with `motion_profile:=ideal`.
 Run the Gazebo server without the Gazebo GUI or RViz:
 
 ```bash
-ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
+ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
+  gui:=false \
   rviz:=false \
   headless:=true
 ```
@@ -269,8 +281,8 @@ The repository supports the empty and cafe Fortress worlds. Launch the cafe
 world with:
 
 ```bash
-ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
-  world:="$(ros2 pkg prefix yahboom_rosmaster_gazebo)/share/yahboom_rosmaster_gazebo/worlds/cafe.world"
+ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
+  world:=cafe.world
 ```
 
 ### Maze Worlds
@@ -281,7 +293,7 @@ runs -- four authored for this project and four imported from
 same way as the cafe world; a bare file name resolves inside `worlds/`:
 
 ```bash
-ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
+ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
   world:=laberinto_simple.world
 ```
 
@@ -293,7 +305,7 @@ ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
 | `laberinto_1_obs.world` | `laberinto_1.world` layout plus four color-marker obstacle cubes (three red, one blue; 0.25x0.25x0.3 m, one shrunk to 0.15x0.15x0.3 m to fit a ~0.31 m gap between two walls) tucked into narrow passages -- diagonal column corridor, small side room, stub-wall zigzag, and a wall gap -- so the robot has to enter a corridor before it can see and identify the color |
 | `maze_1_6x5.world` | plywood_mazes maze 1, 6x5 m |
 | `maze_2_6x5.world` | plywood_mazes maze 2, 6x5 m |
-| `maze_3_6x6.world` | plywood_mazes maze 3, 6x6 m -- ships a matching Nav2 map at `maps/maze_3.yaml` |
+| `maze_3_6x6.world` | plywood_mazes maze 3, 6x6 m -- ships a matching occupancy map at `maps/maze_3.yaml` |
 | `maze_4_metal_6x6.world` | plywood_mazes maze 4, metal panels, 6x6 m |
 
 Walls are 0.5 m tall in all eight -- clear of the LiDAR (0.11 m) and camera
@@ -304,11 +316,13 @@ Gazebo GUI.
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `world` | `worlds/empty.world` | Absolute path to the Gazebo world file |
+| `world` | `empty.world` | Bundled world filename or an absolute world path |
+| `gui` | `true` | Start the Gazebo GUI client |
 | `rviz` | `true` | Start RViz |
 | `headless` | `false` | Run the Gazebo server without its GUI client |
 | `use_sim_time` | `true` | Use the Gazebo simulation clock; keep enabled for the supported workflow |
 | `motion_profile` | `stress` | Wheel contact model: uncalibrated `stress` or zero-slip `ideal` |
+| `motion_bias` | `false` | Add randomized command drift when enabled |
 
 ## Controlling the Robot
 
@@ -410,11 +424,11 @@ a physical ROSMASTER X3. See
 | `/tf_static` | `tf2_msgs/msg/TFMessage` | — | Static robot transforms |
 | `/scan` | `sensor_msgs/msg/LaserScan` | `laser_link` / 5 Hz | 1080-sample 2D LiDAR scan |
 | `/imu/data` | `sensor_msgs/msg/Imu` | `imu_link` / 10 Hz | Simulated IMU data |
-| `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | `cam_1_depth_optical_frame` / 2 Hz | 424x240 `rgb8` image |
-| `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | `cam_1_depth_optical_frame` / 2 Hz | 424x240 `32FC1` depth in metres |
-| `/cam_1/color/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_depth_optical_frame` / 2 Hz | RGB camera intrinsics |
-| `/cam_1/depth/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_depth_optical_frame` / 2 Hz | Depth camera intrinsics |
-| `/cam_1/depth/color/points` | `sensor_msgs/msg/PointCloud2` | `cam_1_depth_frame` / 2 Hz | Organized XYZRGB point cloud, bridged lazily |
+| `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | `cam_1_depth_optical_frame` / 5 Hz | 424x240 `rgb8` image |
+| `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | `cam_1_depth_optical_frame` / 5 Hz | 424x240 `32FC1` depth in metres |
+| `/cam_1/color/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_depth_optical_frame` / 5 Hz | RGB camera intrinsics |
+| `/cam_1/depth/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_depth_optical_frame` / 5 Hz | Depth camera intrinsics |
+| `/cam_1/depth/color/points` | `sensor_msgs/msg/PointCloud2` | `cam_1_depth_frame` / 5 Hz | Organized XYZRGB point cloud, bridged lazily |
 
 The images and camera information use the ROS optical convention (+Z forward,
 +X right, +Y down). Gazebo's native point cloud is correctly labelled in the
@@ -598,7 +612,8 @@ If the Gazebo GUI cannot start in the current display environment, use the
 server-only command:
 
 ```bash
-ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
+ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
+  gui:=false \
   rviz:=false \
   headless:=true
 ```
@@ -615,13 +630,8 @@ contracts cover both supported worlds, and isolated acceptance tests exercise
 controlled RGB-D/LiDAR geometry, IMU motion, wheel signs, odometry, ground
 truth, profile selection, and TF.
 
-The following repository surfaces are retained for continued development but
-are not part of the supported workflow described above:
+The following simulator limitations remain:
 
-- The combined Nav2 launch loads its nodes, but its simulation-time propagation
-  is not currently reliable enough for navigation-goal execution.
-- AprilTag and docking resources are present, but they do not provide a working
-  end-to-end docking workflow.
 - The default drivetrain stress profile is deterministic but uncalibrated. It
   must not be described as reproducing the physical ROSMASTER X3 until its
   contact values are fitted against synchronized wheel odometry and external
@@ -646,17 +656,17 @@ are not part of the supported workflow described above:
   `laberinto_1.world`, `laberinto_1_obs.world`, `maze_1_6x5.world`,
   `maze_2_6x5.world`, `maze_3_6x6.world`, `maze_4_metal_6x6.world`) are
   usable Fortress worlds but are not part of the automated headless
-  contract above. Only `maze_3_6x6.world` ships a matching Nav2 map
+  contract above. Only `maze_3_6x6.world` ships a matching occupancy map
   (`maps/maze_3.yaml`); the others have no pre-built map. The obstacle
   cubes in `laberinto_simple_obs.world` and `laberinto_1_obs.world` have
   collision but are not part of any map either -- they are meant to be
   detected live via camera/LiDAR, not pre-mapped.
 - Multi-robot operation and real-hardware bringup are not provided.
 
-The 0.5-second watchdog handles normal command loss. It is not a safety-rated
-controller: terminating the watchdog or its bridge can leave Gazebo retaining
-the last drive target until another command is received or the simulation is
-stopped.
+The 0.5-second watchdog publishes zero on normal command loss and orderly
+shutdown. It is not a safety-rated controller: abrupt watchdog failure or loss
+of its bridge can leave Gazebo retaining the last drive target until another
+command is received or the simulation is stopped.
 
 ## Repository Layout
 

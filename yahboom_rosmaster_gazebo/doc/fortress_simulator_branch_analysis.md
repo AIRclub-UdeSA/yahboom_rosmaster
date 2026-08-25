@@ -16,7 +16,7 @@ Gazebo Fortress while preserving physics-based mecanum behavior:
 - Wheel slip should remain visible as odometry error, so odometry must not come
   from Gazebo ground truth.
 - The simulator should expose a clean ROS graph for sensors, TF, joint states,
-  and Nav2/localization.
+  and external consumers.
 - The active Gazebo ROS 2 controller set should be unambiguous: only
   `joint_state_broadcaster` should be active.
 
@@ -162,7 +162,8 @@ The final odometry path is:
 ```
 
 This keeps odometry encoder-like. If the wheels slip, the simulated body pose can
-diverge from `/odom`, which is the intended behavior for navigation tuning.
+diverge from `/odom`, which is the intended behavior for odometry-sensitive
+testing.
 Gazebo's timestamped world pose is independently bridged to
 `/ground_truth/odom` for measuring that divergence and does not publish TF.
 

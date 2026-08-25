@@ -35,8 +35,8 @@ else
 fi
 
 echo "Assets"
-for f in launch/simulation.launch.py launch/slam_nav2.launch.py \
-         worlds/classic_obstacles.world rviz/classic.rviz; do
+for f in launch/simulation.launch.py worlds/classic_obstacles.world \
+         rviz/classic.rviz; do
   [ -f "${HERE}/${f}" ] && ok "$f" || bad "$f missing"
 done
 

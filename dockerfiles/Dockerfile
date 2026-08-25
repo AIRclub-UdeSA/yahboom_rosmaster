@@ -15,7 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-rosdep \
     python3-pip \
     xvfb \
+    xauth \
     x11-apps \
+    x11-utils \
     mesa-utils \
     && curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" > /etc/apt/sources.list.d/gazebo-stable.list \
@@ -30,15 +32,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-tf2-tools \
     && rm -rf /var/lib/apt/lists/*
 
-# Non-root user setup with matching host UID/GID
+# Non-root user setup with matching host UID/GID. Reuse an existing numeric
+# group when the host GID already exists in the base image.
 ARG USERNAME=alumno
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-RUN getent group render || groupadd -g 128 render 2>/dev/null || true \
-    && groupadd --gid ${USER_GID} ${USERNAME} 2>/dev/null || true \
+RUN if ! getent group "${USER_GID}" >/dev/null; then \
+      groupadd --gid "${USER_GID}" "${USERNAME}"; \
+    fi \
+    && if ! getent group render >/dev/null; then groupadd --system render; fi \
     && useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/bash ${USERNAME} \
-    && usermod -aG dialout,video,render,plugdev ${USERNAME} 2>/dev/null || true \
+    && for group in dialout video render plugdev; do \
+      if getent group "${group}" >/dev/null; then usermod -aG "${group}" ${USERNAME}; fi; \
+    done \
     && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME}
 

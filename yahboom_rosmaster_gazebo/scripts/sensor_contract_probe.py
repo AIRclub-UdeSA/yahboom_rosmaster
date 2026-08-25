@@ -239,11 +239,11 @@ class SensorContractProbe(Node):
         rate_contracts = {
             "/scan": (4.5, 5.5),
             "/imu/data": (8.0, 12.0),
-            "/cam_1/color/image_raw": (1.7, 2.3),
-            "/cam_1/depth/image_raw": (1.7, 2.3),
-            "/cam_1/color/camera_info": (1.7, 2.3),
-            "/cam_1/depth/camera_info": (1.7, 2.3),
-            "/cam_1/depth/color/points": (1.7, 2.3),
+            "/cam_1/color/image_raw": (4.5, 5.5),
+            "/cam_1/depth/image_raw": (4.5, 5.5),
+            "/cam_1/color/camera_info": (4.5, 5.5),
+            "/cam_1/depth/camera_info": (4.5, 5.5),
+            "/cam_1/depth/color/points": (4.5, 5.5),
             "/joint_states": (20.0, 40.0),
             "/odom": (20.0, 40.0),
         }

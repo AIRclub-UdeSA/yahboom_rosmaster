@@ -5,6 +5,7 @@
 # Usage:
 #    ./container.sh start         create + start the container
 #    ./container.sh enter         open a new shell inside the container
+#    ./container.sh deps          install repository dependencies with rosdep
 #    ./container.sh build         recompile the workspace
 #    ./container.sh sim           launch Gazebo + RViz simulation
 #    ./container.sh sim-headless  launch headless simulation
@@ -41,8 +42,6 @@ die() {
 info() {
     echo ">> $*"
 }
-
-command -v "$ENGINE" >/dev/null 2>&1 || die "$ENGINE is not installed."
 
 container_state() {
     $ENGINE inspect -f '{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null || echo "missing"
@@ -111,6 +110,18 @@ get_display_args() {
     echo "${args[@]}"
 }
 
+install_dependencies() {
+    require_running
+    info "Installing workspace dependencies with rosdep..."
+    exec_in_container bash -c \
+        "source /opt/ros/humble/setup.bash && \
+         if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then \
+           sudo rosdep init; \
+         fi && \
+         rosdep update && \
+         rosdep install --from-paths . --ignore-src -r -y --rosdistro humble"
+}
+
 start_container() {
     ensure_image
     local state
@@ -126,26 +137,32 @@ start_container() {
     fi
 
     info "Starting new container '$CONTAINER_NAME'..."
+    mkdir -p "$X11_HOST_DIR"
+    chmod 755 "$X11_HOST_DIR"
     local run_args=(
         -d
         --name "$CONTAINER_NAME"
         --net=host
         --ipc=host
-        --pid=host
-        -v "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+        -v "${X11_HOST_DIR}:${X11_CONT_DIR}:ro"
         -v "${HOST_WS}:${CONT_WS}:rw"
     )
 
-    if [ -d "$X11_HOST_DIR" ]; then
-        run_args+=(-v "${X11_HOST_DIR}:${X11_CONT_DIR}:ro")
+    if [ -d /tmp/.X11-unix ]; then
+        run_args+=(-v "/tmp/.X11-unix:/tmp/.X11-unix:rw")
     fi
 
     if [ -d /dev/dri ]; then
         run_args+=(--device=/dev/dri)
+        while IFS= read -r device_group; do
+            run_args+=(--group-add "$device_group")
+        done < <(find /dev/dri -maxdepth 1 -type c -printf '%g\n' | sort -u)
     fi
 
     if has_nvidia_gpu && nvidia_runtime_available; then
-        run_args+=(--gpus all)
+        run_args+=(--gpus all -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,display)
+    elif [ ! -d /dev/dri ]; then
+        run_args+=(-e LIBGL_ALWAYS_SOFTWARE=1)
     fi
 
     local disp_args
@@ -158,13 +175,25 @@ start_container() {
 
 exec_in_container() {
     require_running
+    local tty_args=(-i)
+    if [ -t 0 ] && [ -t 1 ]; then
+        tty_args+=(-t)
+    fi
     local disp_args
     disp_args="$(get_display_args)"
     # shellcheck disable=SC2086
-    $ENGINE exec -it -u "$CONTAINER_USER" -w "$CONT_WS" $disp_args "$CONTAINER_NAME" "$@"
+    $ENGINE exec "${tty_args[@]}" -u "$CONTAINER_USER" -w "$CONT_WS" \
+        $disp_args "$CONTAINER_NAME" "$@"
 }
 
 cmd="${1:-}"
+if ! command -v "$ENGINE" >/dev/null 2>&1; then
+    case "$cmd" in
+        ""|-h|--help|help|doctor) ;;
+        *) die "$ENGINE is not installed." ;;
+    esac
+fi
+
 case "$cmd" in
     start)
         start_container
@@ -173,8 +202,11 @@ case "$cmd" in
         require_running
         exec_in_container bash
         ;;
+    deps)
+        install_dependencies
+        ;;
     build)
-        require_running
+        install_dependencies
         info "Building workspace in container..."
         exec_in_container bash -c "source /opt/ros/humble/setup.bash && colcon build --symlink-install"
         ;;
@@ -186,7 +218,7 @@ case "$cmd" in
     sim-headless)
         require_running
         info "Launching headless simulation..."
-        exec_in_container bash -c "source /opt/ros/humble/setup.bash && [ -f install/setup.bash ] && source install/setup.bash; ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py gui:=false rviz:=false"
+        exec_in_container bash -c "source /opt/ros/humble/setup.bash && [ -f install/setup.bash ] && source install/setup.bash; ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py gui:=false headless:=true rviz:=false"
         ;;
     teleop)
         require_running
@@ -207,11 +239,22 @@ case "$cmd" in
         echo "Docker: $(command -v docker || echo 'not installed')"
         echo "Container State: $(container_state)"
         echo "DISPLAY: ${DISPLAY:-unset}"
+        echo "Host xauth: $(command -v xauth >/dev/null 2>&1 && echo 'available' || echo 'missing (install xauth for GUI forwarding)')"
         echo "NVIDIA GPU: $(has_nvidia_gpu && echo 'detected' || echo 'none')"
         echo "NVIDIA Docker Runtime: $(nvidia_runtime_available && echo 'available' || echo 'unavailable')"
+        if [ "$(container_state)" = "running" ] && [ -n "${DISPLAY:-}" ]; then
+            disp_args="$(get_display_args)"
+            # shellcheck disable=SC2086
+            if $ENGINE exec -u "$CONTAINER_USER" $disp_args "$CONTAINER_NAME" \
+                xdpyinfo >/dev/null 2>&1; then
+                echo "Container X11: reachable"
+            else
+                echo "Container X11: unavailable"
+            fi
+        fi
         ;;
     ""|-h|--help|help)
-        echo "Usage: $0 {start|enter|build|sim|sim-headless|teleop|stop|clean|doctor}"
+        echo "Usage: $0 {start|enter|deps|build|sim|sim-headless|teleop|stop|clean|doctor}"
         ;;
     *)
         die "Unknown command: $cmd"

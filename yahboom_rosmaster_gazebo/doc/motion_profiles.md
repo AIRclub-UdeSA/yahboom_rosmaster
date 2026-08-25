@@ -7,28 +7,27 @@ The simulator exposes two independent pose sources:
 - `/ground_truth/odom` is the Gazebo model's actual world pose, published as
   `nav_msgs/msg/Odometry` at 50 Hz with simulation timestamps. It is for tests,
   analysis, and bags only; it does not publish TF and must not be used by the
-  robot-facing EKF or navigation stack.
+  robot-facing state estimate.
 
 ## Selecting a profile
 
 The simulator defaults to the deterministic `stress` profile:
 
 ```bash
-ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py
+ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py
 ```
 
 Use the former zero-slip behavior explicitly when a test needs an ideal
 baseline:
 
 ```bash
-ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
+ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
   motion_profile:=ideal
 ```
 
-The combined navigation launch accepts the same argument. Profile values are
-stored in `config/motion_profiles.yaml` and applied when the robot xacro is
-expanded. Unsupported profile names fail launch instead of silently falling
-back.
+Profile values are stored in `config/motion_profiles.yaml` and applied when the
+robot xacro is expanded. Unsupported profile names fail launch instead of
+silently falling back.
 
 ## Current profiles
 

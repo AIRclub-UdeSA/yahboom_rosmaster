@@ -23,17 +23,6 @@ ros-humble-ros2-controllers = "*"
 ros-humble-controller-manager = "*"
 ros-humble-ros2controlcli = "*"
 
-# --- Navigation / localization ---
-ros-humble-navigation2 = "*"
-ros-humble-nav2-bringup = "*"
-ros-humble-nav2-simple-commander = "*"
-ros-humble-slam-toolbox = "*"
-ros-humble-robot-localization = "*"
-
-# --- Perception / docking ---
-ros-humble-apriltag-ros = "*"
-ros-humble-image-proc = "*"
-
 # --- Model / TF utilities ---
 ros-humble-xacro = "*"
 ros-humble-robot-state-publisher = "*"
@@ -80,7 +69,7 @@ scripts = ["scripts/pixi_activate.sh"]
 #
 # Fortress on macOS cannot open its GUI or run any rendering sensor, so there is
 # no LiDAR and no camera. Gazebo Classic opens its GUI and its CPU raycast lidar
-# needs no rendering, which is what makes SLAM and Nav2 possible here.
+# needs no rendering, so the Classic simulation can still expose LiDAR.
 #
 # It has to be a separate environment: ros-humble-gazebo-ros-pkgs and
 # ros-humble-ros-gz cannot be solved together (conflicting assimp pins), and the
@@ -94,9 +83,6 @@ ros-humble-rviz2 = "*"
 ros-humble-xacro = "*"
 ros-humble-robot-state-publisher = "*"
 ros-humble-joint-state-publisher = "*"
-ros-humble-navigation2 = "*"
-ros-humble-nav2-bringup = "*"
-ros-humble-slam-toolbox = "*"
 ros-humble-teleop-twist-keyboard = "*"
 ros-humble-tf2-tools = "*"
 ros-humble-tf-transformations = "*"

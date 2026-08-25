@@ -78,4 +78,3 @@ def generate_launch_description():
         use_sim_time_arg,
         include_sim,
     ])
-

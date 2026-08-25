@@ -127,8 +127,6 @@
     xyz_offset="0.043 0 0.110"
     rpy_offset="0 0 ${M_PI}"
     min_range="${0.25 if backend == 'classic' else 0.05}"
-    mesh_xyz_offset="0 0 0"
-    mesh_rpy_offset="${-M_PI/2} 0 0"
     update_rate="5"
     topic_name="scan"
     enable_gz_sensor="${backend == 'fortress' and '$(arg render_sensors)' in ['true', 'True', '1']}"
