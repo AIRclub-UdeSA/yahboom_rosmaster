@@ -664,6 +664,17 @@ stopped.
 | `yahboom_robostack_M_silycon` | macOS Apple Silicon pixi + Gazebo Classic simulation environment |
 | `dockerfiles` | Docker container setup (`Dockerfile`, `container.sh`) for isolated Linux simulation |
 
+## Contributing
+
+Changes to `main` must go through a pull request:
+
+1. Create a feature branch (`git checkout -b feature/my-change`)
+2. Push your branch and open a PR against `main`
+3. At least 1 approval from another contributor is required before merging
+4. Resolve all review comments before merging
+5. New commits after an approval will require re-approval
+6. Direct pushes to `main` are blocked, including for repo admins
+
 ## Provenance
 
 This repository is a ROS 2 Humble and Gazebo Fortress fork of
