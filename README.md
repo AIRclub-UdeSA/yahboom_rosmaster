@@ -275,8 +275,8 @@ ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
 
 ### Maze Worlds
 
-The repository also ships seven maze worlds for practice and competition
-runs -- three authored for this project and four imported from
+The repository also ships eight maze worlds for practice and competition
+runs -- four authored for this project and four imported from
 [plywood_mazes](https://github.com/rfzeg/plywood_mazes). They launch the
 same way as the cafe world; a bare file name resolves inside `worlds/`:
 
@@ -290,12 +290,13 @@ ros2 launch yahboom_rosmaster_gazebo rosmaster_gazebo_fortress.launch.py \
 | `laberinto_simple.world` | Small 6x6 m maze with three internal partition walls |
 | `laberinto_simple_obs.world` | `laberinto_simple.world` layout plus three color-marker obstacle cubes (two red, one blue; 0.25x0.25x0.3 m, with collision) for camera/LiDAR color-detection workshops |
 | `laberinto_1.world` | Larger, more convoluted maze exported from Gazebo's Building Editor |
+| `laberinto_1_obs.world` | `laberinto_1.world` layout plus four color-marker obstacle cubes (three red, one blue; 0.25x0.25x0.3 m, one shrunk to 0.15x0.15x0.3 m to fit a ~0.31 m gap between two walls) tucked into narrow passages -- diagonal column corridor, small side room, stub-wall zigzag, and a wall gap -- so the robot has to enter a corridor before it can see and identify the color |
 | `maze_1_6x5.world` | plywood_mazes maze 1, 6x5 m |
 | `maze_2_6x5.world` | plywood_mazes maze 2, 6x5 m |
 | `maze_3_6x6.world` | plywood_mazes maze 3, 6x6 m -- ships a matching Nav2 map at `maps/maze_3.yaml` |
 | `maze_4_metal_6x6.world` | plywood_mazes maze 4, metal panels, 6x6 m |
 
-Walls are 0.5 m tall in all six -- clear of the LiDAR (0.11 m) and camera
+Walls are 0.5 m tall in all eight -- clear of the LiDAR (0.11 m) and camera
 (0.05 m) mount heights, but low enough to inspect the layout from the
 Gazebo GUI.
 
@@ -641,15 +642,15 @@ are not part of the supported workflow described above:
   measured covariance.
 - `simple_room.world` and `willowgarage.world` are retained migration assets;
   they are not supported Fortress worlds.
-- The seven maze worlds (`laberinto_simple.world`, `laberinto_simple_obs.world`,
-  `laberinto_1.world`, `maze_1_6x5.world`, `maze_2_6x5.world`,
-  `maze_3_6x6.world`, `maze_4_metal_6x6.world`) are usable Fortress worlds
-  but are not part of the automated headless contract above. Only
-  `maze_3_6x6.world` ships a matching Nav2 map (`maps/maze_3.yaml`); the
-  others have no pre-built map. The obstacle cubes in
-  `laberinto_simple_obs.world` have collision but are not part of any map
-  either -- they are meant to be detected live via camera/LiDAR, not
-  pre-mapped.
+- The eight maze worlds (`laberinto_simple.world`, `laberinto_simple_obs.world`,
+  `laberinto_1.world`, `laberinto_1_obs.world`, `maze_1_6x5.world`,
+  `maze_2_6x5.world`, `maze_3_6x6.world`, `maze_4_metal_6x6.world`) are
+  usable Fortress worlds but are not part of the automated headless
+  contract above. Only `maze_3_6x6.world` ships a matching Nav2 map
+  (`maps/maze_3.yaml`); the others have no pre-built map. The obstacle
+  cubes in `laberinto_simple_obs.world` and `laberinto_1_obs.world` have
+  collision but are not part of any map either -- they are meant to be
+  detected live via camera/LiDAR, not pre-mapped.
 - Multi-robot operation and real-hardware bringup are not provided.
 
 The 0.5-second watchdog handles normal command loss. It is not a safety-rated
