@@ -6,12 +6,12 @@
     prefix:=''
     parent:='base_link'
     frame_id:='laser_link'
-    mesh_file:='file://$(find yahboom_rosmaster_description)/meshes/rplidar/rplidar_s2.stl'
+    mesh_file:='file://$(find yahboom_rosmaster_description)/meshes/rosmaster_x3/cad_visual/lidar.obj'
     xyz_offset:='0.043 0 0.110'
     rpy_offset:='0 0 ${M_PI}'
     mesh_xyz_offset:='0 0 0'
-    mesh_rpy_offset:='${-M_PI/2} 0 0'
-    mesh_scale:='0.001 0.001 0.001'
+    mesh_rpy_offset:='0 0 0'
+    mesh_scale:='1 1 1'
     collision_xyz_offset:='0 0 0'
     collision_rpy_offset:='0 0 0'
     inertial_xyz_offset:='0 0 0'
@@ -19,11 +19,6 @@
     lidar_width:=0.077
     lidar_height:=0.0398
     mass:=0.185
-    material_name:='rplidar_black'
-    material_color:='0.1 0.1 0.1 1'
-    gazebo_material_ambient:='0.1 0.1 0.1 1'
-    gazebo_material_diffuse:='0.1 0.1 0.1 1'
-    gazebo_material_specular:='0.1 0.1 0.1 1'
     update_rate:=10
     ray_count:=1080
     min_angle:='-3.14159'
@@ -46,6 +41,13 @@
     <xacro:property name="izz" value="${(mass/2) * (radius * radius)}" />
 
     <link name="${prefix}${frame_id}">
+      <visual>
+        <origin xyz="${mesh_xyz_offset}" rpy="${mesh_rpy_offset}"/>
+        <geometry>
+          <mesh filename="${mesh_file}" scale="${mesh_scale}"/>
+        </geometry>
+      </visual>
+
       <xacro:if value="${enable_collision}">
         <collision>
           <origin xyz="${collision_xyz_offset}" rpy="${collision_rpy_offset}"/>
@@ -75,12 +77,11 @@
     </joint>
 
     <gazebo reference="${prefix}${frame_id}">
+      <!-- The detailed CAD housing encloses the GPU ray origin. Give only this
+           visual a private render bit so the LiDAR can ignore its own shell
+           without hiding the chassis, wheels, or camera from sensors. -->
       <visual>
-        <material>
-          <ambient>${gazebo_material_ambient}</ambient>
-          <diffuse>${gazebo_material_diffuse}</diffuse>
-          <specular>${gazebo_material_specular}</specular>
-        </material>
+        <visibility_flags>1</visibility_flags>
       </visual>
       <!-- Fortress-native GPU LiDAR. type="ray" (CPU LIDAR) is not supported in Fortress;
            type="gpu_lidar" uses the ogre2 render pipeline (enabled in empty.world).
@@ -99,6 +100,7 @@
         <topic>${topic_name}</topic>
         <gz_frame_id>${prefix}${frame_id}</gz_frame_id>
         <lidar>
+          <visibility_mask>4294967294</visibility_mask>
           <scan>
             <horizontal>
               <samples>${ray_count}</samples>

@@ -40,13 +40,13 @@
     joint_type:=continuous">
     <link name="${prefix}${side}_wheel_link">
       <visual>
-        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <!-- Keep the established joint and collision position. Moving the
+             visual 10 mm along its rotation axis matches the assembled CAD
+             without changing contact geometry or drivetrain behavior. -->
+        <origin xyz="0 ${-y_reflect*wheel_yoff} 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="file://$(find yahboom_rosmaster_description)/meshes/rosmaster_x3/visual/${side}_wheel_X3.STL"/>
+          <mesh filename="file://$(find yahboom_rosmaster_description)/meshes/rosmaster_x3/cad_visual/${side}_wheel.obj"/>
         </geometry>
-        <material name="dark_gray">
-          <color rgba="0.2 0.2 0.2 1.0"/>
-        </material>
       </visual>
 
       <!-- Sphere gives a single contact point. Required for ignition:expressed_in
@@ -122,14 +122,6 @@
           </contact>
         </surface>
       </collision>
-      <visual>
-        <material>
-          <ambient>0.2 0.2 0.2 1.0</ambient>
-          <diffuse>0.2 0.2 0.2 1.0</diffuse>
-          <specular>0.2 0.2 0.2 1.0</specular>
-          <emissive>0.0 0.0 0.0 0.0</emissive>
-        </material>
-      </visual>
     </gazebo>
   </xacro:macro>
 

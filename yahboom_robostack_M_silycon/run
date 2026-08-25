@@ -14,7 +14,7 @@ usage() {
   cat <<'EOF'
 Usage: ./run <command>
 
-  setup     install the ROS 2 + Gazebo environment (first time, ~3 GB)
+  setup     install the ROS 2 + Gazebo environment (first time only)
   build     compile the robot packages
   sim-headless  start the simulation without windows
   teleop        drive the robot from the keyboard

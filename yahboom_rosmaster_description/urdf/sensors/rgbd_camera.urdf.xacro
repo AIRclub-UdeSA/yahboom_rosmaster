@@ -7,11 +7,11 @@
     prefix:=''
     camera_name:='cam_1'
     parent:='base_link'
-    mesh_file:='file://$(find yahboom_rosmaster_description)/meshes/intel_realsense/visual/d435.stl'
+    mesh_file:='file://$(find yahboom_rosmaster_description)/meshes/rosmaster_x3/cad_visual/camera.obj'
     xyz_offset:='0.105 0 0.05'
     rpy_offset:='0 -0.50 0'
     mesh_xyz_offset:='0 0 0'
-    mesh_rpy_offset:='${M_PI/2} 0.0 ${M_PI/2}'
+    mesh_rpy_offset:='0 0 0'
     collision_xyz_offset:='0 0 0'
     collision_rpy_offset:='0 0 0'
     inertial_xyz_offset:='0 0 0'
@@ -36,14 +36,12 @@
     iyy:=0.000498940
     iyz:=0.0
     izz:=0.003879257
-    material_name:='aluminum'
-    material_color:='0.5 0.5 0.5 1'
     horizontal_fov:=1.5184
     image_width:=424
     image_height:=240
     clip_near:=0.05
     clip_far:=8.0
-    update_rate:=2
+    update_rate:=5
     always_on:=1
     visualize:=false
     enable_collision:=false
@@ -64,9 +62,6 @@
         <geometry>
           <mesh filename="${mesh_file}" />
         </geometry>
-        <material name="${material_name}">
-          <color rgba="${material_color}"/>
-        </material>
       </visual>
       <xacro:if value="${enable_collision}">
         <collision>

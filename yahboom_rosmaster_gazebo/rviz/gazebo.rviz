@@ -109,7 +109,7 @@ Visualization Manager:
       Value: true
     - Class: rviz_default_plugins/Camera
       Enabled: true
-      Image Rendering: background and overlay
+      Image Rendering: background
       Name: Camera
       Overlay Alpha: 0.5
       Topic:
@@ -120,10 +120,10 @@ Visualization Manager:
         Value: /cam_1/color/image_raw
       Value: true
       Visibility:
-        Grid: true
-        LaserScan: true
-        RobotModel: true
-        TF: true
+        Grid: false
+        LaserScan: false
+        RobotModel: false
+        TF: false
         Value: true
   Enabled: true
   Global Options:

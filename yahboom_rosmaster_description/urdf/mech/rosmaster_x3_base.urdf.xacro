@@ -31,11 +31,8 @@
   <link name="${prefix}base_link">
     <visual>
         <geometry>
-            <mesh filename="file://$(find yahboom_rosmaster_description)/meshes/rosmaster_x3/visual/base_link_X3.STL"/>
+            <mesh filename="file://$(find yahboom_rosmaster_description)/meshes/rosmaster_x3/cad_visual/rosmaster_base.obj"/>
         </geometry>
-        <material name="green">
-          <color rgba="0 0.7 0 1"/>
-        </material>
         <origin xyz="0 0 0" rpy="0 0 0"/>
     </visual>
     <collision>
@@ -53,15 +50,6 @@
             izz="${(1/12) * base_mass * ((base_size_x * base_size_x) + (base_size_y * base_size_y))}"/>
     </inertial>
   </link>
-  <gazebo reference="${prefix}base_link">
-    <visual>
-        <material>
-            <ambient>0 0.7 0 1</ambient>
-            <diffuse>0 0.7 0 1</diffuse>
-            <specular>0 0.7 0 1</specular>
-        </material>
-    </visual>
-  </gazebo>
   <joint name="${prefix}base_joint" type="fixed">
     <parent link="${prefix}base_footprint"/>
     <child link="${prefix}base_link"/>

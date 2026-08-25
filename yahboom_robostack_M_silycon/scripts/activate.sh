@@ -12,8 +12,7 @@ export GAZEBO_MASTER_URI="http://127.0.0.1:11345"
 
 # FastRTPS, the Humble default, hits an allocator assertion on osx-arm64
 # (RoboStack/ros-humble#32, wontfix) that takes down ros2 CLI tools and RViz.
-# Nav2 bring-up is service and bond heavy, which is exactly the traffic that
-# trips it.
+# Service- and bond-heavy ROS graphs are especially likely to trip it.
 export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}"
 
 # Let Gazebo find the world models this repository vendors.

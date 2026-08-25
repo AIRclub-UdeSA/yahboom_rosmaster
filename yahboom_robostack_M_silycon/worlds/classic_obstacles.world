@@ -3,8 +3,7 @@
 
      Everything is defined inline rather than pulled from the Fuel model
      database, so the world loads without network access. The walls and pillars
-     exist to give the lidar something to return and slam_toolbox something to
-     map. -->
+     exist to give the lidar useful geometry to return. -->
 <sdf version="1.6">
   <world name="default">
 
@@ -80,7 +79,7 @@
       </link>
     </model>
 
-    <!-- Interior obstacles: they break the room's symmetry so SLAM can localise. -->
+    <!-- Interior obstacles make the LiDAR output asymmetric and easy to inspect. -->
     <model name="pillar_a">
       <static>true</static><pose>1.5 0.8 0.25 0 0 0</pose>
       <link name="link">

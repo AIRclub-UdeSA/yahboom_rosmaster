@@ -14,7 +14,8 @@ sends zero commands after 0.5 seconds without input.
 Odometry is produced on the ROS side from `/joint_states`, so `/odom` remains
 encoder-style wheel odometry instead of Gazebo ground-truth pose.
 Gazebo ground truth is exposed separately on `/ground_truth/odom` for
-measurement and regression testing; it does not publish TF or feed the EKF.
+measurement and regression testing; it does not publish TF or feed a
+robot-facing state estimate.
 
 The default `stress` contact profile now adds deterministic, uncalibrated slip,
 roller resistance, and wheel asymmetry. `motion_profile:=ideal` preserves the
@@ -73,7 +74,7 @@ produce correct physical strafing after URDF-to-SDF conversion.
 
 ## Public interfaces
 
-- `/cmd_vel` remains the user and Nav2 command topic.
+- `/cmd_vel` remains the public command topic.
 - `/cmd_vel_gz` is internal and bridged to Gazebo `MecanumDrive`.
 - `/odom` is wheel-state odometry from `/joint_states`.
 - `/ground_truth/odom` is measurement-only Gazebo world pose and is not TF.
