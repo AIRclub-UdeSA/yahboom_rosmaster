@@ -2625,7 +2625,7 @@
       <static>1</static>
 
       <link name='cuadrado_rojo_1'>
-        <pose>-1.65 -1.0 0.15 0 0 0</pose>
+        <pose>-1.2468 -0.158 0.15 0 0 0</pose>
         <collision name='collision'>
           <geometry>
             <box>
@@ -2671,7 +2671,7 @@
       </link>
 
       <link name='cuadrado_azul_1'>
-        <pose>0.25 -2.15 0.15 0 0 0</pose>
+        <pose>-2.547 -1.5286 0.15 0 0 0</pose>
         <collision name='collision'>
           <geometry>
             <box>
@@ -2694,18 +2694,22 @@
       </link>
 
       <link name='cuadrado_rojo_3'>
-        <pose>0.3 0.05 0.15 0 0 0</pose>
+        <!-- Achicado (0.15x0.15 en vez de 0.25x0.25) para entrar en el
+             hueco de solo ~0.31 m entre Wall_158 y Wall_382; centrado en
+             ese hueco (y=1.504) y pegado al extremo este del pasillo,
+             contra la pared exterior. -->
+        <pose>2.3 1.504 0.15 0 0 0</pose>
         <collision name='collision'>
           <geometry>
             <box>
-              <size>0.25 0.25 0.3</size>
+              <size>0.15 0.15 0.3</size>
             </box>
           </geometry>
         </collision>
         <visual name='visual'>
           <geometry>
             <box>
-              <size>0.25 0.25 0.3</size>
+              <size>0.15 0.15 0.3</size>
             </box>
           </geometry>
           <material>
