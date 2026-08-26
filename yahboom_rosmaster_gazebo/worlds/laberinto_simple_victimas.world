@@ -1,5 +1,5 @@
 <sdf version='1.7'>
-  <world name='laberinto_simple_obs'>
+  <world name='laberinto_simple_victimas'>
     <gravity>0 0 -9.8</gravity>
     <physics type='ode'>
       <max_step_size>0.001</max_step_size>
