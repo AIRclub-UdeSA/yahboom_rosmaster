@@ -6,8 +6,10 @@ The simulator exposes two independent pose sources:
   joint positions. It owns `odom -> base_footprint` on TF.
 - `/ground_truth/odom` is the Gazebo model's actual world pose, published as
   `nav_msgs/msg/Odometry` at 50 Hz with simulation timestamps. It is for tests,
-  analysis, and bags only; it does not publish TF and must not be used by the
-  robot-facing state estimate.
+  analysis, and bags only; it does not claim robot TF and must not be used by
+  the robot-facing state estimate. The independent `ground_truth_tf.py` helper
+  publishes only a frame-aligned `ground_truth_base` visualization. Its
+  world/odom/map contract is documented in [ground_truth.md](ground_truth.md).
 
 ## Selecting a profile
 

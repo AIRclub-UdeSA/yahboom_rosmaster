@@ -323,6 +323,7 @@ Gazebo GUI.
 | `use_sim_time` | `true` | Use the Gazebo simulation clock; keep enabled for the supported workflow |
 | `motion_profile` | `stress` | Wheel contact model: uncalibrated `stress` or zero-slip `ideal` |
 | `motion_bias` | `false` | Add randomized command drift when enabled |
+| `ground_truth_frame` | `auto` | Display `ground_truth_base` in odom, then freeze it in map if SLAM appears; use `odom` to disable the switch |
 
 ## Controlling the Robot
 
@@ -407,7 +408,11 @@ a physical ROSMASTER X3. See
   `wheel_state_odometry.py`.
 - `odom -> base_footprint` is published by `wheel_state_odometry.py`.
 - `/ground_truth/odom` is the timestamped Gazebo world pose of the simulated
-  chassis. It is measurement-only and does not publish a TF edge.
+  chassis. It is measurement-only and does not claim a robot TF edge.
+- `ground_truth_tf.py` publishes the separate `ground_truth_base` diagnostic
+  frame. It aligns nonzero spawn poses with odom and freezes its map alignment
+  when SLAM appears, so later `map -> odom` corrections do not move truth. See
+  [Ground truth and localization frames](yahboom_rosmaster_gazebo/doc/ground_truth.md).
 - Robot link transforms are published by `robot_state_publisher`.
 
 ## Working ROS Interfaces
@@ -419,7 +424,7 @@ a physical ROSMASTER X3. See
 | `/cmd_vel_gz` | `geometry_msgs/msg/Twist` | — | Internal watchdog output bridged to Gazebo |
 | `/joint_states` | `sensor_msgs/msg/JointState` | `base_link` / 30 Hz | Wheel joint positions and velocities |
 | `/odom` | `nav_msgs/msg/Odometry` | `odom` -> `base_footprint` / 30 Hz | Wheel-state odometry |
-| `/ground_truth/odom` | `nav_msgs/msg/Odometry` | `world` -> `base_footprint` / 50 Hz | Measurement-only Gazebo ground truth; not TF |
+| `/ground_truth/odom` | `nav_msgs/msg/Odometry` | `world` -> `base_footprint` / 50 Hz | Raw measurement-only Gazebo ground truth; the separate display helper publishes only `ground_truth_base` |
 | `/tf` | `tf2_msgs/msg/TFMessage` | — | Dynamic transforms |
 | `/tf_static` | `tf2_msgs/msg/TFMessage` | — | Static robot transforms |
 | `/scan` | `sensor_msgs/msg/LaserScan` | `laser_link` / 5 Hz | 1080-sample 2D LiDAR scan |
@@ -504,12 +509,13 @@ known-geometry and commanded-motion gates. Together they validate ten-message
 delivery, nominal rates, first-message latency, timestamped TF, RGB-D geometry,
 registered color/depth frame origins, LiDAR geometry and handedness, IMU axes,
 mecanum wheel signs, odometry/TF agreement, and odometry
-rewind/discontinuity handling. They also verify the ground-truth topic and the
-ideal-versus-stress motion-profile contract:
+rewind/discontinuity handling. They also verify the raw ground-truth contract,
+nonzero-spawn and changing-map display alignment, and the ideal-versus-stress
+motion-profile contract:
 
 ```bash
 colcon test --packages-select yahboom_rosmaster_gazebo \
-  --ctest-args -R '^(sensor_contract_.*|depth_geometry|ground_truth_contract|motion_profile_.*|lidar_geometry|imu_motion|base_feedback|wheel_odometry_resilience)$' \
+  --ctest-args -R '^(sensor_contract_.*|depth_geometry|ground_truth_.*|motion_profile_.*|lidar_geometry|imu_motion|base_feedback|wheel_odometry_resilience)$' \
   --output-on-failure
 colcon test-result --verbose
 ```

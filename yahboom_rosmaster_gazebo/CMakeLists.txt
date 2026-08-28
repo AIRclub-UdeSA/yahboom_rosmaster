@@ -18,6 +18,7 @@ install(
   PROGRAMS
     scripts/base_feedback_probe.py
     scripts/depth_geometry_probe.py
+    scripts/ground_truth_display_probe.py
     scripts/ground_truth_contract_probe.py
     scripts/imu_motion_probe.py
     scripts/lidar_geometry_probe.py
@@ -30,6 +31,11 @@ install(
     scripts/calculated_odometry.py
     scripts/ground_truth_tf.py
     scripts/pointcloud_frame_relay.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+  FILES scripts/ground_truth_alignment.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -48,6 +54,10 @@ if(BUILD_TESTING)
   add_test(
     NAME motion_profile_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/motion_profile_contract_test.py
+  )
+  add_test(
+    NAME ground_truth_alignment_math
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/ground_truth_alignment_test.py
   )
   add_launch_test(
     test/sensor_contract.launch.py
@@ -77,6 +87,11 @@ if(BUILD_TESTING)
     TIMEOUT 90
   )
   add_launch_test(
+    test/ground_truth_display.launch.py
+    TARGET ground_truth_display
+    TIMEOUT 30
+  )
+  add_launch_test(
     test/motion_profile_divergence.launch.py
     TARGET motion_profile_divergence_ideal
     TIMEOUT 100
@@ -87,6 +102,17 @@ if(BUILD_TESTING)
     TARGET motion_profile_divergence_stress
     TIMEOUT 100
     ARGS "motion_profile:=stress" "min_error:=0.003" "max_error:=0.030"
+  )
+  add_launch_test(
+    test/motion_profile_divergence.launch.py
+    TARGET motion_profile_yaw_ideal
+    TIMEOUT 100
+    ARGS
+      "motion_profile:=ideal"
+      "motion:=yaw"
+      "command_speed:=0.4"
+      "meaningful_yaw:=0.8"
+      "max_yaw_error:=0.005"
   )
   add_launch_test(
     test/lidar_geometry.launch.py

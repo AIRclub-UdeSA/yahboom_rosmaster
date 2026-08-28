@@ -12,10 +12,10 @@ ROBOT_XACRO = (
     PACKAGE_DIR / "urdf" / "robots" / "rosmaster_x3.urdf.xacro"
 )
 WHEEL_ORIGINS = {
-    "front_left": (0.08, 0.0745, -0.0325),
-    "front_right": (0.08, -0.0745, -0.0325),
-    "back_left": (-0.08, 0.0745, -0.0325),
-    "back_right": (-0.08, -0.0745, -0.0325),
+    "front_left": (0.08, 0.0845, -0.0325),
+    "front_right": (0.08, -0.0845, -0.0325),
+    "back_left": (-0.08, 0.0845, -0.0325),
+    "back_right": (-0.08, -0.0845, -0.0325),
 }
 MESHES = {
     "base_link": "rosmaster_base.obj",
@@ -28,10 +28,10 @@ MESHES = {
 }
 VISUAL_ORIGINS = {
     "base_link": (0.0, 0.0, 0.0),
-    "front_left_wheel_link": (0.0, 0.01, 0.0),
-    "front_right_wheel_link": (0.0, -0.01, 0.0),
-    "back_left_wheel_link": (0.0, 0.01, 0.0),
-    "back_right_wheel_link": (0.0, -0.01, 0.0),
+    "front_left_wheel_link": (0.0, 0.0, 0.0),
+    "front_right_wheel_link": (0.0, 0.0, 0.0),
+    "back_left_wheel_link": (0.0, 0.0, 0.0),
+    "back_right_wheel_link": (0.0, 0.0, 0.0),
     "cam_1_link": (0.0, 0.0, 0.0),
     "laser_link": (0.0, 0.0, 0.0),
 }
@@ -158,7 +158,7 @@ class TestRobotDescriptionContract(unittest.TestCase):
                     self.assertEqual(joint.get("type"), wheel_type)
                     self.assertEqual(joint.find("axis").get("xyz"), "0 1 0")
 
-    def test_wheel_joint_contract_is_unchanged(self):
+    def test_wheel_joints_match_real_robot_geometry(self):
         for backend, robot in self.robots.items():
             for side, expected in WHEEL_ORIGINS.items():
                 with self.subTest(backend=backend, wheel=side):

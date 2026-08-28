@@ -30,8 +30,8 @@ these items.
 
 ## Physics and runtime architecture
 
-- [ ] Evaluate correcting the physical wheel joint and collision centres to
-  match the assembled CAD and the drive plugin's 0.169 m wheel separation.
+- [x] Correct the physical wheel joint and collision centres to match the
+  measured real-robot geometry and the drive plugin's 0.169 m wheel separation.
 - [ ] Evaluate Gazebo's native joint-state publisher as a separate architectural
   change, including publication rate, headers, startup, and shutdown behavior.
 - [ ] Evaluate renderer visibility masks only if raw sensor messages show robot
@@ -41,7 +41,21 @@ these items.
 
 ## Automated contracts
 
-- [ ] Add a focused description contract test covering links, joints, sensor
+- [x] Add a focused description contract test covering links, joints, sensor
   frames, collisions, inertia, plugins, wheel origins, and installed visuals.
 - [ ] Repeat motion-profile, wheel-odometry, TF, LiDAR, RGB-D, IMU, and headless
   launch checks after each accepted physics or sensor change.
+
+## Ground truth and SLAM
+
+### Acceptance gate for the ground-truth change
+
+- [x] Preserve raw Gazebo ground truth in `world` while aligning the separate
+  `ground_truth_base` diagnostic frame for nonzero spawn poses and SLAM maps.
+- [x] Add a synthetic regression proving that later `map -> odom` corrections
+  do not move the fixed ground-truth trajectory.
+- [ ] Validate the corrected diagnostic frame end to end with
+  `yahboom_rosmaster_slam`, including map startup and an intentionally visible
+  wheel-odometry error. Keep the pull request in draft until this passes.
+- [ ] Define restart behavior if SLAM deliberately creates a new map coordinate
+  system during the same simulator process.
