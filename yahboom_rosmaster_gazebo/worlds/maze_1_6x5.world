@@ -3,9 +3,9 @@
   <world name="maze_6x5_v1">
 
     <physics type="ode">
-      <max_step_size>0.00625</max_step_size>
+      <max_step_size>0.001</max_step_size>
       <real_time_factor>1</real_time_factor>
-      <real_time_update_rate>160</real_time_update_rate>
+      <real_time_update_rate>1000</real_time_update_rate>
       <gravity>0 0 -9.8</gravity>
       <!--   <gravity>0 0 0</gravity> -->
     </physics>
@@ -80,21 +80,24 @@
     </light>
 
     <!-- A wooden parquet ground plane -->
+    <!-- Centered on the maze's world-frame bounding box (x:[-1.5,4.5], y:[-3.5,1.5]) -->
     <include>
       <uri>model://floor_parquet2</uri>
-      <pose>0 0 0 0 0 0</pose>
+      <pose>1.5 -1.0 0 0 0 0</pose>
     </include>
 
     <!-- A maze made of plywood panels -->
+    <!-- Offset chosen so the robot spawn point (world 0,0) lands in the fully
+         open pass-through cell at local (1.5, 3.5) instead of inside a wall. -->
     <include>
       <uri>model://maze_1_6x5</uri>
-      <pose>-2.5 -2.5 0 0 0 0</pose>
+      <pose>-1.5 -3.5 0 0 0 0</pose>
     </include>
 
     <!-- A set of tag36h11 AprilTags -->
     <include>
       <uri>model://maze_1_tags</uri>
-      <pose>-2.5 -2.5 0 0 0 0</pose>
+      <pose>-1.5 -3.5 0 0 0 0</pose>
     </include>
 
   </world>
