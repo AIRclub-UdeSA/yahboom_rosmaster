@@ -42,25 +42,25 @@ The highest-leverage places to jump in, straight from the project's own
 [Current Project Status](README.md#current-project-status) and
 [Troubleshooting](README.md#troubleshooting) sections:
 
-- 🧩 **Add or improve a maze world.** Only `maze_3_6x6.world` ships a matching
+- **Add or improve a maze world.** Only `maze_3_6x6.world` ships a matching
   occupancy map (`maps/maze_3.yaml`) — the other seven maze worlds have none.
   The obstacle cubes in `laberinto_simple_victimas.world` and
   `laberinto_1_victimas.world` are meant to be detected live via camera/LiDAR,
   not pre-mapped, so tooling or challenge worlds around live detection are
   welcome too.
-- 🎯 **Help calibrate the drivetrain.** The default `stress` wheel-contact
+- **Help calibrate the drivetrain.** The default `stress` wheel-contact
   profile is deterministic but uncalibrated — it must not be described as
   reproducing the physical ROSMASTER X3 until its contact values are fitted
   against synchronized wheel odometry and external ground truth. The `ideal`
   profile is the current zero-slip baseline.
-- 📷 **Help calibrate sensors.** Camera, LiDAR, and IMU output is nominal
+- **Help calibrate sensors.** Camera, LiDAR, and IMU output is nominal
   simulation data, not yet validated against the physical robot; IMU
   covariance arrays are all zero (ROS's "unknown," not a measured value).
-- 🍏 **Improve macOS / Gazebo Classic parity.** The Apple Silicon backend
+- **Improve macOS / Gazebo Classic parity.** The Apple Silicon backend
   trades away the Gazebo GUI and LiDAR on Fortress for a Classic backend that
   restores both — see [What does not work on macOS](README.md#what-does-not-work-on-macos)
   for the current gap list.
-- 🐛 **Fix bugs.** See [Troubleshooting](README.md#troubleshooting) for known
+- **Fix bugs.** See [Troubleshooting](README.md#troubleshooting) for known
   rough edges (stale workspace overlays, controller/odometry readiness, etc.).
 
 ## Repository Layout
