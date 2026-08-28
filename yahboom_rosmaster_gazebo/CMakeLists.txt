@@ -25,6 +25,7 @@ install(
     scripts/real_robot_bag_analyzer.py
     scripts/sensor_contract_probe.py
     scripts/wheel_odometry_resilience_probe.py
+    scripts/world_smoke_probe.py
     scripts/cmd_vel_watchdog.py
     scripts/wheel_state_odometry.py
     scripts/calculated_odometry.py
@@ -102,6 +103,56 @@ if(BUILD_TESTING)
     test/wheel_odometry_resilience.launch.py
     TARGET wheel_odometry_resilience
     TIMEOUT 40
+  )
+  # Practice worlds: lightweight spawn/collision/interface smoke only.
+  # Rate and message-shape contracts stay on the two reference worlds above.
+  add_launch_test(
+    test/world_smoke.launch.py
+    TARGET world_smoke_laberinto_simple
+    TIMEOUT 60
+    ARGS "world:=laberinto_simple.world"
+  )
+  add_launch_test(
+    test/world_smoke.launch.py
+    TARGET world_smoke_laberinto_simple_victimas
+    TIMEOUT 60
+    ARGS "world:=laberinto_simple_victimas.world"
+  )
+  add_launch_test(
+    test/world_smoke.launch.py
+    TARGET world_smoke_laberinto_1
+    TIMEOUT 60
+    ARGS "world:=laberinto_1.world"
+  )
+  add_launch_test(
+    test/world_smoke.launch.py
+    TARGET world_smoke_laberinto_1_victimas
+    TIMEOUT 60
+    ARGS "world:=laberinto_1_victimas.world"
+  )
+  add_launch_test(
+    test/world_smoke.launch.py
+    TARGET world_smoke_maze_1
+    TIMEOUT 60
+    ARGS "world:=maze_1_6x5.world"
+  )
+  add_launch_test(
+    test/world_smoke.launch.py
+    TARGET world_smoke_maze_2
+    TIMEOUT 60
+    ARGS "world:=maze_2_6x5.world"
+  )
+  add_launch_test(
+    test/world_smoke.launch.py
+    TARGET world_smoke_maze_3
+    TIMEOUT 60
+    ARGS "world:=maze_3_6x6.world"
+  )
+  add_launch_test(
+    test/world_smoke.launch.py
+    TARGET world_smoke_maze_4
+    TIMEOUT 60
+    ARGS "world:=maze_4_metal_6x6.world"
   )
 endif()
 
