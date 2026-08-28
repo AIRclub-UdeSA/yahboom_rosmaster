@@ -5,25 +5,13 @@
     <static>true</static>
     <link name='tags'>
 
-     <collision name='collision'>
-     <!-- In Gazebo 7 there appears to be a bug that causes an inconsistency between the visual collision on a plane and the collision phisics -->
-  <!-- <pose>-6 1.5 1.5 0 1.5708 0</pose> --> <!-- correct pose for the visualization of collisions, active by selecting "view -> collisions" -->
-       <pose>1.0 1.0 -5.8 0 1.5708 0</pose> <!-- correct pose for the simulated collision physics -->
-        <geometry>
-          <plane>
-            <normal>1 0 0</normal>
-            <size>2 2</size>
-          </plane>
-        </geometry>
-        <surface>
-          <friction>
-            <ode>
-              <mu>0.2</mu>
-              <mu2>.2</mu2>
-            </ode>
-          </friction>
-        </surface>
-     </collision>
+     <!-- No collision: these are flat visual markers for camera perception.
+          A stale collision plane inherited from a Gazebo 7 Classic bug workaround
+          used to live here at pose "1.0 1.0 -5.8 ...". SDF planes are treated as
+          effectively infinite half-spaces by the physics engine regardless of the
+          <size> tag, so that orphaned plane was silently destabilizing contact
+          resolution for the whole world (robot commands produced ~0 net motion
+          under the default 'stress' wheel profile even far from any wall). -->
 
 <!-- Row 0, outer wall along increasing x axis (y:0) -->
 <!-- Tags 0 to 9 -->

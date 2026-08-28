@@ -83,7 +83,7 @@
             <ode>
               <soft_cfm>0</soft_cfm>
               <soft_erp>0.2</soft_erp>
-              <kp>1e+13</kp>
+              <kp>1e+8</kp>
               <kd>1</kd>
               <max_vel>0.01</max_vel>
               <min_depth>0</min_depth>
@@ -93,7 +93,7 @@
               <split_impulse_penetration_threshold>-0.01</split_impulse_penetration_threshold>
               <soft_cfm>0</soft_cfm>
               <soft_erp>0.2</soft_erp>
-              <kp>1e+13</kp>
+              <kp>1e+8</kp>
               <kd>1</kd>
             </bullet>
           </contact>
