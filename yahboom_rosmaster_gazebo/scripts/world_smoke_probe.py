@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Smoke-test a practice world: valid spawn, no initial collision, essential interfaces.
+"""
+Smoke-test a practice world: valid spawn, no initial collision, essential interfaces.
 
 Unlike sensor_contract_probe.py (which validates rates and message shape on the
 two reference worlds), this probe is world-agnostic: it only checks that the
