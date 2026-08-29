@@ -305,7 +305,7 @@ ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
 | `laberinto_1_victimas.world` | `laberinto_1.world` layout plus four color-marker obstacle cubes (three red, one blue; 0.25x0.25x0.3 m, one shrunk to 0.15x0.15x0.3 m to fit a ~0.31 m gap between two walls) tucked into narrow passages -- diagonal column corridor, small side room, stub-wall zigzag, and a wall gap -- so the robot has to enter a corridor before it can see and identify the color |
 | `maze_1_6x5.world` | plywood_mazes maze 1, 6x5 m |
 | `maze_2_6x5.world` | plywood_mazes maze 2, 6x5 m |
-| `maze_3_6x6.world` | plywood_mazes maze 3, 6x6 m -- ships a matching occupancy map at `maps/maze_3.yaml` |
+| `maze_3_6x6.world` | plywood_mazes maze 3, 6x6 m |
 | `maze_4_metal_6x6.world` | plywood_mazes maze 4, metal panels, 6x6 m |
 
 Walls are 0.5 m tall in all eight -- clear of the LiDAR (0.11 m) and camera
@@ -656,12 +656,14 @@ The following simulator limitations remain:
   `laberinto_1.world`, `laberinto_1_victimas.world`, `maze_1_6x5.world`,
   `maze_2_6x5.world`, `maze_3_6x6.world`, `maze_4_metal_6x6.world`) are
   usable Fortress worlds but are not part of the automated headless
-  contract above. `maze_3_6x6.world` and `laberinto_simple.world` ship a
-  matching occupancy map (`maps/maze_3.yaml` and `maps/laberinto_simple.yaml`
-  respectively); the others have no pre-built map. The obstacle
-  cubes in `laberinto_simple_victimas.world` and `laberinto_1_victimas.world` have
-  collision but are not part of any map either -- they are meant to be
-  detected live via camera/LiDAR, not pre-mapped.
+  contract above. Only `laberinto_simple.world` ships a matching occupancy
+  map (`maps/laberinto_simple.yaml`); the others have no pre-built map.
+  `maze_3_6x6.world`'s map was removed -- it no longer matched the world
+  after the maze offset changed in #10, and needs to be re-captured (see
+  #15). The obstacle cubes in `laberinto_simple_victimas.world` and
+  `laberinto_1_victimas.world` have collision but are not part of any map
+  either -- they are meant to be detected live via camera/LiDAR, not
+  pre-mapped.
 - Multi-robot operation and real-hardware bringup are not provided.
 
 The 0.5-second watchdog publishes zero on normal command loss and orderly
