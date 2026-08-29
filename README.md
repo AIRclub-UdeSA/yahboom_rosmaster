@@ -299,7 +299,7 @@ ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
 
 | World | Description |
 |-------|-------------|
-| `laberinto_simple.world` | Small 6x6 m maze with three internal partition walls |
+| `laberinto_simple.world` | Small 6x6 m maze with three internal partition walls -- ships a matching occupancy map at `maps/laberinto_simple.yaml` |
 | `laberinto_simple_victimas.world` | `laberinto_simple.world` layout plus three color-marker obstacle cubes (two red, one blue; 0.25x0.25x0.3 m, with collision) for camera/LiDAR color-detection workshops |
 | `laberinto_1.world` | Larger, more convoluted maze exported from Gazebo's Building Editor |
 | `laberinto_1_victimas.world` | `laberinto_1.world` layout plus four color-marker obstacle cubes (three red, one blue; 0.25x0.25x0.3 m, one shrunk to 0.15x0.15x0.3 m to fit a ~0.31 m gap between two walls) tucked into narrow passages -- diagonal column corridor, small side room, stub-wall zigzag, and a wall gap -- so the robot has to enter a corridor before it can see and identify the color |
@@ -656,8 +656,9 @@ The following simulator limitations remain:
   `laberinto_1.world`, `laberinto_1_victimas.world`, `maze_1_6x5.world`,
   `maze_2_6x5.world`, `maze_3_6x6.world`, `maze_4_metal_6x6.world`) are
   usable Fortress worlds but are not part of the automated headless
-  contract above. Only `maze_3_6x6.world` ships a matching occupancy map
-  (`maps/maze_3.yaml`); the others have no pre-built map. The obstacle
+  contract above. `maze_3_6x6.world` and `laberinto_simple.world` ship a
+  matching occupancy map (`maps/maze_3.yaml` and `maps/laberinto_simple.yaml`
+  respectively); the others have no pre-built map. The obstacle
   cubes in `laberinto_simple_victimas.world` and `laberinto_1_victimas.world` have
   collision but are not part of any map either -- they are meant to be
   detected live via camera/LiDAR, not pre-mapped.
