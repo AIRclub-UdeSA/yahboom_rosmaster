@@ -50,6 +50,10 @@ if(BUILD_TESTING)
     NAME motion_profile_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/motion_profile_contract_test.py
   )
+  add_test(
+    NAME practice_world_probe_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/world_smoke_probe_test.py
+  )
   add_launch_test(
     test/sensor_contract.launch.py
     TARGET sensor_contract_empty
@@ -104,7 +108,7 @@ if(BUILD_TESTING)
     TARGET wheel_odometry_resilience
     TIMEOUT 40
   )
-  # Practice worlds: lightweight spawn/collision/interface smoke only.
+  # Practice worlds: lightweight spawn/collision/movement/interface smoke only.
   # Rate and message-shape contracts stay on the two reference worlds above.
   add_launch_test(
     test/world_smoke.launch.py

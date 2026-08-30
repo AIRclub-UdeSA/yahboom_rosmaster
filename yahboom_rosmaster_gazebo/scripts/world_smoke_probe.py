@@ -109,7 +109,8 @@ class WorldSmokeProbe(Node):
                 self.essential_seen["/tf"] = True
 
     def capture_ground_truth(self, message):
-        """Track the latest sample, and keep those closing out the settle window.
+        """
+        Track the latest sample, and keep those closing out the settle window.
 
         Ground truth arrives on a fixed publish period, so no sample lands on
         exactly settle_window -- stopping at the last one strictly before it
@@ -127,20 +128,40 @@ class WorldSmokeProbe(Node):
             self.ground_truth.append(message)
 
     def publish_command(self, command, duration, wall_deadline):
-        """Publish a Twist repeatedly for a wall-clock duration, then stop."""
+        """Publish a Twist until simulation advances by duration, then stop."""
         stop = Twist()
-        publish_until = min(time.monotonic() + duration, wall_deadline)
-        while rclpy.ok() and time.monotonic() < publish_until:
+        start = self.latest_ground_truth
+        elapsed = 0.0
+        while (
+            rclpy.ok()
+            and time.monotonic() < wall_deadline
+            and elapsed < duration
+        ):
             self.command_publisher.publish(command)
             rclpy.spin_once(self, timeout_sec=0.05)
+            if start is not None and self.latest_ground_truth is not None:
+                elapsed = (
+                    stamp_seconds(self.latest_ground_truth.header.stamp)
+                    - stamp_seconds(start.header.stamp)
+                )
         for _ in range(5):
             self.command_publisher.publish(stop)
             rclpy.spin_once(self, timeout_sec=0.05)
+        return elapsed
 
-    def validate_motion(self, start, end):
+    def validate_motion(self, start, end, command_elapsed):
         """Return errors if a short forward command produced no real displacement."""
         if start is None or end is None:
             return ["no ground-truth sample available to validate movement"]
+        if not math.isfinite(command_elapsed):
+            return [f"{GROUND_TRUTH_TOPIC}: command-window duration is non-finite"]
+        if command_elapsed < self.command_duration:
+            return [
+                f"{GROUND_TRUTH_TOPIC}: simulation advanced only "
+                f"{command_elapsed:.2f}s of the {self.command_duration:.1f}s "
+                "forward /cmd_vel command before the wall timeout -- cannot "
+                "validate movement"
+            ]
         displacement = math.dist(
             (start.pose.pose.position.x, start.pose.pose.position.y),
             (end.pose.pose.position.x, end.pose.pose.position.y),
@@ -251,8 +272,10 @@ def main():
         pre_move = node.latest_ground_truth
         move = Twist()
         move.linear.x = node.command_speed
-        node.publish_command(move, node.command_duration, deadline)
-        motion_errors = node.validate_motion(pre_move, node.latest_ground_truth)
+        command_elapsed = node.publish_command(
+            move, node.command_duration, deadline)
+        motion_errors = node.validate_motion(
+            pre_move, node.latest_ground_truth, command_elapsed)
         if motion_errors:
             node.get_logger().error(
                 "World smoke contract FAILED: " + "; ".join(motion_errors))
