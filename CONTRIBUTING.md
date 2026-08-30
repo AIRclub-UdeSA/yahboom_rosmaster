@@ -42,9 +42,11 @@ The highest-leverage places to jump in, straight from the project's own
 [Current Project Status](README.md#current-project-status) and
 [Troubleshooting](README.md#troubleshooting) sections:
 
-- **Add or improve a maze world.** Only `maze_3_6x6.world` ships a matching
-  occupancy map (`maps/maze_3.yaml`) — the other seven maze worlds have none.
-  The obstacle cubes in `laberinto_simple_victimas.world` and
+- **Add or improve a maze world.** Only `laberinto_simple.world` ships a
+  matching occupancy map (`maps/laberinto_simple.yaml`) — the other seven
+  maze worlds have none. `maze_3_6x6.world`'s map was removed because it no
+  longer lines up with the world (see #15); it needs to be re-captured after
+  a maze offset change. The obstacle cubes in `laberinto_simple_victimas.world` and
   `laberinto_1_victimas.world` are meant to be detected live via camera/LiDAR,
   not pre-mapped, so tooling or challenge worlds around live detection are
   welcome too.
