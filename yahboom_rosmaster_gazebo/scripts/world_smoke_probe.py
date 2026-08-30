@@ -109,14 +109,21 @@ class WorldSmokeProbe(Node):
                 self.essential_seen["/tf"] = True
 
     def capture_ground_truth(self, message):
-        """Track the latest sample, and keep those within the settle window."""
+        """Track the latest sample, and keep those closing out the settle window.
+
+        Ground truth arrives on a fixed publish period, so no sample lands on
+        exactly settle_window -- stopping at the last one strictly before it
+        would make the window elapsed always fall a bit short. Instead keep
+        appending through the first sample that reaches or passes the window,
+        then stop, so the window always closes at or after settle_window.
+        """
         self.latest_ground_truth = message
         if not self.ground_truth:
             self.ground_truth.append(message)
             return
-        elapsed = stamp_seconds(message.header.stamp) - stamp_seconds(
+        elapsed = stamp_seconds(self.ground_truth[-1].header.stamp) - stamp_seconds(
             self.ground_truth[0].header.stamp)
-        if elapsed <= self.settle_window:
+        if elapsed < self.settle_window:
             self.ground_truth.append(message)
 
     def publish_command(self, command, duration, wall_deadline):
