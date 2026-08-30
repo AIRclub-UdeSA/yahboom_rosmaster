@@ -297,20 +297,39 @@ ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
   world:=laberinto_simple.world
 ```
 
-| World | Description |
-|-------|-------------|
-| `laberinto_simple.world` | Small 6x6 m maze with three internal partition walls -- ships a matching occupancy map at `maps/laberinto_simple.yaml` |
-| `laberinto_simple_victimas.world` | `laberinto_simple.world` layout plus three color-marker obstacle cubes (two red, one blue; 0.25x0.25x0.3 m, with collision) for camera/LiDAR color-detection workshops |
-| `laberinto_1.world` | Larger, more convoluted maze exported from Gazebo's Building Editor |
-| `laberinto_1_victimas.world` | `laberinto_1.world` layout plus four color-marker obstacle cubes (three red, one blue; 0.25x0.25x0.3 m, one shrunk to 0.15x0.15x0.3 m to fit a ~0.31 m gap between two walls) tucked into narrow passages -- diagonal column corridor, small side room, stub-wall zigzag, and a wall gap -- so the robot has to enter a corridor before it can see and identify the color |
-| `maze_1_6x5.world` | plywood_mazes maze 1, 6x5 m |
-| `maze_2_6x5.world` | plywood_mazes maze 2, 6x5 m |
-| `maze_3_6x6.world` | plywood_mazes maze 3, 6x6 m |
-| `maze_4_metal_6x6.world` | plywood_mazes maze 4, metal panels, 6x6 m |
+| World | Description | Automated coverage |
+|-------|-------------|---------------------|
+| `laberinto_simple.world` | Small 6x6 m maze with three internal partition walls -- ships a matching occupancy map at `maps/laberinto_simple.yaml` | `world_smoke_laberinto_simple` |
+| `laberinto_simple_victimas.world` | `laberinto_simple.world` layout plus three color-marker obstacle cubes (two red, one blue; 0.25x0.25x0.3 m, with collision) for camera/LiDAR color-detection workshops | `world_smoke_laberinto_simple_victimas` |
+| `laberinto_1.world` | Larger, more convoluted maze exported from Gazebo's Building Editor | `world_smoke_laberinto_1` |
+| `laberinto_1_victimas.world` | `laberinto_1.world` layout plus four color-marker obstacle cubes (three red, one blue; 0.25x0.25x0.3 m, one shrunk to 0.15x0.15x0.3 m to fit a ~0.31 m gap between two walls) tucked into narrow passages -- diagonal column corridor, small side room, stub-wall zigzag, and a wall gap -- so the robot has to enter a corridor before it can see and identify the color | `world_smoke_laberinto_1_victimas` |
+| `maze_1_6x5.world` | plywood_mazes maze 1, 6x5 m | `world_smoke_maze_1` |
+| `maze_2_6x5.world` | plywood_mazes maze 2, 6x5 m | `world_smoke_maze_2` |
+| `maze_3_6x6.world` | plywood_mazes maze 3, 6x6 m | `world_smoke_maze_3` |
+| `maze_4_metal_6x6.world` | plywood_mazes maze 4, metal panels, 6x6 m | `world_smoke_maze_4` |
 
 Walls are 0.5 m tall in all eight -- clear of the LiDAR (0.11 m) and camera
 (0.05 m) mount heights, but low enough to inspect the layout from the
 Gazebo GUI.
+
+Every maze world above has a `world_smoke_*` launch test (see
+`test/world_smoke.launch.py`): headless spawn, no initial collision (the
+robot stays level, drifts less than 5 cm during a 3s no-command window, and
+stays within 10 cm of its expected (0, 0) spawn point), a short forward
+`/cmd_vel` command that must produce real ground-truth displacement (catching
+a robot whose wheels spin without translating), and the core topics (`/odom`,
+`/tf`, `/joint_states`, `/scan`, `/imu/data`) coming up. This is intentionally
+lighter than the `sensor_contract_*` tests on the empty and cafe worlds,
+which additionally assert message rates, latency, and payload shape -- maze
+layouts share the same robot and sensor stack, so only spawn validity and
+basic movement actually vary world to world. `_victimas` worlds get the
+same smoke test as their base layout, since the color-marker cubes are the
+only new geometry to check for; any future `_victimas` world should be
+added the same way rather than getting the full contract.
+
+`simple_room.world` and `willowgarage.world` are deliberately excluded from
+this coverage -- see "Current Project Status" below, they are legacy
+migration assets, not supported practice worlds.
 
 ### Simulator Launch Arguments
 
@@ -514,6 +533,18 @@ colcon test --packages-select yahboom_rosmaster_gazebo \
 colcon test-result --verbose
 ```
 
+The eight maze/practice worlds are covered separately by the lighter
+`world_smoke_*` tests (spawn validity, initial collisions, a forward-motion
+check, core topics -- see "Maze Worlds" above), so they are not part of the
+regex above:
+
+```bash
+colcon test --packages-select yahboom_rosmaster_gazebo \
+  --ctest-args -R '^world_smoke_.*$' \
+  --output-on-failure
+colcon test-result --verbose
+```
+
 ### Command Watchdog
 
 Publish one nonzero input, wait longer than the 0.5-second timeout, and inspect
@@ -628,7 +659,10 @@ stress profile creates measurable wheel-odometry divergence while the optional
 ideal profile preserves the previous near-zero-error baseline. Automated headless
 contracts cover both supported worlds, and isolated acceptance tests exercise
 controlled RGB-D/LiDAR geometry, IMU motion, wheel signs, odometry, ground
-truth, profile selection, and TF.
+truth, profile selection, and TF. The eight maze/practice worlds each get a
+lighter `world_smoke_*` launch test covering spawn validity, initial
+collisions, a forward-motion check, and core topic liveness -- see "Maze
+Worlds" above.
 
 The following simulator limitations remain:
 
@@ -651,12 +685,15 @@ The following simulator limitations remain:
   the configured nominal noise is not yet communicated to consumers as a
   measured covariance.
 - `simple_room.world` and `willowgarage.world` are retained migration assets;
-  they are not supported Fortress worlds.
+  they are deliberately not supported Fortress worlds and are excluded from
+  automated coverage, unlike the eight maze worlds below.
 - The eight maze worlds (`laberinto_simple.world`, `laberinto_simple_victimas.world`,
   `laberinto_1.world`, `laberinto_1_victimas.world`, `maze_1_6x5.world`,
-  `maze_2_6x5.world`, `maze_3_6x6.world`, `maze_4_metal_6x6.world`) are
-  usable Fortress worlds but are not part of the automated headless
-  contract above. Only `laberinto_simple.world` ships a matching occupancy
+  `maze_2_6x5.world`, `maze_3_6x6.world`, `maze_4_metal_6x6.world`) each have
+  a `world_smoke_*` launch test (spawn validity, no initial collision, a
+  forward-motion check, core topics) but not the full rate/message-shape
+  contract that the empty and cafe worlds get -- see the "Maze Worlds"
+  section above. Only `laberinto_simple.world` ships a matching occupancy
   map (`maps/laberinto_simple.yaml`); the others have no pre-built map.
   `maze_3_6x6.world`'s map was removed -- it no longer matched the world
   after the maze offset changed in #10, and needs to be re-captured (see
