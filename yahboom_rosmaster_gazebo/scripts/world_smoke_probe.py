@@ -4,8 +4,9 @@ Smoke-test a practice world: valid spawn, no initial collision, essential interf
 
 Unlike sensor_contract_probe.py (which validates rates and message shape on the
 two reference worlds), this probe is world-agnostic: it only checks that the
-robot settles upright and stationary right after spawn -- the one thing that
-actually varies across worlds -- and that the core topics are alive.
+robot settles upright and stationary right after spawn, stays near its expected
+spawn point, and can actually translate on a short forward command -- the
+things that vary across worlds -- and that the core topics are alive.
 """
 
 import math
@@ -13,6 +14,7 @@ import sys
 import time
 
 import rclpy
+from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy
@@ -24,6 +26,10 @@ GROUND_TRUTH_TOPIC = "/ground_truth/odom"
 REQUIRED_DYNAMIC_TF_EDGE = ("odom", "base_footprint")
 MAX_SETTLED_DRIFT_M = 0.05
 MAX_LEVEL_ANGLE_RAD = 0.15
+# The spawn action never sets -x/-y, so every world spawns the robot at the
+# origin. A settled offset past this means the robot was pushed off spawn
+# (e.g. wedged against a wall) before the probe started observing.
+MAX_SPAWN_OFFSET_M = 0.10
 
 
 def stamp_seconds(stamp):
@@ -47,12 +53,19 @@ class WorldSmokeProbe(Node):
 
     def __init__(self):
         super().__init__("world_smoke_probe")
-        self.declare_parameter("timeout", 25.0)
+        self.declare_parameter("timeout", 32.0)
         self.declare_parameter("settle_window", 3.0)
+        self.declare_parameter("command_speed", 0.15)
+        self.declare_parameter("command_duration", 2.0)
+        self.declare_parameter("meaningful_motion", 0.08)
         self.timeout = float(self.get_parameter("timeout").value)
         self.settle_window = float(self.get_parameter("settle_window").value)
+        self.command_speed = float(self.get_parameter("command_speed").value)
+        self.command_duration = float(self.get_parameter("command_duration").value)
+        self.meaningful_motion = float(self.get_parameter("meaningful_motion").value)
 
         self.ground_truth = []
+        self.latest_ground_truth = None
         self.essential_seen = {
             "/odom": False,
             "/tf": False,
@@ -64,6 +77,8 @@ class WorldSmokeProbe(Node):
 
         best_effort_qos = QoSProfile(depth=50, reliability=ReliabilityPolicy.BEST_EFFORT)
         default_qos = QoSProfile(depth=20)
+
+        self.command_publisher = self.create_publisher(Twist, "/cmd_vel", 10)
 
         self._subscription_handles.append(self.create_subscription(
             Odometry, GROUND_TRUTH_TOPIC, self.capture_ground_truth, best_effort_qos))
@@ -94,7 +109,8 @@ class WorldSmokeProbe(Node):
                 self.essential_seen["/tf"] = True
 
     def capture_ground_truth(self, message):
-        """Keep ground-truth samples spanning the settle window from first arrival."""
+        """Track the latest sample, and keep those within the settle window."""
+        self.latest_ground_truth = message
         if not self.ground_truth:
             self.ground_truth.append(message)
             return
@@ -102,6 +118,35 @@ class WorldSmokeProbe(Node):
             self.ground_truth[0].header.stamp)
         if elapsed <= self.settle_window:
             self.ground_truth.append(message)
+
+    def publish_command(self, command, duration, wall_deadline):
+        """Publish a Twist repeatedly for a wall-clock duration, then stop."""
+        stop = Twist()
+        publish_until = min(time.monotonic() + duration, wall_deadline)
+        while rclpy.ok() and time.monotonic() < publish_until:
+            self.command_publisher.publish(command)
+            rclpy.spin_once(self, timeout_sec=0.05)
+        for _ in range(5):
+            self.command_publisher.publish(stop)
+            rclpy.spin_once(self, timeout_sec=0.05)
+
+    def validate_motion(self, start, end):
+        """Return errors if a short forward command produced no real displacement."""
+        if start is None or end is None:
+            return ["no ground-truth sample available to validate movement"]
+        displacement = math.dist(
+            (start.pose.pose.position.x, start.pose.pose.position.y),
+            (end.pose.pose.position.x, end.pose.pose.position.y),
+        )
+        if not math.isfinite(displacement):
+            return [f"{GROUND_TRUTH_TOPIC}: movement displacement is non-finite"]
+        if displacement < self.meaningful_motion:
+            return [
+                f"{GROUND_TRUTH_TOPIC}: moved only {displacement:.3f}m over a "
+                f"{self.command_duration:.1f}s forward /cmd_vel command "
+                f"(expected at least {self.meaningful_motion:.3f}m) -- wheels "
+                "may be spinning without translating"]
+        return []
 
     def complete(self):
         """Return whether the settle window has elapsed and every topic was seen."""
@@ -122,6 +167,13 @@ class WorldSmokeProbe(Node):
             return errors
 
         first, last = self.ground_truth[0], self.ground_truth[-1]
+        elapsed = stamp_seconds(last.header.stamp) - stamp_seconds(first.header.stamp)
+        if elapsed < self.settle_window:
+            errors.append(
+                f"{GROUND_TRUTH_TOPIC}: only observed {elapsed:.2f}s of the "
+                f"{self.settle_window:.1f}s settle window before timing out "
+                "-- cannot confirm the robot settled")
+
         for label, message in (("first", first), ("last", last)):
             position = message.pose.pose.position
             orientation = message.pose.pose.orientation
@@ -140,6 +192,13 @@ class WorldSmokeProbe(Node):
                     "-- likely spawned inside or against world geometry")
         if errors:
             return errors
+
+        spawn_offset = math.hypot(first.pose.pose.position.x, first.pose.pose.position.y)
+        if spawn_offset > MAX_SPAWN_OFFSET_M:
+            errors.append(
+                f"{GROUND_TRUTH_TOPIC}: settled {spawn_offset:.3f}m from the "
+                f"expected (0, 0) spawn point -- the robot was likely pushed "
+                "off spawn before the probe started observing")
 
         drift = math.dist(
             (
@@ -181,6 +240,17 @@ def main():
             node.get_logger().error("World smoke contract FAILED: " + "; ".join(errors))
             node.get_logger().error("Received: " + node.summary())
             return 1
+
+        pre_move = node.latest_ground_truth
+        move = Twist()
+        move.linear.x = node.command_speed
+        node.publish_command(move, node.command_duration, deadline)
+        motion_errors = node.validate_motion(pre_move, node.latest_ground_truth)
+        if motion_errors:
+            node.get_logger().error(
+                "World smoke contract FAILED: " + "; ".join(motion_errors))
+            return 1
+
         node.get_logger().info("World smoke contract PASSED: " + node.summary())
         return 0
     finally:

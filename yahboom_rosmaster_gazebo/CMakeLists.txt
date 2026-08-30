@@ -109,49 +109,49 @@ if(BUILD_TESTING)
   add_launch_test(
     test/world_smoke.launch.py
     TARGET world_smoke_laberinto_simple
-    TIMEOUT 60
+    TIMEOUT 70
     ARGS "world:=laberinto_simple.world"
   )
   add_launch_test(
     test/world_smoke.launch.py
     TARGET world_smoke_laberinto_simple_victimas
-    TIMEOUT 60
+    TIMEOUT 70
     ARGS "world:=laberinto_simple_victimas.world"
   )
   add_launch_test(
     test/world_smoke.launch.py
     TARGET world_smoke_laberinto_1
-    TIMEOUT 60
+    TIMEOUT 70
     ARGS "world:=laberinto_1.world"
   )
   add_launch_test(
     test/world_smoke.launch.py
     TARGET world_smoke_laberinto_1_victimas
-    TIMEOUT 60
+    TIMEOUT 70
     ARGS "world:=laberinto_1_victimas.world"
   )
   add_launch_test(
     test/world_smoke.launch.py
     TARGET world_smoke_maze_1
-    TIMEOUT 60
+    TIMEOUT 70
     ARGS "world:=maze_1_6x5.world"
   )
   add_launch_test(
     test/world_smoke.launch.py
     TARGET world_smoke_maze_2
-    TIMEOUT 60
+    TIMEOUT 70
     ARGS "world:=maze_2_6x5.world"
   )
   add_launch_test(
     test/world_smoke.launch.py
     TARGET world_smoke_maze_3
-    TIMEOUT 60
+    TIMEOUT 70
     ARGS "world:=maze_3_6x6.world"
   )
   add_launch_test(
     test/world_smoke.launch.py
     TARGET world_smoke_maze_4
-    TIMEOUT 60
+    TIMEOUT 70
     ARGS "world:=maze_4_metal_6x6.world"
   )
 endif()

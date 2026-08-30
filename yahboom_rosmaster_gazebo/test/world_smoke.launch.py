@@ -34,12 +34,23 @@ def generate_test_description():
             "rviz": "false",
             "use_sim_time": "true",
             "world": PathJoinSubstitution([package_share, "worlds", world]),
+            # The probe commands a short forward move to confirm the world
+            # doesn't block translation (world_smoke_probe.py checks this
+            # against a fixed meaningful_motion distance), so the /cmd_vel
+            # motion bias -- resampled at random per launch -- must be off.
+            "motion_bias": "false",
         }.items(),
     )
     probe = Node(
         package="yahboom_rosmaster_gazebo",
         executable="world_smoke_probe.py",
-        parameters=[{"timeout": 25.0, "settle_window": 3.0}],
+        parameters=[{
+            "timeout": 32.0,
+            "settle_window": 3.0,
+            "command_speed": 0.15,
+            "command_duration": 2.0,
+            "meaningful_motion": 0.08,
+        }],
         output="screen",
     )
 
@@ -61,7 +72,7 @@ class TestWorldSmoke(unittest.TestCase):
 
     def test_probe_passes(self, proc_info, probe):
         proc_info.assertWaitForStartup(probe, timeout=30)
-        proc_info.assertWaitForShutdown(probe, timeout=35)
+        proc_info.assertWaitForShutdown(probe, timeout=42)
         launch_testing.asserts.assertExitCodes(proc_info, process=probe)
 
 
