@@ -534,8 +534,9 @@ colcon test-result --verbose
 ```
 
 The eight maze/practice worlds are covered separately by the lighter
-`world_smoke_*` tests (spawn validity, initial collisions, core topics --
-see "Maze Worlds" above), so they are not part of the regex above:
+`world_smoke_*` tests (spawn validity, initial collisions, a forward-motion
+check, core topics -- see "Maze Worlds" above), so they are not part of the
+regex above:
 
 ```bash
 colcon test --packages-select yahboom_rosmaster_gazebo \
@@ -660,7 +661,8 @@ contracts cover both supported worlds, and isolated acceptance tests exercise
 controlled RGB-D/LiDAR geometry, IMU motion, wheel signs, odometry, ground
 truth, profile selection, and TF. The eight maze/practice worlds each get a
 lighter `world_smoke_*` launch test covering spawn validity, initial
-collisions, and core topic liveness -- see "Maze Worlds" above.
+collisions, a forward-motion check, and core topic liveness -- see "Maze
+Worlds" above.
 
 The following simulator limitations remain:
 
