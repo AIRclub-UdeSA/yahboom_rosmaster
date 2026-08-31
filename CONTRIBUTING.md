@@ -113,7 +113,9 @@ Changes to `main` must go through a pull request:
 6. At least 1 approval from another contributor is required before merging.
 7. Resolve all review comments before merging.
 8. New commits after an approval will require re-approval.
-9. Direct pushes to `main` are blocked, including for repo admins.
+9. Direct pushes to `main` are blocked by default; the repository admin
+   role can bypass this ruleset, but that should stay reserved for
+   emergencies, not routine merges.
 
 ## Ground rules
 
