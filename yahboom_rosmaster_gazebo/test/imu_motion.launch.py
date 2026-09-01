@@ -26,6 +26,7 @@ def generate_test_description():
             "headless": "true",
             "rviz": "false",
             "use_sim_time": "true",
+            "render_sensors": "false",
             "world": os.path.join(package_share, "worlds", "empty.world"),
         }.items(),
     )

@@ -58,6 +58,10 @@ if(BUILD_TESTING)
     NAME launch_shutdown_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/launch_shutdown_test.py
   )
+  add_test(
+    NAME sensor_contract_probe_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/sensor_contract_probe_test.py
+  )
   add_launch_test(
     test/sensor_contract.launch.py
     TARGET sensor_contract_empty
@@ -69,6 +73,15 @@ if(BUILD_TESTING)
     TARGET sensor_contract_cafe
     TIMEOUT 90
     ARGS "world:=cafe.world"
+  )
+  # Hosted runners use software rendering, where message delivery rate reflects
+  # runner load rather than sensor correctness.
+  # Keep the strict empty/cafe targets above for local performance validation.
+  add_launch_test(
+    test/sensor_contract.launch.py
+    TARGET sensor_contract_ci
+    TIMEOUT 90
+    ARGS "world:=empty.world" "samples:=3" "performance_checks:=false"
   )
   add_launch_test(
     test/base_feedback.launch.py

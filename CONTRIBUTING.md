@@ -130,12 +130,19 @@ colcon build --symlink-install
 bash src/yahboom_rosmaster/scripts/test_simulator_contracts.sh
 ```
 
-The script runs the description contract; the motion-profile, practice-world
-probe, and launch-shutdown contracts; the empty-world sensor, base-feedback,
-ground-truth, ideal-motion, and wheel-odometry-resilience launch contracts. It
-also selects the ideal-yaw contract when that target is present. Tests run
-sequentially, return a failing status to CI, and always print the complete
+The script runs the description contract; the motion-profile, practice-world,
+launch-shutdown, and sensor-probe unit contracts; the empty-world
+sensor-correctness, base-feedback, ground-truth, ideal-motion, and
+wheel-odometry-resilience launch contracts. It also selects the ideal-yaw
+contract when that target is present. Tests run sequentially, return a failing
+status to CI, and always print the complete
 `colcon test-result --verbose --all` report.
+
+The CI sensor target checks messages, payloads, frames, increasing timestamps,
+and timestamped-TF connectivity. It intentionally leaves software-rendering
+rates and first-arrival latency to the strict local `sensor_contract_empty` and
+`sensor_contract_cafe` targets, so shared-runner load cannot masquerade as a
+sensor regression.
 
 This gate is deliberately representative so that every pull request stays
 within a reasonable runtime. It does not replace the full development checks:

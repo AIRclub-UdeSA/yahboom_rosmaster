@@ -44,6 +44,13 @@ MOTION_PROFILE_KEYS = (
     "back_right_slip1",
 )
 
+# Software rendering can take several seconds to join Gazebo's sensor threads
+# after /server_control acknowledges a clean stop. Keep the launch shutdown
+# callback bounded, but leave enough time for llvmpipe to finish before launch
+# escalates to SIGINT (which can race SensorsPrivate::Stop).
+GAZEBO_CLEAN_STOP_TIMEOUT = 10.0
+PROCESS_STOP_POLL_INTERVAL = 0.05
+
 
 def _load_motion_profile(config_path, profile_name):
     """Load and validate one deterministic wheel-contact profile."""
@@ -202,6 +209,19 @@ def _process_stopped(process):
     return state == "Z"
 
 
+def _wait_for_process_stop(
+        process, timeout, poll_interval=PROCESS_STOP_POLL_INTERVAL):
+    """Wait at most ``timeout`` seconds for an owned process to stop."""
+    deadline = time.monotonic() + max(0.0, timeout)
+    while True:
+        if _process_stopped(process):
+            return True
+        remaining = deadline - time.monotonic()
+        if remaining <= 0.0:
+            return False
+        time.sleep(min(poll_interval, remaining))
+
+
 def _stop_image_bridge(image_bridge, logger, timeout=2.0):
     """Stop the image consumer before its Gazebo publishers disappear."""
     if _process_stopped(image_bridge):
@@ -222,12 +242,9 @@ def _stop_image_bridge(image_bridge, logger, timeout=2.0):
             f"Could not stop the image bridge before Gazebo: {exception}")
         return
 
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if _process_stopped(image_bridge):
-            logger.info("Image bridge stopped before Gazebo sensor shutdown")
-            return
-        time.sleep(0.05)
+    if _wait_for_process_stop(image_bridge, timeout):
+        logger.info("Image bridge stopped before Gazebo sensor shutdown")
+        return
     logger.warning(
         f"Image bridge did not stop within {timeout:.1f} seconds; continuing "
         "with Gazebo shutdown and launch signal fallback")
@@ -273,16 +290,13 @@ def _request_gazebo_stop(event, context, gazebo_server, image_bridge):
             f"{detail}")
     else:
         logger.info("Gazebo acknowledged the clean stop request")
-        deadline = time.monotonic() + 4.0
-        while time.monotonic() < deadline:
-            if _process_stopped(gazebo_server):
-                logger.info("Gazebo completed its clean stop before signal fallback")
-                break
-            time.sleep(0.05)
+        if _wait_for_process_stop(
+                gazebo_server, GAZEBO_CLEAN_STOP_TIMEOUT):
+            logger.info("Gazebo completed its clean stop before signal fallback")
         else:
             logger.warning(
-                "Gazebo did not finish its service-requested stop within 4 seconds; "
-                "using signal fallback")
+                "Gazebo did not finish its service-requested stop within "
+                f"{GAZEBO_CLEAN_STOP_TIMEOUT:.0f} seconds; using signal fallback")
     return None
 
 
@@ -384,6 +398,7 @@ def generate_launch_description():
     )
     headless = LaunchConfiguration("headless")
     gui = LaunchConfiguration("gui")
+    render_sensors = LaunchConfiguration("render_sensors")
 
     # Gazebo Fortress GUI — skipped when headless:=true or gui:=false.
     # QT_QPA_PLATFORM=xcb forces X11/XWayland mode on Wayland sessions;
@@ -427,6 +442,7 @@ def generate_launch_description():
             ("/cam_1/depth_image", "/cam_1/depth/image_raw"),
         ],
         output="screen",
+        condition=IfCondition(render_sensors),
     )
 
     # Fortress 6.18 labels the RGB-D cloud with the optical frame even though
@@ -438,6 +454,7 @@ def generate_launch_description():
         executable="pointcloud_frame_relay.py",
         name="pointcloud_frame_relay",
         output="screen",
+        condition=IfCondition(render_sensors),
     )
 
     # Load and activate the read-only joint state broadcaster. The spawner waits
