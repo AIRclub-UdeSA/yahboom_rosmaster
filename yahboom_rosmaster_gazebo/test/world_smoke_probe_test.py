@@ -2,6 +2,7 @@
 """Focused unit tests for the practice-world smoke probe."""
 
 from pathlib import Path
+import math
 import sys
 import unittest
 from unittest.mock import patch
@@ -17,13 +18,16 @@ import world_smoke_probe  # noqa: E402
 from world_smoke_probe import WorldSmokeProbe, stamp_seconds  # noqa: E402
 
 
-def odometry(stamp, x=0.0):
-    """Build a level ground-truth sample at a requested time and x position."""
+def odometry(stamp, x=0.0, y=0.0, z=0.0, yaw=0.0):
+    """Build a level ground-truth sample at a requested pose and time."""
     message = Odometry()
     message.header.stamp.sec = int(stamp)
     message.header.stamp.nanosec = int((stamp - int(stamp)) * 1e9)
     message.pose.pose.position.x = x
-    message.pose.pose.orientation.w = 1.0
+    message.pose.pose.position.y = y
+    message.pose.pose.position.z = z
+    message.pose.pose.orientation.z = math.sin(yaw / 2.0)
+    message.pose.pose.orientation.w = math.cos(yaw / 2.0)
     return message
 
 
@@ -69,6 +73,17 @@ class TestWorldSmokeProbe(unittest.TestCase):
         errors = self.probe.validate()
 
         self.assertTrue(any("expected (0, 0) spawn point" in error for error in errors))
+
+    def test_validate_rejects_out_and_back_spawn_excursion(self):
+        self.probe.ground_truth = [
+            odometry(0.0),
+            odometry(1.5, x=0.08),
+            odometry(3.0),
+        ]
+
+        errors = self.probe.validate()
+
+        self.assertTrue(any("maximum excursion" in error for error in errors))
 
     def test_motion_requires_full_simulation_time_window(self):
         start = odometry(0.0)
@@ -120,6 +135,40 @@ class TestWorldSmokeProbe(unittest.TestCase):
         errors = self.probe.validate_motion(start, end, command_elapsed=2.0)
 
         self.assertTrue(any("wheels may be spinning" in error for error in errors))
+
+    def test_motion_rejects_backward_displacement(self):
+        start = odometry(0.0)
+        end = odometry(2.0, x=-0.20)
+
+        errors = self.probe.validate_motion(start, end, command_elapsed=2.0)
+
+        self.assertTrue(any("backward" in error for error in errors))
+
+    def test_motion_reports_small_negative_displacement_as_backward(self):
+        start = odometry(0.0)
+        end = odometry(2.0, x=-0.02)
+
+        errors = self.probe.validate_motion(start, end, command_elapsed=2.0)
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("moved 0.020m backward", errors[0])
+        self.assertNotIn("-0.020m forward", errors[0])
+
+    def test_motion_rejects_lateral_displacement(self):
+        start = odometry(0.0)
+        end = odometry(2.0, y=0.20)
+
+        errors = self.probe.validate_motion(start, end, command_elapsed=2.0)
+
+        self.assertTrue(any("laterally" in error for error in errors))
+
+    def test_motion_projects_displacement_onto_initial_yaw(self):
+        start = odometry(0.0, yaw=math.pi / 2.0)
+        end = odometry(2.0, y=0.20, yaw=0.0)
+
+        errors = self.probe.validate_motion(start, end, command_elapsed=2.0)
+
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":

@@ -24,8 +24,9 @@ from tf2_msgs.msg import TFMessage
 
 GROUND_TRUTH_TOPIC = "/ground_truth/odom"
 REQUIRED_DYNAMIC_TF_EDGE = ("odom", "base_footprint")
-MAX_SETTLED_DRIFT_M = 0.05
+MAX_SETTLED_EXCURSION_M = 0.05
 MAX_LEVEL_ANGLE_RAD = 0.15
+MAX_LATERAL_DISPLACEMENT_M = 0.05
 # The spawn action never sets -x/-y, so every world spawns the robot at the
 # origin. A settled offset past this means the robot was pushed off spawn
 # (e.g. wedged against a wall) before the probe started observing.
@@ -46,6 +47,14 @@ def quaternion_to_roll_pitch(orientation):
     sinp = max(-1.0, min(1.0, 2.0 * (w * y - z * x)))
     pitch = math.asin(sinp)
     return roll, pitch
+
+
+def quaternion_to_yaw(orientation):
+    """Convert a quaternion to yaw in radians."""
+    x, y, z, w = orientation.x, orientation.y, orientation.z, orientation.w
+    siny_cosp = 2.0 * (w * z + x * y)
+    cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+    return math.atan2(siny_cosp, cosy_cosp)
 
 
 class WorldSmokeProbe(Node):
@@ -150,7 +159,7 @@ class WorldSmokeProbe(Node):
         return elapsed
 
     def validate_motion(self, start, end, command_elapsed):
-        """Return errors if a short forward command produced no real displacement."""
+        """Return errors if a short forward command did not move mostly forward."""
         if start is None or end is None:
             return ["no ground-truth sample available to validate movement"]
         if not math.isfinite(command_elapsed):
@@ -162,19 +171,52 @@ class WorldSmokeProbe(Node):
                 "forward /cmd_vel command before the wall timeout -- cannot "
                 "validate movement"
             ]
-        displacement = math.dist(
-            (start.pose.pose.position.x, start.pose.pose.position.y),
-            (end.pose.pose.position.x, end.pose.pose.position.y),
+        start_position = start.pose.pose.position
+        end_position = end.pose.pose.position
+        start_orientation = start.pose.pose.orientation
+        pose_values = (
+            start_position.x, start_position.y,
+            end_position.x, end_position.y,
+            start_orientation.x, start_orientation.y,
+            start_orientation.z, start_orientation.w,
         )
-        if not math.isfinite(displacement):
-            return [f"{GROUND_TRUTH_TOPIC}: movement displacement is non-finite"]
-        if displacement < self.meaningful_motion:
-            return [
-                f"{GROUND_TRUTH_TOPIC}: moved only {displacement:.3f}m over a "
+        if not all(math.isfinite(value) for value in pose_values):
+            return [f"{GROUND_TRUTH_TOPIC}: movement pose has non-finite values"]
+
+        delta_x = end_position.x - start_position.x
+        delta_y = end_position.y - start_position.y
+        initial_yaw = quaternion_to_yaw(start_orientation)
+        forward_displacement = (
+            math.cos(initial_yaw) * delta_x + math.sin(initial_yaw) * delta_y
+        )
+        lateral_displacement = (
+            -math.sin(initial_yaw) * delta_x + math.cos(initial_yaw) * delta_y
+        )
+
+        errors = []
+        if forward_displacement < 0.0:
+            errors.append(
+                f"{GROUND_TRUTH_TOPIC}: moved {abs(forward_displacement):.3f}m "
+                f"backward over a {self.command_duration:.1f}s forward /cmd_vel "
+                f"command (expected at least {self.meaningful_motion:.3f}m "
+                "forward)"
+            )
+        elif forward_displacement < self.meaningful_motion:
+            errors.append(
+                f"{GROUND_TRUTH_TOPIC}: moved only "
+                f"{forward_displacement:.3f}m forward over a "
                 f"{self.command_duration:.1f}s forward /cmd_vel command "
                 f"(expected at least {self.meaningful_motion:.3f}m) -- wheels "
-                "may be spinning without translating"]
-        return []
+                "may be spinning without translating"
+            )
+        if abs(lateral_displacement) > MAX_LATERAL_DISPLACEMENT_M:
+            errors.append(
+                f"{GROUND_TRUTH_TOPIC}: moved {abs(lateral_displacement):.3f}m "
+                f"laterally over a forward /cmd_vel command (maximum allowed "
+                f"{MAX_LATERAL_DISPLACEMENT_M:.3f}m) -- motion was not "
+                "predominantly forward"
+            )
+        return errors
 
     def complete(self):
         """Return whether the settle window has elapsed and every topic was seen."""
@@ -228,23 +270,34 @@ class WorldSmokeProbe(Node):
                 f"expected (0, 0) spawn point -- the robot was likely pushed "
                 "off spawn before the probe started observing")
 
-        drift = math.dist(
-            (
-                first.pose.pose.position.x,
-                first.pose.pose.position.y,
-                first.pose.pose.position.z,
-            ),
-            (
-                last.pose.pose.position.x,
-                last.pose.pose.position.y,
-                last.pose.pose.position.z,
-            ),
+        first_position = first.pose.pose.position
+        observed_positions = []
+        for index, message in enumerate(self.ground_truth):
+            position = message.pose.pose.position
+            values = (position.x, position.y, position.z)
+            if not all(math.isfinite(value) for value in values):
+                errors.append(
+                    f"{GROUND_TRUTH_TOPIC}: sample {index} position has "
+                    "non-finite values"
+                )
+                continue
+            observed_positions.append(values)
+        if errors:
+            return errors
+
+        max_excursion = max(
+            math.dist(
+                (first_position.x, first_position.y, first_position.z),
+                position,
+            )
+            for position in observed_positions
         )
-        if drift > MAX_SETTLED_DRIFT_M:
+        if max_excursion > MAX_SETTLED_EXCURSION_M:
             errors.append(
-                f"{GROUND_TRUTH_TOPIC}: drifted {drift:.3f}m with no command over "
-                f"{self.settle_window:.1f}s -- likely an initial collision or "
-                "spawn on unstable geometry")
+                f"{GROUND_TRUTH_TOPIC}: reached a maximum excursion of "
+                f"{max_excursion:.3f}m from its first observed pose with no "
+                f"command over {self.settle_window:.1f}s -- likely an initial "
+                "collision or spawn on unstable geometry")
 
         return errors
 

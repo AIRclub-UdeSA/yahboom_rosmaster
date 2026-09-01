@@ -314,13 +314,14 @@ Gazebo GUI.
 
 Every maze world above has a `world_smoke_*` launch test (see
 `test/world_smoke.launch.py`): headless spawn, no initial collision (the
-robot stays level, drifts less than 5 cm during a 3s no-command window, and
-stays within 10 cm of its expected (0, 0) spawn point), a short forward
-`/cmd_vel` command that must produce real ground-truth displacement (catching
-a robot whose wheels spin without translating), and the core topics (`/odom`,
-`/tf`, `/joint_states`, `/scan`, `/imu/data`) coming up. This is intentionally
-lighter than the `sensor_contract_*` tests on the empty and cafe worlds,
-which additionally assert message rates, latency, and payload shape -- maze
+robot stays level, never strays more than 5 cm from its first pose during a
+3s no-command window, and stays within 10 cm of its expected (0, 0) spawn
+point), a short forward `/cmd_vel` command that must produce predominantly
+forward ground-truth displacement rather than backward or sideways motion
+(also catching a robot whose wheels spin without translating), and the core
+topics (`/odom`, `/tf`, `/joint_states`, `/scan`, `/imu/data`) coming up. This
+is intentionally lighter than the `sensor_contract_*` tests on the empty and
+cafe worlds, which additionally assert message rates, latency, and payload shape -- maze
 layouts share the same robot and sensor stack, so only spawn validity and
 basic movement actually vary world to world. `_victimas` worlds get the
 same smoke test as their base layout, since the color-marker cubes are the

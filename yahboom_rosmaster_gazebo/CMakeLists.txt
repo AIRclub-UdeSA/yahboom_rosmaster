@@ -54,6 +54,10 @@ if(BUILD_TESTING)
     NAME practice_world_probe_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/world_smoke_probe_test.py
   )
+  add_test(
+    NAME launch_shutdown_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/launch_shutdown_test.py
+  )
   add_launch_test(
     test/sensor_contract.launch.py
     TARGET sensor_contract_empty

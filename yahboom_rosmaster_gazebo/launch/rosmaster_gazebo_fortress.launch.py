@@ -8,6 +8,7 @@ gz_ros2_control kept read-only for joint states and wheel-link TF.
 import os
 import platform
 import shutil
+import signal
 import subprocess
 import tempfile
 import time
@@ -173,27 +174,71 @@ def _launch_rviz(context):
     return []
 
 
-def _gazebo_process_stopped(gazebo_server):
-    """Return whether the owned Gazebo process has exited or become a zombie."""
-    if gazebo_server.return_code is not None:
+def _process_stopped(process):
+    """Return whether an owned launch process has exited or become a zombie."""
+    if process.return_code is not None:
         return True
-    details = gazebo_server.process_details
+    details = process.process_details
     if details is None or "pid" not in details:
         return False
     try:
         with open(f"/proc/{details['pid']}/stat", encoding="utf-8") as stat_file:
             state = stat_file.read().rsplit(")", 1)[1].strip().split()[0]
     except FileNotFoundError:
-        return True
+        # Linux exposes live and zombie state in /proc. Platforms such as
+        # macOS do not mount /proc at all, so probe the PID there rather than
+        # mistaking every running process for one that has already exited.
+        if os.path.isdir("/proc"):
+            return True
+        try:
+            os.kill(details["pid"], 0)
+        except ProcessLookupError:
+            return True
+        except OSError:
+            return False
+        return False
     except (IndexError, OSError):
         return False
     return state == "Z"
 
 
-def _request_gazebo_stop(event, context, gazebo_server):
-    """Ask Gazebo to stop cleanly before launch falls back to process signals."""
+def _stop_image_bridge(image_bridge, logger, timeout=2.0):
+    """Stop the image consumer before its Gazebo publishers disappear."""
+    if _process_stopped(image_bridge):
+        return
+
+    details = image_bridge.process_details
+    if details is None or "pid" not in details:
+        logger.debug("Image bridge was not started before shutdown")
+        return
+
+    try:
+        logger.info("Stopping the image bridge before Gazebo sensor shutdown")
+        os.kill(details["pid"], signal.SIGINT)
+    except ProcessLookupError:
+        return
+    except OSError as exception:
+        logger.warning(
+            f"Could not stop the image bridge before Gazebo: {exception}")
+        return
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if _process_stopped(image_bridge):
+            logger.info("Image bridge stopped before Gazebo sensor shutdown")
+            return
+        time.sleep(0.05)
+    logger.warning(
+        f"Image bridge did not stop within {timeout:.1f} seconds; continuing "
+        "with Gazebo shutdown and launch signal fallback")
+
+
+def _request_gazebo_stop(event, context, gazebo_server, image_bridge):
+    """Stop transport consumers, then Gazebo, before launch signal fallback."""
     del event
     logger = get_logger("rosmaster_gazebo_shutdown")
+    _stop_image_bridge(image_bridge, logger)
+
     ign_executable = shutil.which("ign")
     if ign_executable is None:
         logger.warning("Cannot request Gazebo stop: 'ign' is not available")
@@ -230,7 +275,7 @@ def _request_gazebo_stop(event, context, gazebo_server):
         logger.info("Gazebo acknowledged the clean stop request")
         deadline = time.monotonic() + 4.0
         while time.monotonic() < deadline:
-            if _gazebo_process_stopped(gazebo_server):
+            if _process_stopped(gazebo_server):
                 logger.info("Gazebo completed its clean stop before signal fallback")
                 break
             time.sleep(0.05)
@@ -241,7 +286,7 @@ def _request_gazebo_stop(event, context, gazebo_server):
     return None
 
 
-def _launch_gazebo_server(context, ign_executable, pkg_gz):
+def _launch_gazebo_server(context, ign_executable, pkg_gz, image_bridge):
     raw_world = LaunchConfiguration("world").perform(context)
     if os.path.isabs(raw_world) and os.path.exists(raw_world):
         world_path = raw_world
@@ -269,7 +314,7 @@ def _launch_gazebo_server(context, ign_executable, pkg_gz):
     return [
         RegisterEventHandler(OnShutdown(
             on_shutdown=lambda event, ctx: _request_gazebo_stop(
-                event, ctx, gazebo_server))),
+                event, ctx, gazebo_server, image_bridge))),
         gazebo_server,
     ]
 
@@ -512,7 +557,7 @@ def generate_launch_description():
         AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(pkg_gz, "worlds")),
         OpaqueFunction(
             function=_launch_gazebo_server,
-            args=[ign_executable, pkg_gz],
+            args=[ign_executable, pkg_gz, ros_gz_image_bridge],
         ),
         gazebo_client,
         OpaqueFunction(
