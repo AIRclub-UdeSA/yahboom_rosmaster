@@ -24,7 +24,6 @@
   <xacro:property name="wheel_width"     value="0.03040" />
   <xacro:property name="wheel_mass"      value="0.05"    />
   <xacro:property name="wheel_xoff"      value="0.08"    />
-  <xacro:property name="wheel_yoff"      value="-0.01"   />
 
   <xacro:macro name="mecanum_wheel" params="
     prefix
@@ -40,10 +39,9 @@
     joint_type:=continuous">
     <link name="${prefix}${side}_wheel_link">
       <visual>
-        <!-- Keep the established joint and collision position. Moving the
-             visual 10 mm along its rotation axis matches the assembled CAD
-             without changing contact geometry or drivetrain behavior. -->
-        <origin xyz="0 ${-y_reflect*wheel_yoff} 0" rpy="0 0 0"/>
+        <!-- The generated mesh is link-local; no additional visual offset is
+             needed once the joint uses the measured lateral wheel centre. -->
+        <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="file://$(find yahboom_rosmaster_description)/meshes/rosmaster_x3/cad_visual/${side}_wheel.obj"/>
         </geometry>
@@ -79,7 +77,7 @@
       <axis xyz="0 1 0"/>
       <parent link="${prefix}base_link"/>
       <child  link="${prefix}${side}_wheel_link"/>
-      <origin xyz="${x_reflect*wheel_xoff} ${y_reflect*(wheel_separation/2+wheel_yoff)} ${-wheel_radius}"
+      <origin xyz="${x_reflect*wheel_xoff} ${y_reflect*wheel_separation/2} ${-wheel_radius}"
               rpy="0 0 0"/>
       <dynamics damping="0.1" friction="0.0"/>
     </joint>
