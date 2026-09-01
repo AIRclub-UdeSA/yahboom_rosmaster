@@ -166,6 +166,12 @@ if(BUILD_TESTING)
   )
   add_launch_test(
     test/world_smoke.launch.py
+    TARGET world_smoke_maze_3_victimas
+    TIMEOUT 70
+    ARGS "world:=maze_3_6x6_victimas.world"
+  )
+  add_launch_test(
+    test/world_smoke.launch.py
     TARGET world_smoke_maze_4
     TIMEOUT 70
     ARGS "world:=maze_4_metal_6x6.world"

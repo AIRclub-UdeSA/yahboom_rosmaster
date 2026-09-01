@@ -308,6 +308,7 @@ ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
 | `maze_2_6x5.world` | plywood_mazes maze 2, 6x5 m | `world_smoke_maze_2` |
 | `maze_2_6x5_victimas.world` | `maze_2_6x5.world` layout plus five color-marker obstacle cubes (three red, two blue; 0.25x0.25x0.3 m) tucked into narrow passages for camera/LiDAR color-detection workshops | `world_smoke_maze_2_victimas` |
 | `maze_3_6x6.world` | plywood_mazes maze 3, 6x6 m | `world_smoke_maze_3` |
+| `maze_3_6x6_victimas.world` | `maze_3_6x6.world` layout plus five color-marker obstacle cubes (three red, two blue; 0.25x0.25x0.3 m) tucked into narrow passages for camera/LiDAR color-detection workshops | `world_smoke_maze_3_victimas` |
 | `maze_4_metal_6x6.world` | plywood_mazes maze 4, metal panels, 6x6 m | `world_smoke_maze_4` |
 
 Walls are 0.5 m tall in all eight -- clear of the LiDAR (0.11 m) and camera
