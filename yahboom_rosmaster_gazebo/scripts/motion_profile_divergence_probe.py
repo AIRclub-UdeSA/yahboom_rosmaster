@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure strafe divergence between wheel odometry and ground truth."""
+"""Measure planar divergence between wheel odometry and ground truth."""
 
 import math
 import sys
@@ -31,6 +31,19 @@ def quaternion_yaw(orientation):
     return math.atan2(sin_yaw, cos_yaw)
 
 
+def normalized_angle(angle):
+    """Wrap an angle to [-pi, pi]."""
+    return math.atan2(math.sin(angle), math.cos(angle))
+
+
+def relative_yaw(start, end):
+    """Return the wrapped planar rotation between two odometry poses."""
+    return normalized_angle(
+        quaternion_yaw(end.pose.pose.orientation)
+        - quaternion_yaw(start.pose.pose.orientation)
+    )
+
+
 def relative_translation(start, end):
     """Express an odometry position delta in its initial body coordinates."""
     dx = end.pose.pose.position.x - start.pose.pose.position.x
@@ -43,11 +56,12 @@ def relative_translation(start, end):
 
 
 class MotionProfileDivergenceProbe(Node):
-    """Command one repeatable strafe and evaluate its settled endpoint error."""
+    """Command one repeatable motion and evaluate its settled endpoint error."""
 
     def __init__(self):
         super().__init__("motion_profile_divergence_probe")
         self.declare_parameter("profile", "stress")
+        self.declare_parameter("motion", "strafe")
         self.declare_parameter("timeout", 40.0)
         self.declare_parameter("command_speed", 0.2)
         self.declare_parameter("command_duration", 3.0)
@@ -56,8 +70,11 @@ class MotionProfileDivergenceProbe(Node):
         self.declare_parameter("meaningful_motion", 0.3)
         self.declare_parameter("min_translation_error", 0.003)
         self.declare_parameter("max_translation_error", 0.030)
+        self.declare_parameter("meaningful_yaw", 0.8)
+        self.declare_parameter("max_yaw_error", 0.005)
 
         self.profile = str(self.get_parameter("profile").value)
+        self.motion = str(self.get_parameter("motion").value)
         self.timeout = float(self.get_parameter("timeout").value)
         self.command_speed = float(self.get_parameter("command_speed").value)
         self.command_duration = float(
@@ -72,6 +89,10 @@ class MotionProfileDivergenceProbe(Node):
             self.get_parameter("min_translation_error").value)
         self.max_translation_error = float(
             self.get_parameter("max_translation_error").value)
+        self.meaningful_yaw = float(
+            self.get_parameter("meaningful_yaw").value)
+        self.max_yaw_error = float(
+            self.get_parameter("max_yaw_error").value)
 
         self.clock_time = None
         self.odometry = None
@@ -155,6 +176,33 @@ class MotionProfileDivergenceProbe(Node):
     def evaluate(self, start_odom, start_truth, end_odom, end_truth):
         """Return errors and a compact result string for the completed motion."""
         errors = []
+        if self.motion == "yaw":
+            odom_yaw = relative_yaw(start_odom, end_odom)
+            truth_yaw = relative_yaw(start_truth, end_truth)
+            yaw_error = abs(normalized_angle(odom_yaw - truth_yaw))
+            if not all(math.isfinite(value) for value in (
+                    odom_yaw, truth_yaw, yaw_error)):
+                errors.append("motion result contains non-finite values")
+            if abs(odom_yaw) < self.meaningful_yaw:
+                errors.append(
+                    f"wheel odometry rotated only {odom_yaw:.6f}rad; expected "
+                    f"at least {self.meaningful_yaw:.3f}rad")
+            if abs(truth_yaw) < self.meaningful_yaw:
+                errors.append(
+                    f"ground truth rotated only {truth_yaw:.6f}rad; expected "
+                    f"at least {self.meaningful_yaw:.3f}rad")
+            if yaw_error > self.max_yaw_error:
+                errors.append(
+                    f"yaw error {yaw_error:.6f}rad exceeds "
+                    f"{self.max_yaw_error:.6f}rad")
+            summary = (
+                f"profile={self.profile}, motion=yaw, "
+                f"odom_delta={odom_yaw:.6f}rad, "
+                f"truth_delta={truth_yaw:.6f}rad, "
+                f"yaw_error={yaw_error:.6f}rad"
+            )
+            return errors, summary
+
         odom_delta = relative_translation(start_odom, end_odom)
         truth_delta = relative_translation(start_truth, end_truth)
         odom_distance = math.hypot(*odom_delta)
@@ -185,7 +233,7 @@ class MotionProfileDivergenceProbe(Node):
                 f"{self.max_translation_error:.6f}]m")
 
         summary = (
-            f"profile={self.profile}, "
+            f"profile={self.profile}, motion=strafe, "
             f"odom_delta=({odom_delta[0]:.6f}, {odom_delta[1]:.6f})m, "
             f"truth_delta=({truth_delta[0]:.6f}, {truth_delta[1]:.6f})m, "
             f"translation_error={translation_error:.6f}m"
@@ -197,8 +245,18 @@ def main():
     rclpy.init()
     node = MotionProfileDivergenceProbe()
     stop = Twist()
-    strafe = Twist()
-    strafe.linear.y = node.command_speed
+    command = Twist()
+    if node.motion == "strafe":
+        command.linear.y = node.command_speed
+    elif node.motion == "yaw":
+        command.angular.z = node.command_speed
+    else:
+        node.get_logger().error(
+            f"Motion-profile divergence FAILED: unsupported motion "
+            f"{node.motion!r}")
+        node.destroy_node()
+        rclpy.shutdown()
+        return 1
     wall_deadline = time.monotonic() + node.timeout
 
     try:
@@ -224,9 +282,10 @@ def main():
         start_truth = node.ground_truth
 
         if not node.publish_until_sim_time(
-                strafe, node.command_duration, wall_deadline):
+                command, node.command_duration, wall_deadline):
             node.get_logger().error(
-                "Motion-profile divergence FAILED: strafe command timed out")
+                f"Motion-profile divergence FAILED: {node.motion} command "
+                "timed out")
             return 1
         if not node.publish_until_sim_time(
                 stop, node.final_settle_duration, wall_deadline):
