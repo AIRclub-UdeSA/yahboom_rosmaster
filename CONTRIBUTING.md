@@ -117,6 +117,34 @@ Changes to `main` must go through a pull request:
    role can bypass this ruleset, but that should stay reserved for
    emergencies, not routine merges.
 
+## Headless simulator contract gate
+
+Pull requests run a representative simulator gate on Ubuntu 22.04, ROS 2
+Humble, and Gazebo Fortress. Reproduce the identical contract selection from a
+built workspace with the repository script:
+
+```bash
+cd ~/rosmaster_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+bash src/yahboom_rosmaster/scripts/test_simulator_contracts.sh
+```
+
+The script runs the description contract; the motion-profile, practice-world
+probe, and launch-shutdown contracts; the empty-world sensor, base-feedback,
+ground-truth, ideal-motion, and wheel-odometry-resilience launch contracts. It
+also selects the ideal-yaw contract when that target is present. Tests run
+sequentially, return a failing status to CI, and always print the complete
+`colcon test-result --verbose --all` report.
+
+This gate is deliberately representative so that every pull request stays
+within a reasonable runtime. It does not replace the full development checks:
+the second sensor world, stress profile, depth/LiDAR geometry and IMU-motion
+contracts, all eight practice-world smoke tests, and the repository's complete
+lint/test suite remain local/manual checks before review. Run the full suite as
+documented in [Development Checks](README.md#development-checks) when your
+change can affect those paths.
+
 ## Ground rules
 
 - This simulator is what every JAR team calibrates their challenge behavior

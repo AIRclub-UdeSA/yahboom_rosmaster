@@ -1,0 +1,100 @@
+name: Simulator contracts
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: simulator-contracts-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  headless-contracts:
+    name: ROS 2 Humble / Gazebo Fortress
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    container:
+      image: ros:humble-ros-base-jammy
+      options: --shm-size=2g
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      GALLIUM_DRIVER: llvmpipe
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      QT_QPA_PLATFORM: xcb
+      ROS_DISTRO: humble
+      ROS_DOMAIN_ID: "42"
+      ROS_LOG_DIR: ${{ github.workspace }}/artifacts/ros-logs
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Gazebo Fortress and workspace dependencies
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ignition-fortress \
+            libgl1-mesa-dri \
+            mesa-utils \
+            python3-colcon-common-extensions \
+            python3-rosdep \
+            ros-humble-gz-ros2-control \
+            ros-humble-ros-gz \
+            xauth \
+            xvfb
+          if [[ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]]; then
+            rosdep init
+          fi
+          rosdep update --rosdistro humble
+          rosdep install \
+            --from-paths . \
+            --ignore-src \
+            --rosdistro humble \
+            --default-yes
+
+      - name: Verify simulator environment
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          test "$(ign gazebo --versions | cut -d. -f1)" = "6"
+          ros2 pkg prefix ros_gz_sim
+          ros2 pkg prefix gz_ros2_control
+          mkdir -p "${ROS_LOG_DIR}"
+
+      - name: Build supported packages
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          colcon build \
+            --symlink-install \
+            --event-handlers console_direct+ \
+            --cmake-args -DBUILD_TESTING=ON
+
+      - name: Run representative headless contracts
+        shell: bash
+        timeout-minutes: 14
+        run: |
+          xvfb-run \
+            --auto-servernum \
+            --server-args="-screen 0 1280x1024x24 -nolisten tcp" \
+            bash scripts/test_simulator_contracts.sh
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: simulator-contracts-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build/**/test_results/**
+            build/**/Testing/**
+            log/**
+            artifacts/ros-logs/**
