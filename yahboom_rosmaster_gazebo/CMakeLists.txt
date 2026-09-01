@@ -98,6 +98,17 @@ if(BUILD_TESTING)
     ARGS "motion_profile:=stress" "min_error:=0.003" "max_error:=0.030"
   )
   add_launch_test(
+    test/motion_profile_divergence.launch.py
+    TARGET motion_profile_yaw_ideal
+    TIMEOUT 100
+    ARGS
+      "motion_profile:=ideal"
+      "motion:=yaw"
+      "command_speed:=0.4"
+      "meaningful_yaw:=0.8"
+      "max_yaw_error:=0.005"
+  )
+  add_launch_test(
     test/lidar_geometry.launch.py
     TARGET lidar_geometry
     TIMEOUT 90
