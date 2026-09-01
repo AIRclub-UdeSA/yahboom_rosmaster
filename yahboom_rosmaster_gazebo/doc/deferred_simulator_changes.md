@@ -1,23 +1,26 @@
 # Deferred simulator changes
 
-The Donatello CAD migration is intentionally visual-only. The ideas below were
-encountered while integrating and diagnosing the model, but each changes
-simulator behavior or architecture and should be evaluated independently.
+The original Donatello CAD migration was intentionally visual-only. The ideas
+below were encountered while integrating and diagnosing the model; each is
+evaluated independently, and accepted follow-ups are marked as implemented.
 
-## Correct physical wheel centres
+## Correct physical wheel centres (implemented)
 
-The drive plugin uses a `0.169 m` wheel separation, while the existing wheel
-joints and collision spheres are separated by `0.149 m`. Moving the joints from
-`y = +/-0.0745 m` to `y = +/-0.0845 m` would make the physical model agree with
-the plugin and assembled CAD.
+The physical robot description places its wheel axes at `x = +/-0.08 m` and
+approximately `y = +/-0.0845 m`: a `0.160 m` wheelbase and `0.169 m` wheel
+separation. The simulator previously subtracted a `0.01 m` lateral offset,
+leaving its joints and collision spheres only `0.149 m` apart even though the
+drive plugin and wheel-state odometry both used `0.169 m`.
 
-- Potential benefit: consistent wheel geometry, contact points, and kinematics.
-- Risk: changes existing physics, odometry behavior, and tuned motion tests.
-- Evaluate with: forward/reverse/strafe/rotation motion profiles, wheel odometry
-  divergence, and collision/contact inspection.
+The obsolete offset has been removed. Joints, collision spheres, and wheel
+inertias now use `y = +/-0.0845 m`, making contact geometry and rotational
+kinematics consistent with the real robot, drive plugin, and odometry model.
 
-For the visual migration, only the wheel meshes are shifted outward along their
-rotation axes. Joint and collision positions remain unchanged.
+The equal-and-opposite visual offsets were removed at the same time, so the CAD
+wheel meshes remain in their established rendered positions. The description
+contract protects the corrected joint origins and link-local visual origins. A
+headless ideal-profile yaw regression compares wheel odometry with raw ground
+truth after a meaningful turn.
 
 ## Controller-free joint-state path
 
@@ -114,7 +117,7 @@ remain in the package while the new model is being validated.
 
 ## Broader description contracts
 
-A focused test should protect unchanged links, joints, sensor frames,
-collisions, inertia, plugins, and installed visual assets. Renderer masks,
-alternative state sources, and corrected physics should be added to the
-contract only when those changes are separately accepted.
+A focused test protects unchanged links, joints, sensor frames, collisions,
+inertia, plugins, and installed visual assets. It also protects the accepted
+wheel-centre correction. Renderer masks and alternative state sources should
+be added to the contract only when those changes are separately accepted.
