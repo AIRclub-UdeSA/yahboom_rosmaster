@@ -97,10 +97,7 @@
 
     <!-- A maze made of plywood panels -->
     <!-- Offset chosen so the robot spawn point (world 0,0) lands in the fully
-         open pass-through cell at local (2.5, 3.5) instead of inside a wall.
-         NOTE: this shifts the maze relative to maps/maze_3.yaml -- that Nav2
-         map was captured against the old offset and needs to be re-recorded
-         (or given a matching origin) before it is used for localization. -->
+         open pass-through cell at local (2.5, 3.5) instead of inside a wall. -->
     <include>
       <uri>model://maze_3_6x6</uri>
       <pose>-2.5 -3.5 0 0 0 0</pose>
