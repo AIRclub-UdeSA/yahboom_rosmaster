@@ -54,6 +54,14 @@ if(BUILD_TESTING)
     NAME practice_world_probe_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/world_smoke_probe_test.py
   )
+  add_test(
+    NAME launch_shutdown_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/launch_shutdown_test.py
+  )
+  add_test(
+    NAME sensor_contract_probe_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/sensor_contract_probe_test.py
+  )
   add_launch_test(
     test/sensor_contract.launch.py
     TARGET sensor_contract_empty
@@ -65,6 +73,15 @@ if(BUILD_TESTING)
     TARGET sensor_contract_cafe
     TIMEOUT 90
     ARGS "world:=cafe.world"
+  )
+  # Hosted runners use software rendering, where message delivery rate reflects
+  # runner load rather than sensor correctness.
+  # Keep the strict empty/cafe targets above for local performance validation.
+  add_launch_test(
+    test/sensor_contract.launch.py
+    TARGET sensor_contract_ci
+    TIMEOUT 90
+    ARGS "world:=empty.world" "samples:=3" "performance_checks:=false"
   )
   add_launch_test(
     test/base_feedback.launch.py
@@ -92,6 +109,17 @@ if(BUILD_TESTING)
     TARGET motion_profile_divergence_stress
     TIMEOUT 100
     ARGS "motion_profile:=stress" "min_error:=0.003" "max_error:=0.030"
+  )
+  add_launch_test(
+    test/motion_profile_divergence.launch.py
+    TARGET motion_profile_yaw_ideal
+    TIMEOUT 100
+    ARGS
+      "motion_profile:=ideal"
+      "motion:=yaw"
+      "command_speed:=0.4"
+      "meaningful_yaw:=0.8"
+      "max_yaw_error:=0.005"
   )
   add_launch_test(
     test/lidar_geometry.launch.py

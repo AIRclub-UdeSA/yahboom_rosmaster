@@ -113,7 +113,44 @@ Changes to `main` must go through a pull request:
 6. At least 1 approval from another contributor is required before merging.
 7. Resolve all review comments before merging.
 8. New commits after an approval will require re-approval.
-9. Direct pushes to `main` are blocked, including for repo admins.
+9. Direct pushes to `main` are blocked by default; the repository admin
+   role can bypass this ruleset, but that should stay reserved for
+   emergencies, not routine merges.
+
+## Headless simulator contract gate
+
+Pull requests run a representative simulator gate on Ubuntu 22.04, ROS 2
+Humble, and Gazebo Fortress. Reproduce the identical contract selection from a
+built workspace with the repository script:
+
+```bash
+cd ~/rosmaster_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+bash src/yahboom_rosmaster/scripts/test_simulator_contracts.sh
+```
+
+The script runs the description contract; the motion-profile, practice-world,
+launch-shutdown, and sensor-probe unit contracts; the empty-world
+sensor-correctness, base-feedback, ground-truth, ideal-motion, and
+wheel-odometry-resilience launch contracts. It also selects the ideal-yaw
+contract when that target is present. Tests run sequentially, return a failing
+status to CI, and always print the complete
+`colcon test-result --verbose --all` report.
+
+The CI sensor target checks messages, payloads, frames, increasing timestamps,
+and timestamped-TF connectivity. It intentionally leaves software-rendering
+rates and first-arrival latency to the strict local `sensor_contract_empty` and
+`sensor_contract_cafe` targets, so shared-runner load cannot masquerade as a
+sensor regression.
+
+This gate is deliberately representative so that every pull request stays
+within a reasonable runtime. It does not replace the full development checks:
+the second sensor world, stress profile, depth/LiDAR geometry and IMU-motion
+contracts, all eight practice-world smoke tests, and the repository's complete
+lint/test suite remain local/manual checks before review. Run the full suite as
+documented in [Development Checks](README.md#development-checks) when your
+change can affect those paths.
 
 ## Ground rules
 

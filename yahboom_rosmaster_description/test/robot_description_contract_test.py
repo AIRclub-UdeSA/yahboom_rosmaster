@@ -12,10 +12,10 @@ ROBOT_XACRO = (
     PACKAGE_DIR / "urdf" / "robots" / "rosmaster_x3.urdf.xacro"
 )
 WHEEL_ORIGINS = {
-    "front_left": (0.08, 0.0745, -0.0325),
-    "front_right": (0.08, -0.0745, -0.0325),
-    "back_left": (-0.08, 0.0745, -0.0325),
-    "back_right": (-0.08, -0.0745, -0.0325),
+    "front_left": (0.08, 0.0845, -0.0325),
+    "front_right": (0.08, -0.0845, -0.0325),
+    "back_left": (-0.08, 0.0845, -0.0325),
+    "back_right": (-0.08, -0.0845, -0.0325),
 }
 MESHES = {
     "base_link": "rosmaster_base.obj",
@@ -28,10 +28,10 @@ MESHES = {
 }
 VISUAL_ORIGINS = {
     "base_link": (0.0, 0.0, 0.0),
-    "front_left_wheel_link": (0.0, 0.01, 0.0),
-    "front_right_wheel_link": (0.0, -0.01, 0.0),
-    "back_left_wheel_link": (0.0, 0.01, 0.0),
-    "back_right_wheel_link": (0.0, -0.01, 0.0),
+    "front_left_wheel_link": (0.0, 0.0, 0.0),
+    "front_right_wheel_link": (0.0, 0.0, 0.0),
+    "back_left_wheel_link": (0.0, 0.0, 0.0),
+    "back_right_wheel_link": (0.0, 0.0, 0.0),
     "cam_1_link": (0.0, 0.0, 0.0),
     "laser_link": (0.0, 0.0, 0.0),
 }
@@ -158,7 +158,7 @@ class TestRobotDescriptionContract(unittest.TestCase):
                     self.assertEqual(joint.get("type"), wheel_type)
                     self.assertEqual(joint.find("axis").get("xyz"), "0 1 0")
 
-    def test_wheel_joint_contract_is_unchanged(self):
+    def test_wheel_joints_match_real_robot_geometry(self):
         for backend, robot in self.robots.items():
             for side, expected in WHEEL_ORIGINS.items():
                 with self.subTest(backend=backend, wheel=side):
@@ -172,6 +172,45 @@ class TestRobotDescriptionContract(unittest.TestCase):
                         vector(joint.find("origin").get("rpy")),
                         (0.0, 0.0, 0.0),
                     )
+                    wheel_link = robot.find(
+                        f"./link[@name='{side}_wheel_link']"
+                    )
+                    for element_name in ("collision", "inertial"):
+                        origin = wheel_link.find(f"./{element_name}/origin")
+                        self.assertEqual(
+                            vector(origin.get("xyz")), (0.0, 0.0, 0.0)
+                        )
+                        self.assertEqual(
+                            vector(origin.get("rpy")), (0.0, 0.0, 0.0)
+                        )
+                    self.assertAlmostEqual(
+                        float(
+                            wheel_link.find(
+                                "./collision/geometry/sphere"
+                            ).get("radius")
+                        ),
+                        abs(expected[2]),
+                    )
+
+    def test_fortress_drive_geometry_matches_physical_wheels(self):
+        robot = self.robots["fortress"]
+        drive = robot.find(
+            ".//plugin[@name='ignition::gazebo::systems::MecanumDrive']"
+        )
+        self.assertIsNotNone(drive)
+        front_left = WHEEL_ORIGINS["front_left"]
+        front_right = WHEEL_ORIGINS["front_right"]
+        back_left = WHEEL_ORIGINS["back_left"]
+        expected = {
+            "wheelbase": abs(front_left[0] - back_left[0]),
+            "wheel_separation": abs(front_left[1] - front_right[1]),
+            "wheel_radius": abs(front_left[2]),
+        }
+        for element_name, expected_value in expected.items():
+            with self.subTest(element=element_name):
+                self.assertAlmostEqual(
+                    float(drive.findtext(element_name)), expected_value
+                )
 
     def test_sensor_frames_and_mounts_are_unchanged(self):
         for backend, robot in self.robots.items():

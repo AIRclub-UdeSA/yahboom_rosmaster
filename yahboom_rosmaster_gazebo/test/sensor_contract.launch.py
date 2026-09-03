@@ -14,6 +14,7 @@ from launch.actions import (
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 import launch_testing
 import launch_testing.actions
 import launch_testing.asserts
@@ -25,6 +26,8 @@ import unittest
 def generate_test_description():
     package_share = get_package_share_directory("yahboom_rosmaster_gazebo")
     world = LaunchConfiguration("world")
+    samples = LaunchConfiguration("samples")
+    performance_checks = LaunchConfiguration("performance_checks")
     simulator = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(package_share, "launch", "rosmaster_gazebo_fortress.launch.py")
@@ -39,12 +42,19 @@ def generate_test_description():
     probe = Node(
         package="yahboom_rosmaster_gazebo",
         executable="sensor_contract_probe.py",
-        parameters=[{"timeout": 45.0, "samples": 10}],
+        parameters=[{
+            "timeout": 45.0,
+            "samples": ParameterValue(samples, value_type=int),
+            "performance_checks": ParameterValue(
+                performance_checks, value_type=bool),
+        }],
         output="screen",
     )
 
     return LaunchDescription([
         DeclareLaunchArgument("world", default_value="empty.world"),
+        DeclareLaunchArgument("samples", default_value="10"),
+        DeclareLaunchArgument("performance_checks", default_value="true"),
         SetEnvironmentVariable(
             "IGN_PARTITION", f"yahboom_sensor_contract_{os.getpid()}"),
         # Keep sequential world tests isolated even when their PIDs differ by a

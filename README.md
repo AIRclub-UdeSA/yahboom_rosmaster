@@ -318,13 +318,15 @@ Gazebo GUI.
 
 Every maze world above has a `world_smoke_*` launch test (see
 `test/world_smoke.launch.py`): headless spawn, no initial collision (the
-robot stays level, drifts less than 5 cm during a 3s no-command window, and
-stays within 10 cm of its expected (0, 0) spawn point), a short forward
-`/cmd_vel` command that must produce real ground-truth displacement (catching
-a robot whose wheels spin without translating), and the core topics (`/odom`,
-`/tf`, `/joint_states`, `/scan`, `/imu/data`) coming up. This is intentionally
-lighter than the `sensor_contract_*` tests on the empty and cafe worlds,
-which additionally assert message rates, latency, and payload shape -- maze
+robot stays level, never strays more than 5 cm from its first pose during a
+3s no-command window, and stays within 10 cm of its expected (0, 0) spawn
+point), a short forward `/cmd_vel` command that must produce predominantly
+forward ground-truth displacement rather than backward or sideways motion
+(also catching a robot whose wheels spin without translating), and the core
+topics (`/odom`, `/tf`, `/joint_states`, `/scan`, `/imu/data`) coming up. This
+is intentionally lighter than the strict `sensor_contract_empty` and
+`sensor_contract_cafe` tests, which additionally assert message rates, latency,
+timestamped TF, and payload shape -- maze
 layouts share the same robot and sensor stack, so only spawn validity and
 basic movement actually vary world to world. `_victimas` worlds get the
 same smoke test as their base layout, since the color-marker cubes are the
@@ -532,10 +534,17 @@ ideal-versus-stress motion-profile contract:
 
 ```bash
 colcon test --packages-select yahboom_rosmaster_gazebo \
-  --ctest-args -R '^(sensor_contract_.*|depth_geometry|ground_truth_contract|motion_profile_.*|lidar_geometry|imu_motion|base_feedback|wheel_odometry_resilience)$' \
+  --ctest-args -R '^(sensor_contract_(probe_contract|empty|cafe)|depth_geometry|ground_truth_contract|motion_profile_.*|lidar_geometry|imu_motion|base_feedback|wheel_odometry_resilience)$' \
   --output-on-failure
 colcon test-result --verbose
 ```
+
+Hosted CI runs `sensor_contract_ci` instead of those strict sensor-performance
+targets. It checks topic delivery, payloads, frames, increasing timestamps, and
+timestamped TF connectivity with three recent samples, but deliberately does
+not grade software-rendering throughput or first-arrival latency on a shared
+runner. Run `sensor_contract_empty` and `sensor_contract_cafe` locally before
+review whenever a change can affect sensor timing.
 
 The twelve maze/practice worlds are covered separately by the lighter
 `world_smoke_*` tests (spawn validity, initial collisions, a forward-motion

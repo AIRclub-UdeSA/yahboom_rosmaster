@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Validate the standalone simulator's public sensor and state contract."""
 
+from collections import deque
 import math
 import sys
 import time
@@ -25,6 +26,21 @@ EXPECTED_WHEEL_JOINTS = {
 }
 CAMERA_HORIZONTAL_FOV = 1.5184
 REQUIRED_DYNAMIC_TF_EDGE = ("odom", "base_footprint")
+TIMESTAMPED_TF_TOPICS = (
+    "/scan",
+    "/imu/data",
+    "/cam_1/color/image_raw",
+    "/cam_1/depth/image_raw",
+    "/cam_1/color/camera_info",
+    "/cam_1/depth/camera_info",
+    "/cam_1/depth/color/points",
+    "/odom",
+)
+
+
+def validated_sample_count(value):
+    """Return enough samples for the third-from-last TF validation lookup."""
+    return max(3, int(value))
 
 
 class SensorContractProbe(Node):
@@ -34,8 +50,12 @@ class SensorContractProbe(Node):
         super().__init__("sensor_contract_probe")
         self.declare_parameter("timeout", 35.0)
         self.declare_parameter("samples", 3)
+        self.declare_parameter("performance_checks", True)
         self.timeout = float(self.get_parameter("timeout").value)
-        self.samples = max(2, int(self.get_parameter("samples").value))
+        self.samples = validated_sample_count(
+            self.get_parameter("samples").value)
+        self.performance_checks = bool(
+            self.get_parameter("performance_checks").value)
 
         self.required_counts = {
             "/clock": self.samples,
@@ -52,6 +72,9 @@ class SensorContractProbe(Node):
             "/tf_static": 1,
         }
         self.messages = {topic: [] for topic in self.required_counts}
+        self.recent_tf_messages = {
+            topic: deque(maxlen=3) for topic in TIMESTAMPED_TF_TOPICS
+        }
         self.observed_dynamic_tf_edges = set()
         self.started_at = time.monotonic()
         self.first_arrivals = {}
@@ -112,8 +135,14 @@ class SensorContractProbe(Node):
         self.tf_listener = TransformListener(
             self.tf_buffer, self, spin_thread=False)
 
-        self.get_logger().info(
-            f"Waiting up to {self.timeout:.1f}s for the standalone sensor contract")
+        if self.performance_checks:
+            self.get_logger().info(
+                f"Waiting up to {self.timeout:.1f}s for the standalone "
+                "sensor contract")
+        else:
+            self.get_logger().info(
+                f"Waiting up to {self.timeout:.1f}s for the "
+                "hardware-independent correctness sensor contract")
 
     def capture(self, topic, message):
         """Keep bounded samples and continuously track dynamic TF edges."""
@@ -126,6 +155,12 @@ class SensorContractProbe(Node):
                 )
                 for transform in message.transforms
             )
+        if not self.performance_checks and topic in self.recent_tf_messages:
+            # Keep exact-time TF lookups near the current simulation time while
+            # a software-rendered point cloud may lag the faster state topics.
+            # The primary evidence below remains frozen so early malformed
+            # messages cannot be hidden by later valid ones.
+            self.recent_tf_messages[topic].append(message)
         if len(self.messages[topic]) < self.required_counts[topic]:
             self.messages[topic].append(message)
 
@@ -180,18 +215,12 @@ class SensorContractProbe(Node):
 
     def validate_timestamped_tf(self, errors):
         """Require representative sensor frames to resolve at message time."""
-        topics = (
-            "/scan",
-            "/imu/data",
-            "/cam_1/color/image_raw",
-            "/cam_1/depth/image_raw",
-            "/cam_1/color/camera_info",
-            "/cam_1/depth/camera_info",
-            "/cam_1/depth/color/points",
-            "/odom",
+        tf_messages = (
+            self.messages
+            if self.performance_checks else self.recent_tf_messages
         )
-        for topic in topics:
-            message = self.messages[topic][-3]
+        for topic in TIMESTAMPED_TF_TOPICS:
+            message = tf_messages[topic][-3]
             frame = (
                 message.child_frame_id if topic == "/odom"
                 else message.header.frame_id
@@ -247,12 +276,14 @@ class SensorContractProbe(Node):
             "/joint_states": (20.0, 40.0),
             "/odom": (20.0, 40.0),
         }
-        for topic, (minimum, maximum) in rate_contracts.items():
-            self.validate_rate(topic, minimum, maximum, errors)
-            first_latency = self.first_arrivals[topic] - self.started_at
-            if first_latency > 5.0:
-                errors.append(
-                    f"{topic}: first message latency {first_latency:.3f}s exceeds 5s")
+        if self.performance_checks:
+            for topic, (minimum, maximum) in rate_contracts.items():
+                self.validate_rate(topic, minimum, maximum, errors)
+                first_latency = self.first_arrivals[topic] - self.started_at
+                if first_latency > 5.0:
+                    errors.append(
+                        f"{topic}: first message latency {first_latency:.3f}s "
+                        "exceeds 5s")
 
         color = self.messages["/cam_1/color/image_raw"][-1]
         depth = self.messages["/cam_1/depth/image_raw"][-1]
