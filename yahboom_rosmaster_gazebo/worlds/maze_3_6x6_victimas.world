@@ -1,0 +1,238 @@
+<?xml version="1.0" ?>
+<sdf version="1.5">
+  <world name="maze_6x6_v1_victimas">
+
+    <physics type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+      <gravity>0 0 -9.8</gravity>
+      <!--   <gravity>0 0 0</gravity> -->
+    </physics>
+
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-contact-system"
+            name="gz::sim::systems::Contact"/>
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system"
+            name="gz::sim::systems::Imu"/>
+
+    <!-- View persepective at startup -->
+    <gui fullscreen='0'>
+      <camera name='user_camera'>
+        <pose frame=''>4.70771 -4.35195 3.8148 0 0.575643 2.3522</pose>
+        <view_controller>orbit</view_controller>
+        <projection_type>perspective</projection_type>
+      </camera>
+    </gui>
+
+    <!-- Disable shadows, disable grid -->
+    <scene>
+      <shadows>false</shadows>
+      <ambient>0.2 0.2 0.2 1</ambient>
+      <background>1 1 1 1</background>
+      <grid>false</grid>
+      <origin_visual>false</origin_visual>
+    </scene>
+
+    <!-- A global light source -->
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+    <!-- A directed light source -->
+    <light name="camera_spot_1_light" type='spot'>
+      <pose>-6 4 4 0 -1 -0.8</pose>
+      <diffuse>0.5 0.5 0.5 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <direction>0 0 -1</direction>
+      <attenuation>
+        <range>20</range>
+        <constant>0.2</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <cast_shadows>0</cast_shadows>
+      <spot>
+        <inner_angle>0.6</inner_angle>
+        <outer_angle>1</outer_angle>
+        <falloff>1</falloff>
+      </spot>
+    </light>
+
+    <!-- A second directed light source -->
+    <light name="camera_spot_2_light" type='spot'>
+      <pose>5 -3 4 0 0.8 -0.6</pose>
+      <diffuse>0.5 0.5 0.5 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <direction>0 0 -1</direction>
+      <attenuation>
+        <range>20</range>
+        <constant>0.3</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <cast_shadows>0</cast_shadows>
+      <spot>
+        <inner_angle>0.6</inner_angle>
+        <outer_angle>1</outer_angle>
+        <falloff>1</falloff>
+      </spot>
+    </light>
+
+    <!-- A wooden parquet ground plane -->
+    <!-- Centered on the maze's world-frame bounding box (x:[-2.5,3.5], y:[-3.5,2.5]) -->
+    <include>
+      <uri>model://floor_parquet2</uri>
+      <pose>0.5 -0.5 0 0 0 0</pose>
+    </include>
+
+    <!-- A maze made of plywood panels -->
+    <!-- Offset chosen so the robot spawn point (world 0,0) lands in the fully
+         open pass-through cell at local (2.5, 3.5) instead of inside a wall. -->
+    <include>
+      <uri>model://maze_3_6x6</uri>
+      <pose>-2.5 -3.5 0 0 0 0</pose>
+    </include>
+
+    <!-- A set of tag36h11 AprilTags that match the panel positions -->
+    <include>
+      <uri>model://maze_3_tags</uri>
+      <pose>-2.5 -3.5 0 0 0 0</pose>
+    </include>
+
+    <!-- Marcas de color: cubos con colision real (tambien son un obstaculo
+         fisico), ubicados en pasajes angostos verificados en el GUI de
+         Gazebo para que no queden a la vista desde el spawn. Posiciones
+         en coordenadas de mundo (no locales al maze); el offset conocido
+         de maze_3 (ver #10 / PR #22) es solo relevante para el mapa Nav2,
+         no afecta estas coordenadas absolutas. -->
+    <model name='marcas_color'>
+      <static>1</static>
+
+      <link name='cuadrado_rojo_1'>
+        <pose>0.0013 0.9937 0.15 0 0 0</pose>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.25 0.25 0.3</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.25 0.25 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.05 0.05 1</ambient>
+            <diffuse>0.8 0.05 0.05 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+
+      <link name='cuadrado_azul_1'>
+        <pose>0.9563 -1.9086 0.15 0 0 0</pose>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.25 0.25 0.3</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.25 0.25 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.05 0.05 0.8 1</ambient>
+            <diffuse>0.05 0.05 0.8 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+
+      <link name='cuadrado_rojo_2'>
+        <pose>2.9552 -2.0360 0.15 0 0 0</pose>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.25 0.25 0.3</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.25 0.25 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.05 0.05 1</ambient>
+            <diffuse>0.8 0.05 0.05 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+
+      <link name='cuadrado_azul_2'>
+        <pose>-0.0847 -2.9586 0.15 0 0 0</pose>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.25 0.25 0.3</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.25 0.25 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.05 0.05 0.8 1</ambient>
+            <diffuse>0.05 0.05 0.8 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+
+      <link name='cuadrado_rojo_3'>
+        <pose>-2.0847 -2.0202 0.15 0 0 0</pose>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.25 0.25 0.3</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.25 0.25 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.05 0.05 1</ambient>
+            <diffuse>0.8 0.05 0.05 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>
