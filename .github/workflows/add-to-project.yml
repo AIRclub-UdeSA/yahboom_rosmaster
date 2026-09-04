@@ -11,7 +11,15 @@ jobs:
     name: Add issue/PR to project
     runs-on: ubuntu-latest
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: AIRclub-UdeSA
+
       - uses: actions/add-to-project@v1.0.2
         with:
           project-url: https://github.com/orgs/AIRclub-UdeSA/projects/3
-          github-token: ${{ secrets.ORG_PROJECT_TOKEN }}
+          github-token: ${{ steps.app-token.outputs.token }}
