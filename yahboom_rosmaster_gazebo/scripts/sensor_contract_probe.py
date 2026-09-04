@@ -36,6 +36,18 @@ TIMESTAMPED_TF_TOPICS = (
     "/cam_1/depth/color/points",
     "/odom",
 )
+# The physical robot publishes every raw sensor stream as Best Effort
+# (qos_profile_sensor_data in yahboomcar_astra, SensorDataQoS in
+# sllidar_ros2). A consumer built for that contract silently receives
+# nothing from a Reliable topic, so the simulator must match here too.
+BEST_EFFORT_TOPICS = (
+    "/scan",
+    "/cam_1/color/image_raw",
+    "/cam_1/depth/image_raw",
+    "/cam_1/color/camera_info",
+    "/cam_1/depth/camera_info",
+    "/cam_1/depth/color/points",
+)
 
 
 def validated_sample_count(value):
@@ -196,6 +208,20 @@ class SensorContractProbe(Node):
         if any(not message.header.frame_id for message in messages):
             errors.append(f"{topic}: frame_id is empty")
 
+    def validate_qos(self, topic, errors):
+        """Require the topic's publisher(s) to match the physical robot's QoS."""
+        infos = self.get_publishers_info_by_topic(topic)
+        if not infos:
+            errors.append(f"{topic}: no publisher info available for QoS check")
+            return
+        for info in infos:
+            reliability = info.qos_profile.reliability
+            if reliability != ReliabilityPolicy.BEST_EFFORT:
+                errors.append(
+                    f"{topic}: publisher '{info.node_name}' uses "
+                    f"{reliability.name} QoS, expected BEST_EFFORT to match "
+                    "the physical robot")
+
     def validate_rate(self, topic, minimum, maximum, errors):
         """Validate nominal rate from simulation timestamps."""
         stamps = [self.stamp_seconds(message) for message in self.messages[topic]]
@@ -264,6 +290,9 @@ class SensorContractProbe(Node):
         )
         for topic in header_topics:
             self.validate_header(topic, errors)
+
+        for topic in BEST_EFFORT_TOPICS:
+            self.validate_qos(topic, errors)
 
         rate_contracts = {
             "/scan": (4.5, 5.5),

@@ -9,11 +9,16 @@ the optical TF rotation) keeps image and calibration topics on the REP-104
 optical frame while giving the cloud the ``cam_1_depth_frame`` label its
 coordinates actually use, so RViz, TF consumers, and depth pipelines all
 agree.
+
+The public output also switches to Best Effort here: the physical robot
+publishes its point cloud as Best Effort (``qos_profile_sensor_data``), and
+ros_gz_bridge cannot publish that directly, so this relay is also where the
+QoS gets fixed to match the contract.
 """
 
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy, qos_profile_sensor_data
 from sensor_msgs.msg import PointCloud2
 
 
@@ -34,13 +39,8 @@ class PointCloudFrameRelay(Node):
             durability=DurabilityPolicy.VOLATILE,
             reliability=ReliabilityPolicy.RELIABLE,
         )
-        qos_out = QoSProfile(
-            depth=5,
-            durability=DurabilityPolicy.VOLATILE,
-            reliability=ReliabilityPolicy.RELIABLE,
-        )
         self.publisher = self.create_publisher(PointCloud2, self.output_topic,
-                                               qos_out)
+                                               qos_profile_sensor_data)
         self.create_subscription(PointCloud2, self.input_topic,
                                  self.republish, qos_in)
         self.get_logger().info(
