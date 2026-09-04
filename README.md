@@ -465,6 +465,20 @@ header to the true frame before publishing `/cam_1/depth/color/points`.
 Topics under `/internal/` are implementation details: subscribe to the public
 contract topics instead.
 
+`/scan` and the five `/cam_1/*` topics above all publish Best Effort, matching
+the physical ROSMASTER X3's `qos_profile_sensor_data`/`SensorDataQoS`
+publishers (`yahboomcar_astra`, `sllidar_ros2`). Neither `ros_gz_bridge` nor
+`ros_gz_image` in this release can publish Best Effort directly, so each of
+these topics is bridged onto a private `/internal/...` name at the ROS 2
+default (Reliable) and a `sensor_qos_relay.py` instance (or, for the point
+cloud, `pointcloud_frame_relay.py`) republishes it under its public name at
+Best Effort. A consumer that subscribes Best Effort -- required for the
+physical robot -- receives no data from a Reliable-only publisher, so this
+keeps one consumer working against both environments without remaps or
+per-environment QoS overrides. `sensor_contract_probe.py` asserts this on
+every launch test via `validate_qos`. `/joint_states`, `/odom`, and
+`/imu/data` remain Reliable, also matching the physical robot.
+
 The current camera is an idealized, pre-registered, single-aperture RGB-D
 model. Fortress renders the combined color and depth streams from one pose, so
 all four image and camera-information topics use

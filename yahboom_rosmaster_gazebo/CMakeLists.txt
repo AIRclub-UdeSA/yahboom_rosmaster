@@ -31,6 +31,7 @@ install(
     scripts/calculated_odometry.py
     scripts/ground_truth_tf.py
     scripts/pointcloud_frame_relay.py
+    scripts/sensor_qos_relay.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

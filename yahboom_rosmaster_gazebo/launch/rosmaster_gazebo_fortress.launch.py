@@ -433,13 +433,16 @@ def generate_launch_description():
     )
 
     # Optimized image bridge for the native Fortress RGB-D camera outputs.
+    # image_bridge cannot publish Best Effort, so it lands on private
+    # /internal/ names; sensor_qos_relay nodes below republish them under the
+    # public contract topics at Best Effort to match the physical robot.
     ros_gz_image_bridge = Node(
         package="ros_gz_image",
         executable="image_bridge",
         arguments=["/cam_1/image", "/cam_1/depth_image"],
         remappings=[
-            ("/cam_1/image", "/cam_1/color/image_raw"),
-            ("/cam_1/depth_image", "/cam_1/depth/image_raw"),
+            ("/cam_1/image", "/internal/cam_1/color/image_raw"),
+            ("/cam_1/depth_image", "/internal/cam_1/depth/image_raw"),
         ],
         output="screen",
         condition=IfCondition(render_sensors),
@@ -448,7 +451,8 @@ def generate_launch_description():
     # Fortress 6.18 labels the RGB-D cloud with the optical frame even though
     # its XYZ data is +X-forward. Relabel the header to the true regular frame
     # so TF, RViz, and depth pipelines stay mutually consistent without
-    # collapsing the REP-104 optical rotation.
+    # collapsing the REP-104 optical rotation. Also fixes the cloud's QoS to
+    # Best Effort; see the module docstring.
     pointcloud_frame_relay = Node(
         package="yahboom_rosmaster_gazebo",
         executable="pointcloud_frame_relay.py",
@@ -456,6 +460,40 @@ def generate_launch_description():
         output="screen",
         condition=IfCondition(render_sensors),
     )
+
+    # Best Effort matches the physical robot's qos_profile_sensor_data for
+    # these same topics (yahboomcar_astra, sllidar_ros2), so a consumer built
+    # against one works against the other without remaps or QoS overrides.
+    def _sensor_qos_relay(name, msg_type, input_topic, output_topic, condition=None):
+        return Node(
+            package="yahboom_rosmaster_gazebo",
+            executable="sensor_qos_relay.py",
+            name=name,
+            output="screen",
+            parameters=[{
+                "msg_type": msg_type,
+                "input_topic": input_topic,
+                "output_topic": output_topic,
+            }],
+            condition=condition,
+        )
+
+    color_image_qos_relay = _sensor_qos_relay(
+        "color_image_qos_relay", "Image",
+        "/internal/cam_1/color/image_raw", "/cam_1/color/image_raw",
+        condition=IfCondition(render_sensors))
+    depth_image_qos_relay = _sensor_qos_relay(
+        "depth_image_qos_relay", "Image",
+        "/internal/cam_1/depth/image_raw", "/cam_1/depth/image_raw",
+        condition=IfCondition(render_sensors))
+    color_camera_info_qos_relay = _sensor_qos_relay(
+        "color_camera_info_qos_relay", "CameraInfo",
+        "/internal/cam_1/color/camera_info", "/cam_1/color/camera_info")
+    depth_camera_info_qos_relay = _sensor_qos_relay(
+        "depth_camera_info_qos_relay", "CameraInfo",
+        "/internal/cam_1/depth/camera_info", "/cam_1/depth/camera_info")
+    scan_qos_relay = _sensor_qos_relay(
+        "scan_qos_relay", "LaserScan", "/internal/scan", "/scan")
 
     # Load and activate the read-only joint state broadcaster. The spawner waits
     # longer than `ros2 control load_controller`, which helps GUI starts on busy
@@ -585,6 +623,11 @@ def generate_launch_description():
             ros_gz_bridge,
             ros_gz_image_bridge,
             pointcloud_frame_relay,
+            color_image_qos_relay,
+            depth_image_qos_relay,
+            color_camera_info_qos_relay,
+            depth_camera_info_qos_relay,
+            scan_qos_relay,
             joint_state_bridge,
             joint_state_throttle,
             cmd_vel_watchdog,

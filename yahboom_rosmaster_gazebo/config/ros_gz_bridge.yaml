@@ -7,8 +7,11 @@
   direction: ROS_TO_GZ
   lazy: false
 
-# RGBD Camera topics
-- ros_topic_name: "cam_1/color/camera_info"
+# RGBD Camera topics. Neither parameter_bridge nor image_bridge in this
+# ros_gz release can publish Best Effort, so these land on private /internal/
+# names; sensor_qos_relay.py republishes them under the public contract
+# topic at Best Effort to match the physical robot's qos_profile_sensor_data.
+- ros_topic_name: "/internal/cam_1/color/camera_info"
   gz_topic_name: "/cam_1/camera_info"
   ros_type_name: "sensor_msgs/msg/CameraInfo"
   gz_type_name: "gz.msgs.CameraInfo"
@@ -17,7 +20,7 @@
   # Lazy aliases of the same Gazebo topic can race during display reconfiguration.
   lazy: false
 
-- ros_topic_name: "cam_1/depth/camera_info"
+- ros_topic_name: "/internal/cam_1/depth/camera_info"
   gz_topic_name: "/cam_1/camera_info"
   ros_type_name: "sensor_msgs/msg/CameraInfo"
   gz_type_name: "gz.msgs.CameraInfo"
@@ -35,8 +38,9 @@
   direction: GZ_TO_ROS
   lazy: true
 
-# LIDAR configuration
-- ros_topic_name: "scan"
+# LIDAR configuration. Bridged privately for the same Best Effort reason as
+# the camera topics above; sensor_qos_relay.py republishes the public /scan.
+- ros_topic_name: "/internal/scan"
   gz_topic_name: "scan"
   ros_type_name: "sensor_msgs/msg/LaserScan"
   gz_type_name: "gz.msgs.LaserScan"
