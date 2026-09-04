@@ -28,8 +28,12 @@ jobs:
               : "e4b255ff"; // In progress
             const prNodeId = context.payload.pull_request.node_id;
 
-            const result = await github.graphql(
-              `query($prId: ID!) {
+            // The review event can arrive before auto-add has put the PR on
+            // the project (happens when opening a PR with a reviewer already
+            // filled in). Retry instead of giving up on the first attempt.
+            const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+            const query = `query($prId: ID!) {
                 node(id: $prId) {
                   ... on PullRequest {
                     projectItems(first: 10) {
@@ -38,30 +42,70 @@ jobs:
                         project { number }
                       }
                     }
+                    closingIssuesReferences(first: 10) {
+                      nodes {
+                        number
+                        projectItems(first: 10) {
+                          nodes {
+                            id
+                            project { number }
+                          }
+                        }
+                      }
+                    }
                   }
                 }
-              }`,
-              { prId: prNodeId }
-            );
+              }`;
 
-            const item = result.node.projectItems.nodes.find(n => n.project.number === 3);
+            const itemOnProject = (items) => items.nodes.find(n => n.project.number === 3);
 
-            if (!item) {
-              console.log("PR is not on project 3 yet, skipping.");
+            // Move the PR and also the issues it will close: otherwise the
+            // issue sits in In progress while the work is waiting for review
+            let targets = [];
+
+            for (let attempt = 1; attempt <= 5; attempt++) {
+              const result = await github.graphql(query, { prId: prNodeId });
+              const pr = result.node;
+              targets = [];
+
+              const prItem = itemOnProject(pr.projectItems);
+              if (prItem) {
+                targets.push({ id: prItem.id, label: `PR #${context.payload.pull_request.number}` });
+              }
+
+              for (const issue of pr.closingIssuesReferences.nodes) {
+                const issueItem = itemOnProject(issue.projectItems);
+                if (issueItem) {
+                  targets.push({ id: issueItem.id, label: `issue #${issue.number}` });
+                }
+              }
+
+              if (targets.length > 0) break;
+              if (attempt < 5) {
+                console.log(`Nothing on project 3 yet (attempt ${attempt}/5), waiting 3s...`);
+                await sleep(3000);
+              }
+            }
+
+            if (targets.length === 0) {
+              console.log("Neither the PR nor its linked issues showed up on project 3, skipping.");
               return;
             }
 
-            await github.graphql(
-              `mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
-                updateProjectV2ItemFieldValue(input: {
-                  projectId: $project
-                  itemId: $item
-                  fieldId: $field
-                  value: { singleSelectOptionId: $option }
-                }) { projectV2Item { id } }
-              }`,
-              { project: projectId, item: item.id, field: statusFieldId, option: statusOptionId }
-            );
-
             const statusName = context.payload.action === "review_requested" ? "In review" : "In progress";
-            console.log(`Status set to ${statusName} for PR #${context.payload.pull_request.number}`);
+
+            for (const target of targets) {
+              await github.graphql(
+                `mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: $project
+                    itemId: $item
+                    fieldId: $field
+                    value: { singleSelectOptionId: $option }
+                  }) { projectV2Item { id } }
+                }`,
+                { project: projectId, item: target.id, field: statusFieldId, option: statusOptionId }
+              );
+
+              console.log(`Status set to ${statusName} for ${target.label}`);
+            }
