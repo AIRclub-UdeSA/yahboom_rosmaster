@@ -1,3 +1,5 @@
+# Caller for the shared workflow in AIRclub-UdeSA/.github
+# Setup checklist: https://github.com/AIRclub-UdeSA/.github/blob/main/CONTRIBUTING.md#setting-up-a-new-repository
 name: Sync assignee status
 
 on:
@@ -8,111 +10,7 @@ on:
 
 jobs:
   set-in-progress:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Generate GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: AIRclub-UdeSA
-
-      - name: Sync project Status with assignees
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ steps.app-token.outputs.token }}
-          script: |
-            const projectId = "PVT_kwDOEjyD084BhtOr";
-            const statusFieldId = "PVTSSF_lADOEjyD084BhtOrzhgn_fY";
-            const inProgressOptionId = "e4b255ff";
-            const readyOptionId = "e910ce1a";
-            // Don't overwrite statuses that represent a later stage of the work
-            const keepOptionIds = [
-              "5c347fba", // In review
-              "85dd6979", // Done
-              "7cef383f", // Blocked
-            ];
-
-            const content = context.payload.issue || context.payload.pull_request;
-            const isAssign = context.payload.action === "assigned";
-            const remainingAssignees = (content.assignees || []).length;
-
-            // On unassign, only go back to Ready if nobody else is assigned
-            if (!isAssign && remainingAssignees > 0) {
-              console.log(`Still ${remainingAssignees} assignee(s), leaving status as is.`);
-              return;
-            }
-
-            // The assignee event can arrive before auto-add has put the item
-            // on the project (happens when creating an issue that is already
-            // assigned). Retry instead of giving up on the first attempt.
-            const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-            const query = `query($id: ID!) {
-                node(id: $id) {
-                  ... on Issue {
-                    projectItems(first: 10) {
-                      nodes {
-                        id
-                        project { number }
-                        fieldValueByName(name: "Status") {
-                          ... on ProjectV2ItemFieldSingleSelectValue { name optionId }
-                        }
-                      }
-                    }
-                  }
-                  ... on PullRequest {
-                    projectItems(first: 10) {
-                      nodes {
-                        id
-                        project { number }
-                        fieldValueByName(name: "Status") {
-                          ... on ProjectV2ItemFieldSingleSelectValue { name optionId }
-                        }
-                      }
-                    }
-                  }
-                }
-              }`;
-
-            let item = null;
-
-            for (let attempt = 1; attempt <= 5; attempt++) {
-              const result = await github.graphql(query, { id: content.node_id });
-              item = result.node.projectItems.nodes.find(n => n.project.number === 3);
-              if (item) break;
-              if (attempt < 5) {
-                console.log(`Item not on project 3 yet (attempt ${attempt}/5), waiting 3s...`);
-                await sleep(3000);
-              }
-            }
-
-            if (!item) {
-              console.log("Item never showed up on project 3, skipping.");
-              return;
-            }
-
-            const current = item.fieldValueByName;
-
-            if (current && keepOptionIds.includes(current.optionId)) {
-              console.log(`Status is already "${current.name}", leaving it as is.`);
-              return;
-            }
-
-            const targetOptionId = isAssign ? inProgressOptionId : readyOptionId;
-
-            await github.graphql(
-              `mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
-                updateProjectV2ItemFieldValue(input: {
-                  projectId: $project
-                  itemId: $item
-                  fieldId: $field
-                  value: { singleSelectOptionId: $option }
-                }) { projectV2Item { id } }
-              }`,
-              { project: projectId, item: item.id, field: statusFieldId, option: targetOptionId }
-            );
-
-            const statusName = isAssign ? "In progress" : "Ready";
-            console.log(`Status set to ${statusName} for #${content.number}`);
+    uses: AIRclub-UdeSA/.github/.github/workflows/assignee-status.yml@main
+    secrets:
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}

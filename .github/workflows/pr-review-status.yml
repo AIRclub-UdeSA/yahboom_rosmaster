@@ -1,3 +1,5 @@
+# Caller for the shared workflow in AIRclub-UdeSA/.github
+# Setup checklist: https://github.com/AIRclub-UdeSA/.github/blob/main/CONTRIBUTING.md#setting-up-a-new-repository
 name: Sync PR review status
 
 on:
@@ -6,106 +8,7 @@ on:
 
 jobs:
   set-in-review:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Generate GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: AIRclub-UdeSA
-
-      - name: Sync project Status with review state
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ steps.app-token.outputs.token }}
-          script: |
-            const projectId = "PVT_kwDOEjyD084BhtOr";
-            const statusFieldId = "PVTSSF_lADOEjyD084BhtOrzhgn_fY";
-            const statusOptionId = context.payload.action === "review_requested"
-              ? "5c347fba"  // In review
-              : "e4b255ff"; // In progress
-            const prNodeId = context.payload.pull_request.node_id;
-
-            // The review event can arrive before auto-add has put the PR on
-            // the project (happens when opening a PR with a reviewer already
-            // filled in). Retry instead of giving up on the first attempt.
-            const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-            const query = `query($prId: ID!) {
-                node(id: $prId) {
-                  ... on PullRequest {
-                    projectItems(first: 10) {
-                      nodes {
-                        id
-                        project { number }
-                      }
-                    }
-                    closingIssuesReferences(first: 10) {
-                      nodes {
-                        number
-                        projectItems(first: 10) {
-                          nodes {
-                            id
-                            project { number }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }`;
-
-            const itemOnProject = (items) => items.nodes.find(n => n.project.number === 3);
-
-            // Move the PR and also the issues it will close: otherwise the
-            // issue sits in In progress while the work is waiting for review
-            let targets = [];
-
-            for (let attempt = 1; attempt <= 5; attempt++) {
-              const result = await github.graphql(query, { prId: prNodeId });
-              const pr = result.node;
-              targets = [];
-
-              const prItem = itemOnProject(pr.projectItems);
-              if (prItem) {
-                targets.push({ id: prItem.id, label: `PR #${context.payload.pull_request.number}` });
-              }
-
-              for (const issue of pr.closingIssuesReferences.nodes) {
-                const issueItem = itemOnProject(issue.projectItems);
-                if (issueItem) {
-                  targets.push({ id: issueItem.id, label: `issue #${issue.number}` });
-                }
-              }
-
-              if (targets.length > 0) break;
-              if (attempt < 5) {
-                console.log(`Nothing on project 3 yet (attempt ${attempt}/5), waiting 3s...`);
-                await sleep(3000);
-              }
-            }
-
-            if (targets.length === 0) {
-              console.log("Neither the PR nor its linked issues showed up on project 3, skipping.");
-              return;
-            }
-
-            const statusName = context.payload.action === "review_requested" ? "In review" : "In progress";
-
-            for (const target of targets) {
-              await github.graphql(
-                `mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
-                  updateProjectV2ItemFieldValue(input: {
-                    projectId: $project
-                    itemId: $item
-                    fieldId: $field
-                    value: { singleSelectOptionId: $option }
-                  }) { projectV2Item { id } }
-                }`,
-                { project: projectId, item: target.id, field: statusFieldId, option: statusOptionId }
-              );
-
-              console.log(`Status set to ${statusName} for ${target.label}`);
-            }
+    uses: AIRclub-UdeSA/.github/.github/workflows/pr-review-status.yml@main
+    secrets:
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
