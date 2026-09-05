@@ -9,6 +9,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+import shutdown_asserts
+
 
 LAUNCH_FILE = (
     Path(__file__).resolve().parents[1]
@@ -325,6 +327,48 @@ class TestLaunchShutdown(unittest.TestCase):
             in message
             for message in logger.warning_messages
         ))
+
+
+class FakeExitedProcess:
+    """Stand in for a launch ProcessExited event in the exit-code contract."""
+
+    def __init__(self, process_name, returncode):
+        self.process_name = process_name
+        self.returncode = returncode
+
+
+class TestShutdownExitCodeContract(unittest.TestCase):
+    """Pin which exit codes each simulator process is allowed to report."""
+
+    def test_clean_exits_are_accepted(self):
+        shutdown_asserts.assert_clean_shutdown([
+            FakeExitedProcess("ruby-1", 0),
+            FakeExitedProcess("parameter_bridge-3", 0),
+        ])
+
+    def test_force_killed_gazebo_is_accepted(self):
+        # _kill_gazebo_server escalates to SIGKILL when the clean stop stalls,
+        # so -9 on the server is the designed outcome, not a failure.
+        shutdown_asserts.assert_clean_shutdown([
+            FakeExitedProcess("ruby-1", -9),
+            FakeExitedProcess("parameter_bridge-3", 0),
+        ])
+
+    def test_gazebo_segfault_still_fails(self):
+        with self.assertRaises(AssertionError):
+            shutdown_asserts.assert_clean_shutdown([
+                FakeExitedProcess("ruby-1", -11)])
+
+    def test_force_kill_is_not_tolerated_for_other_processes(self):
+        with self.assertRaises(AssertionError):
+            shutdown_asserts.assert_clean_shutdown([
+                FakeExitedProcess("ruby-1", 0),
+                FakeExitedProcess("parameter_bridge-3", -9)])
+
+    def test_signal_escalation_on_a_bridge_still_fails(self):
+        with self.assertRaises(AssertionError):
+            shutdown_asserts.assert_clean_shutdown([
+                FakeExitedProcess("image_bridge-4", -2)])
 
 
 if __name__ == "__main__":
