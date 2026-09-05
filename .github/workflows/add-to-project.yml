@@ -1,3 +1,5 @@
+# Caller for the shared workflow in AIRclub-UdeSA/.github
+# Setup checklist: https://github.com/AIRclub-UdeSA/.github/blob/main/CONTRIBUTING.md#setting-up-a-new-repository
 name: Add to project
 
 on:
@@ -8,18 +10,7 @@ on:
 
 jobs:
   add-to-project:
-    name: Add issue/PR to project
-    runs-on: ubuntu-latest
-    steps:
-      - name: Generate GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: AIRclub-UdeSA
-
-      - uses: actions/add-to-project@v1.0.2
-        with:
-          project-url: https://github.com/orgs/AIRclub-UdeSA/projects/3
-          github-token: ${{ steps.app-token.outputs.token }}
+    uses: AIRclub-UdeSA/.github/.github/workflows/add-to-project.yml@main
+    secrets:
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
