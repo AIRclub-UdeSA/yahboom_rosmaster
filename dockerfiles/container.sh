@@ -100,14 +100,14 @@ refresh_xauth() {
 }
 
 get_display_args() {
-    local args=()
+    local -n out_args="$1"
+    out_args=()
     if [ -n "${DISPLAY:-}" ]; then
-        args+=(-e "DISPLAY=$DISPLAY")
+        out_args+=(-e "DISPLAY=$DISPLAY")
         if refresh_xauth; then
-            args+=(-e "XAUTHORITY=${X11_CONT_DIR}/Xauthority")
+            out_args+=(-e "XAUTHORITY=${X11_CONT_DIR}/Xauthority")
         fi
     fi
-    echo "${args[@]}"
 }
 
 install_dependencies() {
@@ -118,6 +118,7 @@ install_dependencies() {
          if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then \
            sudo rosdep init; \
          fi && \
+         sudo apt-get update && \
          rosdep update && \
          rosdep install --from-paths . --ignore-src -r -y --rosdistro humble"
 }
@@ -154,9 +155,9 @@ start_container() {
 
     if [ -d /dev/dri ]; then
         run_args+=(--device=/dev/dri)
-        while IFS= read -r device_group; do
-            run_args+=(--group-add "$device_group")
-        done < <(find /dev/dri -maxdepth 1 -type c -printf '%g\n' | sort -u)
+        while IFS= read -r device_gid; do
+            run_args+=(--group-add "$device_gid")
+        done < <(find /dev/dri -maxdepth 1 -type c -printf '%G\n' | sort -u)
     fi
 
     if has_nvidia_gpu && nvidia_runtime_available; then
@@ -165,11 +166,10 @@ start_container() {
         run_args+=(-e LIBGL_ALWAYS_SOFTWARE=1)
     fi
 
-    local disp_args
-    disp_args="$(get_display_args)"
+    local disp_args=()
+    get_display_args disp_args
 
-    # shellcheck disable=SC2086
-    $ENGINE run "${run_args[@]}" $disp_args "$IMAGE" sleep infinity >/dev/null
+    $ENGINE run "${run_args[@]}" "${disp_args[@]}" "$IMAGE" sleep infinity >/dev/null
     info "Container started. Workspace mounted at: $CONT_WS"
 }
 
@@ -179,11 +179,10 @@ exec_in_container() {
     if [ -t 0 ] && [ -t 1 ]; then
         tty_args+=(-t)
     fi
-    local disp_args
-    disp_args="$(get_display_args)"
-    # shellcheck disable=SC2086
+    local disp_args=()
+    get_display_args disp_args
     $ENGINE exec "${tty_args[@]}" -u "$CONTAINER_USER" -w "$CONT_WS" \
-        $disp_args "$CONTAINER_NAME" "$@"
+        "${disp_args[@]}" "$CONTAINER_NAME" "$@"
 }
 
 cmd="${1:-}"
@@ -243,9 +242,9 @@ case "$cmd" in
         echo "NVIDIA GPU: $(has_nvidia_gpu && echo 'detected' || echo 'none')"
         echo "NVIDIA Docker Runtime: $(nvidia_runtime_available && echo 'available' || echo 'unavailable')"
         if [ "$(container_state)" = "running" ] && [ -n "${DISPLAY:-}" ]; then
-            disp_args="$(get_display_args)"
-            # shellcheck disable=SC2086
-            if $ENGINE exec -u "$CONTAINER_USER" $disp_args "$CONTAINER_NAME" \
+            disp_args=()
+            get_display_args disp_args
+            if $ENGINE exec -u "$CONTAINER_USER" "${disp_args[@]}" "$CONTAINER_NAME" \
                 xdpyinfo >/dev/null 2>&1; then
                 echo "Container X11: reachable"
             else
