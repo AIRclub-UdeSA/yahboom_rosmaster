@@ -54,6 +54,13 @@ def generate_launch_description():
         default_value="true",
         description="Use simulation clock"
     )
+    ground_truth_frame_arg = DeclareLaunchArgument(
+        "ground_truth_frame",
+        default_value="auto",
+        description=(
+            "Ground-truth display frame: auto, odom, map, or another "
+            "localization frame")
+    )
 
     include_sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(fortress_launch),
@@ -65,6 +72,7 @@ def generate_launch_description():
             "motion_profile": LaunchConfiguration("motion_profile"),
             "motion_bias": LaunchConfiguration("motion_bias"),
             "use_sim_time": LaunchConfiguration("use_sim_time"),
+            "ground_truth_frame": LaunchConfiguration("ground_truth_frame"),
         }.items(),
     )
 
@@ -76,5 +84,6 @@ def generate_launch_description():
         motion_profile_arg,
         motion_bias_arg,
         use_sim_time_arg,
+        ground_truth_frame_arg,
         include_sim,
     ])
