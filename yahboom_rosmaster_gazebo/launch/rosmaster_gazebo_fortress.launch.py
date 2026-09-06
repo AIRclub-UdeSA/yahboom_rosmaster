@@ -46,8 +46,10 @@ MOTION_PROFILE_KEYS = (
 
 # Software rendering can take several seconds to join Gazebo's sensor threads
 # after /server_control acknowledges a clean stop. Keep the launch shutdown
-# callback bounded, but leave enough time for llvmpipe to finish before launch
-# escalates to SIGINT (which can race SensorsPrivate::Stop).
+# callback bounded, but leave enough time for llvmpipe to finish. If it still
+# hasn't exited by the deadline, force-kill it (see _kill_gazebo_server) rather
+# than letting launch's default SIGINT land on a stop that may still be
+# in-flight, which can race SensorsPrivate::Stop.
 GAZEBO_CLEAN_STOP_TIMEOUT = 10.0
 PROCESS_STOP_POLL_INTERVAL = 0.05
 
@@ -222,39 +224,67 @@ def _wait_for_process_stop(
         time.sleep(min(poll_interval, remaining))
 
 
-def _stop_image_bridge(image_bridge, logger, timeout=2.0):
-    """Stop the image consumer before its Gazebo publishers disappear."""
-    if _process_stopped(image_bridge):
+def _stop_bridge_process(process, label, logger, timeout=2.0):
+    """Stop a transport-bridge consumer before its Gazebo publishers disappear.
+
+    ros_gz bridge processes (parameter_bridge, image_bridge) can segfault
+    during their own SIGINT teardown if Gazebo's transport node vanishes out
+    from under them mid-shutdown. Stopping them first, while Gazebo is still
+    up, avoids that race entirely.
+    """
+    if _process_stopped(process):
         return
 
-    details = image_bridge.process_details
+    details = process.process_details
     if details is None or "pid" not in details:
-        logger.debug("Image bridge was not started before shutdown")
+        logger.debug(f"{label} was not started before shutdown")
         return
 
     try:
-        logger.info("Stopping the image bridge before Gazebo sensor shutdown")
+        logger.info(f"Stopping the {label} before Gazebo sensor shutdown")
         os.kill(details["pid"], signal.SIGINT)
     except ProcessLookupError:
         return
     except OSError as exception:
-        logger.warning(
-            f"Could not stop the image bridge before Gazebo: {exception}")
+        logger.warning(f"Could not stop the {label} before Gazebo: {exception}")
         return
 
-    if _wait_for_process_stop(image_bridge, timeout):
-        logger.info("Image bridge stopped before Gazebo sensor shutdown")
+    if _wait_for_process_stop(process, timeout):
+        logger.info(f"{label} stopped before Gazebo sensor shutdown")
         return
     logger.warning(
-        f"Image bridge did not stop within {timeout:.1f} seconds; continuing "
+        f"{label} did not stop within {timeout:.1f} seconds; continuing "
         "with Gazebo shutdown and launch signal fallback")
 
 
-def _request_gazebo_stop(event, context, gazebo_server, image_bridge):
+def _kill_gazebo_server(gazebo_server, logger):
+    """Force-kill Gazebo after its service-requested stop stalls.
+
+    SIGINT is caught by ign gazebo's own handler and re-enters
+    Server::Stop() -> SensorsPrivate::Stop(), which can join the render
+    thread a second time while the service-triggered stop is still joining
+    it, an observed cause of the SIGSEGV in CI (see issue #31). SIGKILL
+    bypasses that handler entirely, so it cannot re-enter the same path.
+    """
+    if _process_stopped(gazebo_server):
+        return
+    details = gazebo_server.process_details
+    if details is None or "pid" not in details:
+        return
+    try:
+        os.kill(details["pid"], signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    except OSError as exception:
+        logger.warning(f"Could not force-kill Gazebo: {exception}")
+
+
+def _request_gazebo_stop(event, context, gazebo_server, image_bridge, parameter_bridge):
     """Stop transport consumers, then Gazebo, before launch signal fallback."""
     del event
     logger = get_logger("rosmaster_gazebo_shutdown")
-    _stop_image_bridge(image_bridge, logger)
+    _stop_bridge_process(image_bridge, "image bridge", logger)
+    _stop_bridge_process(parameter_bridge, "parameter bridge", logger)
 
     ign_executable = shutil.which("ign")
     if ign_executable is None:
@@ -296,11 +326,14 @@ def _request_gazebo_stop(event, context, gazebo_server, image_bridge):
         else:
             logger.warning(
                 "Gazebo did not finish its service-requested stop within "
-                f"{GAZEBO_CLEAN_STOP_TIMEOUT:.0f} seconds; using signal fallback")
+                f"{GAZEBO_CLEAN_STOP_TIMEOUT:.0f} seconds; force-killing it "
+                "instead of signaling, since SIGINT would re-enter its "
+                "still-in-flight stop and can race SensorsPrivate::Stop")
+            _kill_gazebo_server(gazebo_server, logger)
     return None
 
 
-def _launch_gazebo_server(context, ign_executable, pkg_gz, image_bridge):
+def _launch_gazebo_server(context, ign_executable, pkg_gz, image_bridge, parameter_bridge):
     raw_world = LaunchConfiguration("world").perform(context)
     if os.path.isabs(raw_world) and os.path.exists(raw_world):
         world_path = raw_world
@@ -328,7 +361,7 @@ def _launch_gazebo_server(context, ign_executable, pkg_gz, image_bridge):
     return [
         RegisterEventHandler(OnShutdown(
             on_shutdown=lambda event, ctx: _request_gazebo_stop(
-                event, ctx, gazebo_server, image_bridge))),
+                event, ctx, gazebo_server, image_bridge, parameter_bridge))),
         gazebo_server,
     ]
 
@@ -612,7 +645,7 @@ def generate_launch_description():
         AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(pkg_gz, "worlds")),
         OpaqueFunction(
             function=_launch_gazebo_server,
-            args=[ign_executable, pkg_gz, ros_gz_image_bridge],
+            args=[ign_executable, pkg_gz, ros_gz_image_bridge, ros_gz_bridge],
         ),
         gazebo_client,
         OpaqueFunction(

@@ -9,6 +9,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+import shutdown_asserts
+
 
 LAUNCH_FILE = (
     Path(__file__).resolve().parents[1]
@@ -132,7 +134,7 @@ class TestLaunchShutdown(unittest.TestCase):
         bridge = FakeProcess()
 
         with patch.object(LAUNCH_MODULE.os, "kill") as kill:
-            LAUNCH_MODULE._stop_image_bridge(bridge, logger)
+            LAUNCH_MODULE._stop_bridge_process(bridge, "image bridge", logger)
 
         kill.assert_not_called()
         self.assertTrue(any("not started" in message for message in logger.debug_messages))
@@ -142,7 +144,7 @@ class TestLaunchShutdown(unittest.TestCase):
         bridge = FakeProcess(return_code=0, process_details={"pid": 123})
 
         with patch.object(LAUNCH_MODULE.os, "kill") as kill:
-            LAUNCH_MODULE._stop_image_bridge(bridge, logger)
+            LAUNCH_MODULE._stop_bridge_process(bridge, "image bridge", logger)
 
         kill.assert_not_called()
 
@@ -164,7 +166,7 @@ class TestLaunchShutdown(unittest.TestCase):
             ),
             patch.object(LAUNCH_MODULE.time, "sleep"),
         ):
-            LAUNCH_MODULE._stop_image_bridge(bridge, logger)
+            LAUNCH_MODULE._stop_bridge_process(bridge, "image bridge", logger)
 
         kill.assert_called_once_with(123, signal.SIGINT)
         self.assertTrue(any("stopped before" in message for message in logger.info_messages))
@@ -179,10 +181,48 @@ class TestLaunchShutdown(unittest.TestCase):
             patch.object(LAUNCH_MODULE.os, "kill") as kill,
             patch.object(LAUNCH_MODULE.time, "monotonic", return_value=1.0),
         ):
-            LAUNCH_MODULE._stop_image_bridge(bridge, logger, timeout=0.0)
+            LAUNCH_MODULE._stop_bridge_process(bridge, "image bridge", logger, timeout=0.0)
 
         kill.assert_called_once_with(123, signal.SIGINT)
         self.assertTrue(any("did not stop" in message for message in logger.warning_messages))
+
+    def test_kill_gazebo_server_sends_sigkill(self):
+        logger = RecordingLogger()
+        gazebo = FakeProcess(process_details={"pid": 456})
+
+        with (
+            patch.object(LAUNCH_MODULE, "_process_stopped", return_value=False),
+            patch.object(LAUNCH_MODULE.os, "kill") as kill,
+        ):
+            LAUNCH_MODULE._kill_gazebo_server(gazebo, logger)
+
+        kill.assert_called_once_with(456, signal.SIGKILL)
+
+    def test_kill_gazebo_server_skips_already_stopped(self):
+        logger = RecordingLogger()
+        gazebo = FakeProcess(return_code=0, process_details={"pid": 456})
+
+        with (
+            patch.object(LAUNCH_MODULE, "_process_stopped", return_value=True),
+            patch.object(LAUNCH_MODULE.os, "kill") as kill,
+        ):
+            LAUNCH_MODULE._kill_gazebo_server(gazebo, logger)
+
+        kill.assert_not_called()
+
+    def test_kill_gazebo_server_tolerates_already_reaped_pid(self):
+        logger = RecordingLogger()
+        gazebo = FakeProcess(process_details={"pid": 456})
+
+        with (
+            patch.object(LAUNCH_MODULE, "_process_stopped", return_value=False),
+            patch.object(
+                LAUNCH_MODULE.os, "kill", side_effect=ProcessLookupError,
+            ),
+        ):
+            LAUNCH_MODULE._kill_gazebo_server(gazebo, logger)
+
+        self.assertEqual(logger.warning_messages, [])
 
     def test_process_wait_returns_after_process_stops(self):
         process = FakeProcess(process_details={"pid": 123})
@@ -216,15 +256,16 @@ class TestLaunchShutdown(unittest.TestCase):
         self.assertFalse(stopped)
         sleep.assert_called_once_with(LAUNCH_MODULE.PROCESS_STOP_POLL_INTERVAL)
 
-    def test_bridge_is_stopped_before_gazebo_service_request(self):
+    def test_bridges_are_stopped_before_gazebo_service_request(self):
         calls = []
         context = SimpleNamespace(environment={})
         gazebo = FakeProcess(process_details={"pid": 456})
-        bridge = FakeProcess(process_details={"pid": 123})
+        image_bridge = FakeProcess(process_details={"pid": 123})
+        parameter_bridge = FakeProcess(process_details={"pid": 124})
 
-        def record_bridge_stop(*args):
-            del args
-            calls.append("image_bridge")
+        def record_bridge_stop(process, label, *args):
+            del process, args
+            calls.append(label)
 
         def record_gazebo_stop(*args, **kwargs):
             del args, kwargs
@@ -234,7 +275,7 @@ class TestLaunchShutdown(unittest.TestCase):
 
         with (
             patch.object(
-                LAUNCH_MODULE, "_stop_image_bridge",
+                LAUNCH_MODULE, "_stop_bridge_process",
                 side_effect=record_bridge_stop,
             ),
             patch.object(LAUNCH_MODULE.shutil, "which", return_value="/usr/bin/ign"),
@@ -246,20 +287,22 @@ class TestLaunchShutdown(unittest.TestCase):
                 LAUNCH_MODULE, "_wait_for_process_stop", return_value=True,
             ) as wait_for_stop,
         ):
-            LAUNCH_MODULE._request_gazebo_stop(None, context, gazebo, bridge)
+            LAUNCH_MODULE._request_gazebo_stop(
+                None, context, gazebo, image_bridge, parameter_bridge)
 
-        self.assertEqual(calls, ["image_bridge", "gazebo"])
+        self.assertEqual(calls, ["image bridge", "parameter bridge", "gazebo"])
         wait_for_stop.assert_called_once_with(
             gazebo, LAUNCH_MODULE.GAZEBO_CLEAN_STOP_TIMEOUT)
 
-    def test_gazebo_clean_stop_grace_is_bounded_and_logged(self):
+    def test_gazebo_clean_stop_grace_is_bounded_and_force_killed(self):
         logger = RecordingLogger()
         context = SimpleNamespace(environment={})
         gazebo = FakeProcess(process_details={"pid": 456})
-        bridge = FakeProcess(process_details={"pid": 123})
+        image_bridge = FakeProcess(process_details={"pid": 123})
+        parameter_bridge = FakeProcess(process_details={"pid": 124})
 
         with (
-            patch.object(LAUNCH_MODULE, "_stop_image_bridge"),
+            patch.object(LAUNCH_MODULE, "_stop_bridge_process"),
             patch.object(LAUNCH_MODULE.shutil, "which", return_value="/usr/bin/ign"),
             patch.object(
                 LAUNCH_MODULE.subprocess,
@@ -270,17 +313,62 @@ class TestLaunchShutdown(unittest.TestCase):
             patch.object(
                 LAUNCH_MODULE, "_wait_for_process_stop", return_value=False,
             ) as wait_for_stop,
+            patch.object(LAUNCH_MODULE, "_kill_gazebo_server") as kill_gazebo,
             patch.object(LAUNCH_MODULE, "get_logger", return_value=logger),
         ):
-            LAUNCH_MODULE._request_gazebo_stop(None, context, gazebo, bridge)
+            LAUNCH_MODULE._request_gazebo_stop(
+                None, context, gazebo, image_bridge, parameter_bridge)
 
         wait_for_stop.assert_called_once_with(
             gazebo, LAUNCH_MODULE.GAZEBO_CLEAN_STOP_TIMEOUT)
+        kill_gazebo.assert_called_once_with(gazebo, logger)
         self.assertTrue(any(
             f"within {LAUNCH_MODULE.GAZEBO_CLEAN_STOP_TIMEOUT:.0f} seconds"
             in message
             for message in logger.warning_messages
         ))
+
+
+class FakeExitedProcess:
+    """Stand in for a launch ProcessExited event in the exit-code contract."""
+
+    def __init__(self, process_name, returncode):
+        self.process_name = process_name
+        self.returncode = returncode
+
+
+class TestShutdownExitCodeContract(unittest.TestCase):
+    """Pin which exit codes each simulator process is allowed to report."""
+
+    def test_clean_exits_are_accepted(self):
+        shutdown_asserts.assert_clean_shutdown([
+            FakeExitedProcess("ruby-1", 0),
+            FakeExitedProcess("parameter_bridge-3", 0),
+        ])
+
+    def test_force_killed_gazebo_is_accepted(self):
+        # _kill_gazebo_server escalates to SIGKILL when the clean stop stalls,
+        # so -9 on the server is the designed outcome, not a failure.
+        shutdown_asserts.assert_clean_shutdown([
+            FakeExitedProcess("ruby-1", -9),
+            FakeExitedProcess("parameter_bridge-3", 0),
+        ])
+
+    def test_gazebo_segfault_still_fails(self):
+        with self.assertRaises(AssertionError):
+            shutdown_asserts.assert_clean_shutdown([
+                FakeExitedProcess("ruby-1", -11)])
+
+    def test_force_kill_is_not_tolerated_for_other_processes(self):
+        with self.assertRaises(AssertionError):
+            shutdown_asserts.assert_clean_shutdown([
+                FakeExitedProcess("ruby-1", 0),
+                FakeExitedProcess("parameter_bridge-3", -9)])
+
+    def test_signal_escalation_on_a_bridge_still_fails(self):
+        with self.assertRaises(AssertionError):
+            shutdown_asserts.assert_clean_shutdown([
+                FakeExitedProcess("image_bridge-4", -2)])
 
 
 if __name__ == "__main__":

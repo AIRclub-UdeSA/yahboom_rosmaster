@@ -2,6 +2,7 @@
 """Launch-test profile-specific odometry divergence during planar motion."""
 
 import os
+import sys
 import unittest
 
 from ament_index_python.packages import get_package_share_directory
@@ -20,6 +21,10 @@ import launch_testing
 import launch_testing.actions
 import launch_testing.asserts
 import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from shutdown_asserts import assert_clean_shutdown  # noqa: E402
 
 
 @pytest.mark.launch_test
@@ -112,4 +117,4 @@ class TestCleanShutdown(unittest.TestCase):
     """Require every launched process to exit cleanly."""
 
     def test_all_processes_exit_cleanly(self, proc_info):
-        launch_testing.asserts.assertExitCodes(proc_info)
+        assert_clean_shutdown(proc_info)

@@ -2,6 +2,7 @@
 """Launch a practice world headless and require its smoke contract to pass."""
 
 import os
+import sys
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -25,6 +26,10 @@ import launch_testing.actions
 import launch_testing.asserts
 import pytest
 import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from shutdown_asserts import assert_clean_shutdown  # noqa: E402
 
 
 GROUND_TRUTH_READY_TIMEOUT = 20.0
@@ -153,4 +158,4 @@ class TestCleanShutdown(unittest.TestCase):
     """Reject signal escalation or orphan-prone simulator process exits."""
 
     def test_all_processes_exit_cleanly(self, proc_info):
-        launch_testing.asserts.assertExitCodes(proc_info)
+        assert_clean_shutdown(proc_info)

@@ -20,6 +20,10 @@ import launch_testing.asserts
 import pytest
 import unittest
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from shutdown_asserts import assert_clean_shutdown  # noqa: E402
+
 
 TARGET_SDF = """
 <sdf version="1.7">
@@ -116,4 +120,4 @@ class TestCleanShutdown(unittest.TestCase):
     """Require every launched process to exit cleanly."""
 
     def test_all_processes_exit_cleanly(self, proc_info):
-        launch_testing.asserts.assertExitCodes(proc_info)
+        assert_clean_shutdown(proc_info)
