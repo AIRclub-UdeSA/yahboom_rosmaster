@@ -68,6 +68,7 @@ class GroundTruthTf(Node):
         self.display_from_world = None
         self.display_frame_id = None
         self.last_input_error = 0.0
+        self.last_alignment_error = 0.0
         self.create_subscription(Odometry, input_topic, self.odom_callback, 10)
         self.create_timer(0.05, self.process_pending)
 
@@ -207,11 +208,14 @@ class GroundTruthTf(Node):
                 self.publish_ground_truth(queued_message)
             return
 
+        expired = False
         while (
                 self.pending_ground_truth
                 and now - self.pending_ground_truth[0][0] > self.alignment_timeout):
             self.pending_ground_truth.popleft()
-        if not self.pending_ground_truth:
+            expired = True
+        if expired and now - self.last_alignment_error >= 5.0:
+            self.last_alignment_error = now
             self.get_logger().warning(
                 f"Could not align ground truth: no synchronized "
                 f"{self.odom_frame_id} -> {self.base_frame_id} TF within "
