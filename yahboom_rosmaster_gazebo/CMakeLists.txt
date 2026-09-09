@@ -114,6 +114,11 @@ if(BUILD_TESTING)
     TIMEOUT 30
   )
   add_launch_test(
+    test/ground_truth_odom_mode.launch.py
+    TARGET ground_truth_odom_mode
+    TIMEOUT 30
+  )
+  add_launch_test(
     test/motion_profile_divergence.launch.py
     TARGET motion_profile_divergence_ideal
     TIMEOUT 100

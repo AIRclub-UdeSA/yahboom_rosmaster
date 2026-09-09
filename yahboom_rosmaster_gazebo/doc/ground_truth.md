@@ -55,13 +55,16 @@ realignment.
 
 ## Regression coverage
 
-The ground-truth tests protect three independent properties:
+The ground-truth tests protect four independent properties:
 
 - the raw topic remains `world -> base_footprint`, has one publisher, uses
   simulation timestamps, and never claims the robot's TF frames;
 - a nonzero world spawn aligns with the initial odometry origin;
 - after the first synthetic `map -> odom` alignment, a later large SLAM
-  correction does not move the truth frame, while new Gazebo motion still does.
+  correction does not move the truth frame, while new Gazebo motion still does;
+- `ground_truth_frame:=odom` keeps the diagnostic frame parented to odom while
+  a map appears and then changes, and it still tracks truth through the fixed
+  odom alignment rather than republishing wheel odometry.
 
 The synthetic map test does not replace an end-to-end run with the challenge's
 SLAM package. That integration run remains a follow-up check.

@@ -35,6 +35,10 @@ class GroundTruthDisplayProbe(Node):
 
     def __init__(self):
         super().__init__("ground_truth_display_probe")
+        self.declare_parameter("expected_mode", "auto")
+        self.expected_mode = self.get_parameter("expected_mode").value
+        if self.expected_mode not in ("auto", "odom"):
+            raise ValueError("expected_mode must be 'auto' or 'odom'")
         self.truth_publisher = self.create_publisher(
             Odometry, "/ground_truth/odom", 10)
         self.tf_broadcaster = TransformBroadcaster(self)
@@ -65,6 +69,8 @@ class GroundTruthDisplayProbe(Node):
             compose(self.first_map_from_odom, self.odom_from_base_at_map_start),
             inverse(self.world_from_base_at_map_start),
         )
+        self.fixed_odom_from_world = compose(
+            self.odom_from_base, inverse(self.world_from_base_initial))
 
         self.phase = "odom"
         self.phase_started = time.monotonic()
@@ -147,6 +153,9 @@ class GroundTruthDisplayProbe(Node):
         for transform in message.transforms:
             if transform.child_frame_id != "ground_truth_base":
                 continue
+            if self.expected_mode == "odom":
+                self.capture_opt_out(transform)
+                continue
             if self.phase == "odom" and transform.header.frame_id == "odom":
                 self.record(self.from_message(transform), self.odom_from_base)
             elif (
@@ -166,6 +175,26 @@ class GroundTruthDisplayProbe(Node):
                     self.from_message(transform),
                     compose(self.fixed_map_from_world, self.world_from_base_later),
                 )
+
+    def truth_in_current_phase(self):
+        """Return the synthetic world pose published in the current phase."""
+        if self.phase == "odom":
+            return self.world_from_base_initial
+        if self.phase == "map_initial":
+            return self.world_from_base_at_map_start
+        return self.world_from_base_later
+
+    def capture_opt_out(self, transform):
+        """Require ground_truth_frame:=odom to ignore the map that appears."""
+        if transform.header.frame_id != "odom":
+            self.fail(
+                "ground_truth_frame:=odom reparented the diagnostic frame to "
+                f"{transform.header.frame_id!r}")
+            return
+        self.record(
+            self.from_message(transform),
+            compose(self.fixed_odom_from_world, self.truth_in_current_phase()),
+        )
 
     def record(self, actual, expected):
         """Advance after repeated matches and fail on persistent disagreement."""
@@ -187,9 +216,15 @@ class GroundTruthDisplayProbe(Node):
             self.advance("map_changed")
         else:
             self.done = True
-            self.get_logger().info(
-                "Ground-truth display PASSED: nonzero spawn aligned and later "
-                "map->odom correction did not move truth")
+            if self.expected_mode == "odom":
+                self.get_logger().info(
+                    "Ground-truth display PASSED: the odom opt-out stayed in "
+                    "odom and kept tracking truth while map->odom appeared "
+                    "and then changed")
+            else:
+                self.get_logger().info(
+                    "Ground-truth display PASSED: nonzero spawn aligned and "
+                    "later map->odom correction did not move truth")
 
     def advance(self, phase):
         """Begin the next probe phase."""
