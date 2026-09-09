@@ -108,6 +108,9 @@ cd dockerfiles
 Use `./container.sh sim-headless` when no GUI is needed. Run
 `./container.sh doctor` to inspect the container, GPU, and X11 connection.
 
+See [`dockerfiles/README.md`](dockerfiles/README.md) for the validated flow,
+GPU/X11 requirements, and known limitations.
+
 ## macOS (Apple Silicon)
 
 macOS has no ROS 2 Humble debs, so the environment comes from
