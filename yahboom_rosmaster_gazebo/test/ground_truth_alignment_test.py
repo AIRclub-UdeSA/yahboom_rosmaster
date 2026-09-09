@@ -12,15 +12,9 @@ from ground_truth_alignment import (  # noqa: E402
     RigidTransform,
     compose,
     inverse,
+    quaternion_distance,
     yaw_quaternion,
 )
-
-
-def quaternion_distance(left, right):
-    """Return sign-insensitive Euclidean quaternion distance."""
-    direct = math.sqrt(sum((a - b) ** 2 for a, b in zip(left, right)))
-    negated = math.sqrt(sum((a + b) ** 2 for a, b in zip(left, right)))
-    return min(direct, negated)
 
 
 class GroundTruthAlignmentTest(unittest.TestCase):

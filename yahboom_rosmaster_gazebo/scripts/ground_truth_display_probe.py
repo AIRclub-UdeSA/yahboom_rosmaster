@@ -13,14 +13,13 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy
 from tf2_msgs.msg import TFMessage
 from tf2_ros import TransformBroadcaster
 
-from ground_truth_alignment import RigidTransform, compose, inverse, yaw_quaternion
-
-
-def quaternion_distance(left, right):
-    """Return sign-insensitive Euclidean quaternion distance."""
-    direct = math.sqrt(sum((a - b) ** 2 for a, b in zip(left, right)))
-    negated = math.sqrt(sum((a + b) ** 2 for a, b in zip(left, right)))
-    return min(direct, negated)
+from ground_truth_alignment import (
+    RigidTransform,
+    compose,
+    inverse,
+    quaternion_distance,
+    yaw_quaternion,
+)
 
 
 def close_transform(actual, expected, tolerance=1e-5):

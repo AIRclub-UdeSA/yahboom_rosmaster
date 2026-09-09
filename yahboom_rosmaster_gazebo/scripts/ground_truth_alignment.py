@@ -76,3 +76,10 @@ def inverse(transform):
 def yaw_quaternion(yaw):
     """Return a quaternion for a pure yaw rotation (mainly for tests)."""
     return (0.0, 0.0, math.sin(yaw * 0.5), math.cos(yaw * 0.5))
+
+
+def quaternion_distance(left, right):
+    """Return sign-insensitive Euclidean quaternion distance."""
+    direct = math.sqrt(sum((a - b) ** 2 for a, b in zip(left, right)))
+    negated = math.sqrt(sum((a + b) ** 2 for a, b in zip(left, right)))
+    return min(direct, negated)
