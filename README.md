@@ -344,6 +344,7 @@ migration assets, not supported practice worlds.
 | `use_sim_time` | `true` | Use the Gazebo simulation clock; keep enabled for the supported workflow |
 | `motion_profile` | `stress` | Wheel contact model: uncalibrated `stress` or zero-slip `ideal` |
 | `motion_bias` | `false` | Add randomized command drift when enabled |
+| `ground_truth_frame` | `auto` | Ground-truth display frame: `auto`, `odom`, `map`, or another localization frame |
 
 ## Controlling the Robot
 
@@ -429,6 +430,11 @@ a physical ROSMASTER X3. See
 - `odom -> base_footprint` is published by `wheel_state_odometry.py`.
 - `/ground_truth/odom` is the timestamped Gazebo world pose of the simulated
   chassis. It is measurement-only and does not publish a TF edge.
+- `ground_truth_base` is a display-only diagnostic frame published by
+  `ground_truth_tf.py` from that measurement. Its parent frame follows the
+  `ground_truth_frame` launch argument. See
+  `yahboom_rosmaster_gazebo/doc/ground_truth.md` for the fixed alignment it
+  captures and the available modes.
 - Robot link transforms are published by `robot_state_publisher`.
 
 ## Working ROS Interfaces
