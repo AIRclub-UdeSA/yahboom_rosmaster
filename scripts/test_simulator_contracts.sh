@@ -14,7 +14,7 @@ else
     WORKSPACE_DIR="${REPO_DIR}"
 fi
 
-CONTRACT_REGEX='^(robot_description_contract|motion_profile_contract|practice_world_probe_contract|launch_shutdown_contract|sensor_contract_probe_contract|sensor_contract_ci|base_feedback|ground_truth_contract|motion_profile_(divergence_ideal|yaw_ideal)|wheel_odometry_resilience)$'
+CONTRACT_REGEX='^(robot_description_contract|motion_profile_contract|practice_world_probe_contract|launch_shutdown_contract|sensor_contract_probe_contract|sensor_contract_ci|base_feedback|ground_truth_contract|ground_truth_alignment_math|ground_truth_display|ground_truth_odom_mode|ground_truth_map_mode|motion_profile_(divergence_ideal|yaw_ideal)|wheel_odometry_resilience)$'
 
 if [[ -r /opt/ros/humble/setup.bash ]]; then
     # Workflow steps start in a fresh shell even though ROS_DISTRO is exported.

@@ -429,6 +429,14 @@ def generate_launch_description():
             "Wheel-contact profile: stress is deterministic and uncalibrated; "
             "ideal preserves the zero-slip baseline"),
     )
+    declare_ground_truth_frame = DeclareLaunchArgument(
+        "ground_truth_frame",
+        default_value="auto",
+        description=(
+            "Diagnostic ground-truth display frame. 'auto' starts in odom and "
+            "captures a fixed map alignment if map->odom appears; use 'odom' "
+            "to disable the automatic SLAM switch"),
+    )
     headless = LaunchConfiguration("headless")
     gui = LaunchConfiguration("gui")
     render_sensors = LaunchConfiguration("render_sensors")
@@ -601,10 +609,16 @@ def generate_launch_description():
     # A runtime node, not the contract probe. The probe validates and exits, so
     # launching it here left a process that always exits non-zero and broke
     # test_all_processes_exit_cleanly in every launch test including this file.
+    # It aligns against odom -> base_footprint, so it starts with the wheel
+    # odometry that owns that edge rather than with the bridges.
     ground_truth_tf_node = Node(
         package="yahboom_rosmaster_gazebo",
         executable="ground_truth_tf.py",
         output="screen",
+        parameters=[{
+            "use_sim_time": LaunchConfiguration("use_sim_time"),
+            "frame_id": LaunchConfiguration("ground_truth_frame"),
+        }],
     )
 
     motion_bias = LaunchConfiguration("motion_bias")
@@ -628,6 +642,7 @@ def generate_launch_description():
         declare_use_ros2_control,
         declare_motion_bias,
         declare_motion_profile,
+        declare_ground_truth_frame,
         # Force X11/XWayland for Gazebo GUI — prevents white window on Wayland + AMD GPU.
         # macOS has no xcb platform plugin; setting it there breaks every Qt app,
         # RViz included.
@@ -666,11 +681,11 @@ def generate_launch_description():
             cmd_vel_watchdog,
             cmd_vel_watchdog_unbiased,
             calculated_odometry_node,
-            ground_truth_tf_node,
         ]),
         TimerAction(period=12.0, actions=[
             load_joint_state_broadcaster,
             wheel_state_odometry,
+            ground_truth_tf_node,
         ]),
         OpaqueFunction(function=_launch_rviz),
     ])
