@@ -37,8 +37,8 @@ class GroundTruthDisplayProbe(Node):
         super().__init__("ground_truth_display_probe")
         self.declare_parameter("expected_mode", "auto")
         self.expected_mode = self.get_parameter("expected_mode").value
-        if self.expected_mode not in ("auto", "odom"):
-            raise ValueError("expected_mode must be 'auto' or 'odom'")
+        if self.expected_mode not in ("auto", "odom", "map"):
+            raise ValueError("expected_mode must be 'auto', 'odom' or 'map'")
         self.truth_publisher = self.create_publisher(
             Odometry, "/ground_truth/odom", 10)
         self.tf_broadcaster = TransformBroadcaster(self)
@@ -109,7 +109,12 @@ class GroundTruthDisplayProbe(Node):
         """Publish synchronized truth, odometry TF, and phased SLAM TF."""
         if self.done:
             return
-        if time.monotonic() - self.phase_started > 6.0:
+        if (
+                self.expected_mode == "map"
+                and self.phase == "odom"
+                and time.monotonic() - self.phase_started > 2.0):
+            self.advance("map_initial")
+        elif time.monotonic() - self.phase_started > 6.0:
             self.fail(f"timed out in {self.phase!r} phase")
             return
 
@@ -156,25 +161,38 @@ class GroundTruthDisplayProbe(Node):
             if self.expected_mode == "odom":
                 self.capture_opt_out(transform)
                 continue
+            if self.expected_mode == "map":
+                self.capture_wait_for_map(transform)
+                continue
             if self.phase == "odom" and transform.header.frame_id == "odom":
                 self.record(self.from_message(transform), self.odom_from_base)
             elif (
-                    self.phase == "map_initial"
+                    self.phase in ("map_initial", "map_changed")
                     and transform.header.frame_id == "map"):
                 self.record(
-                    self.from_message(transform),
-                    compose(
-                        self.first_map_from_odom,
-                        self.odom_from_base_at_map_start,
-                    ),
-                )
-            elif (
-                    self.phase == "map_changed"
-                    and transform.header.frame_id == "map"):
-                self.record(
-                    self.from_message(transform),
-                    compose(self.fixed_map_from_world, self.world_from_base_later),
-                )
+                    self.from_message(transform), self.expected_map_transform())
+
+    def expected_map_transform(self):
+        """Return the map-parented transform expected in the current phase."""
+        if self.phase == "map_initial":
+            return compose(
+                self.first_map_from_odom, self.odom_from_base_at_map_start)
+        return compose(self.fixed_map_from_world, self.world_from_base_later)
+
+    def capture_wait_for_map(self, transform):
+        """Require ground_truth_frame:=map to publish nothing before a map."""
+        if self.phase == "odom":
+            self.fail(
+                "ground_truth_frame:=map published a diagnostic frame under "
+                f"{transform.header.frame_id!r} before any map -> odom "
+                "transform existed")
+            return
+        if transform.header.frame_id != "map":
+            self.fail(
+                "ground_truth_frame:=map parented the diagnostic frame to "
+                f"{transform.header.frame_id!r}")
+            return
+        self.record(self.from_message(transform), self.expected_map_transform())
 
     def truth_in_current_phase(self):
         """Return the synthetic world pose published in the current phase."""
@@ -221,6 +239,11 @@ class GroundTruthDisplayProbe(Node):
                     "Ground-truth display PASSED: the odom opt-out stayed in "
                     "odom and kept tracking truth while map->odom appeared "
                     "and then changed")
+            elif self.expected_mode == "map":
+                self.get_logger().info(
+                    "Ground-truth display PASSED: map mode published nothing "
+                    "until map->odom appeared, then held the fixed alignment "
+                    "through a later correction")
             else:
                 self.get_logger().info(
                     "Ground-truth display PASSED: nonzero spawn aligned and "
