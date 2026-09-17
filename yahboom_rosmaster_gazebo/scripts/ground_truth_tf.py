@@ -36,7 +36,7 @@ class GroundTruthTf(Node):
         self.declare_parameter("odom_frame_id", "odom")
         self.declare_parameter("base_frame_id", "base_footprint")
         self.declare_parameter("map_frame_id", "map")
-        self.declare_parameter("alignment_timeout", 2.0)
+        self.declare_parameter("alignment_timeout", 5.0)
 
         self.frame_mode = self.get_parameter("frame_id").value
         self.child_frame_id = self.get_parameter("child_frame_id").value
@@ -69,6 +69,8 @@ class GroundTruthTf(Node):
         self.display_frame_id = None
         self.last_input_error = 0.0
         self.last_alignment_error = 0.0
+        self.localization_wait_started = None
+        self.last_localization_error = 0.0
         self.create_subscription(Odometry, input_topic, self.odom_callback, 10)
         self.create_timer(0.05, self.process_pending)
 
@@ -161,6 +163,7 @@ class GroundTruthTf(Node):
                 self.recent_ground_truth.clear()
                 return
             if self.lookup(target_frame, self.odom_frame_id) is None:
+                self.warn_localization_wait(target_frame)
                 return
             for message in tuple(self.recent_ground_truth):
                 if self.maybe_select_localization_frame(message):
@@ -193,9 +196,15 @@ class GroundTruthTf(Node):
             if self.frame_mode in ("auto", self.odom_frame_id):
                 self.display_frame_id = self.odom_frame_id
                 self.display_from_world = self.odom_from_world
-            self.get_logger().info(
-                f"Captured fixed {self.odom_frame_id} <- {self.world_frame_id} "
-                "ground-truth alignment")
+                self.get_logger().info(
+                    f"Captured fixed {self.odom_frame_id} <- "
+                    f"{self.world_frame_id} ground-truth alignment")
+            else:
+                self.get_logger().info(
+                    f"Captured the {self.odom_frame_id} <- {self.world_frame_id} "
+                    f"reference; holding {self.child_frame_id} until "
+                    f"{self.requested_localization_frame()} -> "
+                    f"{self.odom_frame_id} appears")
             self.maybe_select_localization_frame(message)
 
             queued = [
@@ -220,6 +229,28 @@ class GroundTruthTf(Node):
                 f"Could not align ground truth: no synchronized "
                 f"{self.odom_frame_id} -> {self.base_frame_id} TF within "
                 f"{self.alignment_timeout:.1f}s")
+
+    def warn_localization_wait(self, target_frame):
+        """Warn while a localization frame requested by name stays absent."""
+        # In auto mode, staying in odom until a map appears is the intended
+        # default rather than a fault, so it must not warn.
+        if self.frame_mode == "auto":
+            return
+        now = time.monotonic()
+        if self.localization_wait_started is None:
+            self.localization_wait_started = now
+            return
+        if now - self.localization_wait_started < self.alignment_timeout:
+            return
+        if now - self.last_localization_error < 10.0:
+            return
+        self.last_localization_error = now
+        self.get_logger().warning(
+            f"No {target_frame} -> {self.odom_frame_id} transform after "
+            f"{now - self.localization_wait_started:.1f}s, so "
+            f"{self.child_frame_id} is not being published; check that "
+            f"localization is running and that ground_truth_frame="
+            f"{self.frame_mode!r} names a real frame")
 
     def requested_localization_frame(self):
         """Return the final localization frame requested by the mode."""
