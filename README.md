@@ -306,13 +306,13 @@ ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
 | `laberinto_simple_victimas.world` | `laberinto_simple.world` layout plus three color-marker obstacle cubes (two red, one blue; 0.25x0.25x0.3 m, with collision) for camera/LiDAR color-detection workshops | `world_smoke_laberinto_simple_victimas` |
 | `laberinto_1.world` | Larger, more convoluted maze exported from Gazebo's Building Editor | `world_smoke_laberinto_1` |
 | `laberinto_1_victimas.world` | `laberinto_1.world` layout plus four color-marker obstacle cubes (three red, one blue; 0.25x0.25x0.3 m, one shrunk to 0.15x0.15x0.3 m to fit a ~0.31 m gap between two walls) tucked into narrow passages -- diagonal column corridor, small side room, stub-wall zigzag, and a wall gap -- so the robot has to enter a corridor before it can see and identify the color | `world_smoke_laberinto_1_victimas` |
-| `maze_1_6x5.world` | plywood_mazes maze 1, 6x5 m | `world_smoke_maze_1` |
+| `maze_1_6x5.world` | plywood_mazes maze 1, 6x5 m -- ships a matching occupancy map at `maps/maze_1_6x5.yaml` | `world_smoke_maze_1` |
 | `maze_1_6x5_victimas.world` | `maze_1_6x5.world` layout plus four color-marker obstacle cubes (two red, two blue; 0.25x0.25x0.3 m) tucked into narrow passages for camera/LiDAR color-detection workshops | `world_smoke_maze_1_victimas` |
-| `maze_2_6x5.world` | plywood_mazes maze 2, 6x5 m | `world_smoke_maze_2` |
+| `maze_2_6x5.world` | plywood_mazes maze 2, 6x5 m -- ships a matching occupancy map at `maps/maze_2_6x5.yaml` | `world_smoke_maze_2` |
 | `maze_2_6x5_victimas.world` | `maze_2_6x5.world` layout plus five color-marker obstacle cubes (three red, two blue; 0.25x0.25x0.3 m) tucked into narrow passages for camera/LiDAR color-detection workshops | `world_smoke_maze_2_victimas` |
-| `maze_3_6x6.world` | plywood_mazes maze 3, 6x6 m | `world_smoke_maze_3` |
+| `maze_3_6x6.world` | plywood_mazes maze 3, 6x6 m -- ships a matching occupancy map at `maps/maze_3_6x6.yaml` | `world_smoke_maze_3` |
 | `maze_3_6x6_victimas.world` | `maze_3_6x6.world` layout plus five color-marker obstacle cubes (three red, two blue; 0.25x0.25x0.3 m) tucked into narrow passages for camera/LiDAR color-detection workshops | `world_smoke_maze_3_victimas` |
-| `maze_4_metal_6x6.world` | plywood_mazes maze 4, metal panels, 6x6 m | `world_smoke_maze_4` |
+| `maze_4_metal_6x6.world` | plywood_mazes maze 4, metal panels, 6x6 m -- ships a matching occupancy map at `maps/maze_4_metal_6x6.yaml` | `world_smoke_maze_4` |
 | `maze_4_metal_6x6_victimas.world` | `maze_4_metal_6x6.world` layout plus four color-marker obstacle cubes (two red, two blue; 0.25x0.25x0.3 m) tucked into narrow passages for camera/LiDAR color-detection workshops | `world_smoke_maze_4_victimas` |
 
 Walls are 0.5 m tall in all twelve -- clear of the LiDAR (0.11 m) and camera
@@ -725,16 +725,16 @@ The following simulator limitations remain:
   a `world_smoke_*` launch test (spawn validity, no initial collision, a
   forward-motion check, core topics) but not the full rate/message-shape
   contract that the empty and cafe worlds get -- see the "Maze Worlds"
-  section above. Only `laberinto_simple.world` ships a matching occupancy
-  map (`maps/laberinto_simple.yaml`); the others have no pre-built map.
-  `maze_3_6x6.world`'s map was removed -- it no longer matched the world
-  after the maze offset changed in #10, and needs to be re-captured (see
-  #15). The obstacle cubes in `laberinto_simple_victimas.world`,
-  `laberinto_1_victimas.world`, `maze_1_6x5_victimas.world`,
-  `maze_2_6x5_victimas.world`, `maze_3_6x6_victimas.world`, and
-  `maze_4_metal_6x6_victimas.world` have collision but are not part of any
-  map either -- they are meant to be detected live via camera/LiDAR, not
-  pre-mapped.
+  section above. `laberinto_simple.world`, `maze_1_6x5.world`,
+  `maze_2_6x5.world`, `maze_3_6x6.world`, and `maze_4_metal_6x6.world` ship
+  a matching occupancy map (`maps/laberinto_simple.yaml`, `maps/maze_1_6x5.yaml`,
+  `maps/maze_2_6x5.yaml`, `maps/maze_3_6x6.yaml`, and `maps/maze_4_metal_6x6.yaml`
+  respectively); `laberinto_1.world` has no pre-built map. The obstacle cubes
+  in `laberinto_simple_victimas.world`, `laberinto_1_victimas.world`,
+  `maze_1_6x5_victimas.world`, `maze_2_6x5_victimas.world`,
+  `maze_3_6x6_victimas.world`, and `maze_4_metal_6x6_victimas.world` have
+  collision but are not part of any map either -- they are meant to be
+  detected live via camera/LiDAR, not pre-mapped.
 - Multi-robot operation and real-hardware bringup are not provided.
 
 The 0.5-second watchdog publishes zero on normal command loss and orderly
