@@ -538,6 +538,8 @@ def generate_launch_description():
     # A runtime node, not the contract probe. The probe validates and exits, so
     # launching it here left a process that always exits non-zero and broke
     # test_all_processes_exit_cleanly in every launch test including this file.
+    # It aligns against odom -> base_footprint, so it starts with the wheel
+    # odometry that owns that edge rather than with the bridges.
     ground_truth_tf_node = Node(
         package="yahboom_rosmaster_gazebo",
         executable="ground_truth_tf.py",
@@ -603,11 +605,11 @@ def generate_launch_description():
             cmd_vel_watchdog,
             cmd_vel_watchdog_unbiased,
             calculated_odometry_node,
-            ground_truth_tf_node,
         ]),
         TimerAction(period=12.0, actions=[
             load_joint_state_broadcaster,
             wheel_state_odometry,
+            ground_truth_tf_node,
         ]),
         OpaqueFunction(function=_launch_rviz),
     ])
