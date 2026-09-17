@@ -28,6 +28,12 @@ odom_T_world = odom_T_base(initial) * inverse(world_T_base(initial))
 This makes nonzero Gazebo spawn poses safe and preserves subsequent physical
 divergence between wheel odometry and truth.
 
+Because the alignment is captured once, whatever offset exists at that instant
+is frozen into it permanently. The helper therefore starts alongside the wheel
+odometry that owns `odom -> base_footprint`, after the chassis has settled onto
+the ground; an alignment captured mid-settle would bake that transient into
+every later comparison.
+
 The default `ground_truth_frame:=auto` mode initially publishes
 `odom -> ground_truth_base`. If a `map -> odom` transform later appears, the
 helper captures it once:
@@ -47,6 +53,12 @@ map appears. Use `ground_truth_frame:=map` to wait for map rather than publish
 the initial odom form. Another connected localization frame can also be named
 explicitly.
 
+Any mode that names a frame publishes nothing until that frame is connected to
+`odom`, so a frame that never appears — an unstarted localization stack or a
+misspelled argument — leaves `ground_truth_base` absent. The helper warns
+periodically in that case. Automatic mode is exempt: remaining in odom because
+no map exists is its intended default, not a fault.
+
 Because the automatic mode switches the diagnostic child's parent once when a
 map first appears, it is for visualization and evaluation only. If a SLAM
 process is deliberately restarted with a new map coordinate system, restart
@@ -55,7 +67,7 @@ realignment.
 
 ## Regression coverage
 
-The ground-truth tests protect four independent properties:
+The ground-truth tests protect five independent properties:
 
 - the raw topic remains `world -> base_footprint`, has one publisher, uses
   simulation timestamps, and never claims the robot's TF frames;
@@ -64,7 +76,9 @@ The ground-truth tests protect four independent properties:
   correction does not move the truth frame, while new Gazebo motion still does;
 - `ground_truth_frame:=odom` keeps the diagnostic frame parented to odom while
   a map appears and then changes, and it still tracks truth through the fixed
-  odom alignment rather than republishing wheel odometry.
+  odom alignment rather than republishing wheel odometry;
+- `ground_truth_frame:=map` publishes nothing at all until `map -> odom` exists,
+  then holds its fixed alignment through a later correction.
 
 The synthetic map test does not replace an end-to-end run with the challenge's
 SLAM package. That integration run remains a follow-up check.
