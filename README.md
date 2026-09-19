@@ -315,6 +315,21 @@ ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
 | `maze_4_metal_6x6.world` | plywood_mazes maze 4, metal panels, 6x6 m -- ships a matching occupancy map at `maps/maze_4_metal_6x6.yaml` | `world_smoke_maze_4` |
 | `maze_4_metal_6x6_victimas.world` | `maze_4_metal_6x6.world` layout plus four color-marker obstacle cubes (two red, two blue; 0.25x0.25x0.3 m) tucked into narrow passages for camera/LiDAR color-detection workshops | `world_smoke_maze_4_victimas` |
 
+#### Maze Previews
+
+Top-down Gazebo screenshot, its `_victimas` twin, and the occupancy map, all
+centered on the same world-frame bounding box (generate or refresh them with
+`scripts/generate_map_previews.py`):
+
+| Maze | World | Victimas | Occupancy map |
+|------|-------|----------|---------------|
+| `laberinto_simple` | <img src="docs/media/maps/laberinto_simple.png" height="160"> | <img src="docs/media/maps/laberinto_simple_victimas.png" height="160"> | <img src="docs/media/maps/laberinto_simple_occupancy.png" height="160"> |
+| `laberinto_1` | pending -- see [#15](https://github.com/AIRclub-UdeSA/yahboom_rosmaster/issues/15) | pending | no map yet |
+| `maze_1_6x5` | <img src="docs/media/maps/maze_1_6x5.png" height="160"> | <img src="docs/media/maps/maze_1_6x5_victimas.png" height="160"> | <img src="docs/media/maps/maze_1_6x5_occupancy.png" height="160"> |
+| `maze_2_6x5` | <img src="docs/media/maps/maze_2_6x5.png" height="160"> | <img src="docs/media/maps/maze_2_6x5_victimas.png" height="160"> | <img src="docs/media/maps/maze_2_6x5_occupancy.png" height="160"> |
+| `maze_3_6x6` | <img src="docs/media/maps/maze_3_6x6.png" height="160"> | <img src="docs/media/maps/maze_3_6x6_victimas.png" height="160"> | <img src="docs/media/maps/maze_3_6x6_occupancy.png" height="160"> |
+| `maze_4_metal_6x6` | <img src="docs/media/maps/maze_4_metal_6x6.png" height="160"> | <img src="docs/media/maps/maze_4_metal_6x6_victimas.png" height="160"> | <img src="docs/media/maps/maze_4_metal_6x6_occupancy.png" height="160"> |
+
 Walls are 0.5 m tall in all twelve -- clear of the LiDAR (0.11 m) and camera
 (0.05 m) mount heights, but low enough to inspect the layout from the
 Gazebo GUI.
