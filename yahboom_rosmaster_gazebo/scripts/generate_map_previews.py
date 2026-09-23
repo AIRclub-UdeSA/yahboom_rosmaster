@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Prototype: generate a top-down world photo + occupancy-map preview per maze.
+"""
+Prototype: generate a top-down world photo + occupancy-map preview per maze.
 
 For every <world>.yaml under maps/, this:
   - reads origin/resolution + the .pgm's dimensions to get the maze's
@@ -77,7 +78,7 @@ def run_env():
 
 def ign_service(args, env, timeout=5):
     subprocess.run(["ign", "service", *args], env=env,
-                    capture_output=True, timeout=timeout, check=False)
+                   capture_output=True, timeout=timeout, check=False)
 
 
 def screenshot_world(world_file, center_x, center_y, out_png):
