@@ -138,9 +138,8 @@ def generate_launch_description():
         arguments=[
             "-topic", "robot_description",
             "-entity", "rosmaster_x3",
-            # Wheel centres sit at base_footprint z=0 and the wheels have a
-            # 0.0325 m radius, so this rests them exactly on the ground.
-            "-z", "0.0325",
+            # base_footprint is on the floor, so the default z=0 spawn rests
+            # the wheels on the ground.
             # Default is 30 s; a cold conda dyld cache can take longer than that
             # to bring gzserver's /spawn_entity service up.
             "-timeout", "90.0",

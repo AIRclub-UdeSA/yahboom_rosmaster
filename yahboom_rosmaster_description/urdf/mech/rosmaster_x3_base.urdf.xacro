@@ -11,6 +11,13 @@
 <xacro:property name="base_size_y" value="${total_width - (2 * wheel_width)}" />
 <xacro:property name="base_size_z" value="${total_height - (2 * wheel_radius)}" />
 <xacro:property name="base_mass" value="1.5" />  <!-- Real X3: ~1.3 kg chassis+motors+PCBs + ~0.2 kg SBC/mount. Old value 4.6 kg was ~3× too heavy. -->
+<!-- base_footprint is on the floor and base_link sits wheel_axle_drop
+     (mecanum_wheel.urdf.xacro) above the axles, as on the physical X3. The
+     chassis visual, collision and inertia were authored with base_link one
+     wheel radius above the axles (tools/convert_rosmaster_cad.py), so they
+     are shifted by the difference to keep resting on the wheels. -->
+<xacro:property name="base_link_height" value="${wheel_radius + wheel_axle_drop}" />
+<xacro:property name="chassis_origin_z" value="${wheel_radius - wheel_axle_drop}" />
 
 <xacro:macro name="rosmaster_x3_base" params="prefix footprint_inertial:=false">
   <!-- base_footprint is the URDF root and therefore the model's canonical link.
@@ -33,16 +40,16 @@
         <geometry>
             <mesh filename="file://$(find yahboom_rosmaster_description)/meshes/rosmaster_x3/cad_visual/rosmaster_base.obj"/>
         </geometry>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <origin xyz="0 0 ${chassis_origin_z}" rpy="0 0 0"/>
     </visual>
     <collision>
         <geometry>
             <box size="${base_size_x} ${base_size_y} ${base_size_z}"/>
         </geometry>
-        <origin xyz="${base_x_offset} 0 ${base_size_z/2 + wheel_radius/4}" rpy="0 0 0"/>
+        <origin xyz="${base_x_offset} 0 ${base_size_z/2 + wheel_radius/4 + chassis_origin_z}" rpy="0 0 0"/>
     </collision>
     <inertial>
-        <origin xyz="${base_x_offset} 0 ${base_size_z/2 + wheel_radius/4}" rpy="0 0 0"/>
+        <origin xyz="${base_x_offset} 0 ${base_size_z/2 + wheel_radius/4 + chassis_origin_z}" rpy="0 0 0"/>
         <mass value="${base_mass}"/>
         <inertia
             ixx="${(1/12) * base_mass * ((base_size_y * base_size_y) + (base_size_z * base_size_z))}" ixy="0.0" ixz="0.0"
@@ -53,7 +60,7 @@
   <joint name="${prefix}base_joint" type="fixed">
     <parent link="${prefix}base_footprint"/>
     <child link="${prefix}base_link"/>
-    <origin xyz="0 0 ${wheel_radius}" rpy="0 0 0"/>
+    <origin xyz="0 0 ${base_link_height}" rpy="0 0 0"/>
   </joint>
 </xacro:macro>
 </robot>
