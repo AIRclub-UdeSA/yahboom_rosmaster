@@ -330,9 +330,9 @@ centered on the same world-frame bounding box (generate or refresh them with
 | `maze_3_6x6` | <img src="docs/media/maps/maze_3_6x6.png" height="160"> | <img src="docs/media/maps/maze_3_6x6_victimas.png" height="160"> | <img src="docs/media/maps/maze_3_6x6_occupancy.png" height="160"> |
 | `maze_4_metal_6x6` | <img src="docs/media/maps/maze_4_metal_6x6.png" height="160"> | <img src="docs/media/maps/maze_4_metal_6x6_victimas.png" height="160"> | <img src="docs/media/maps/maze_4_metal_6x6_occupancy.png" height="160"> |
 
-Walls are 0.5 m tall in all twelve -- clear of the LiDAR (0.11 m) and camera
-(0.05 m) mount heights, but low enough to inspect the layout from the
-Gazebo GUI.
+Walls are 0.5 m tall in all twelve -- well above the LiDAR (0.18 m above the
+floor) and camera (about 0.12 m), but low enough to inspect the layout from
+the Gazebo GUI.
 
 Every maze world above has a `world_smoke_*` launch test (see
 `test/world_smoke.launch.py`): headless spawn, no initial collision (the
@@ -446,6 +446,9 @@ a physical ROSMASTER X3. See
 
 ### Odometry and TF
 
+- `base_footprint` lies on the floor and `base_link` sits 71.4 mm above it,
+  with the wheel axles 38.9 mm below `base_link`, matching the physical
+  ROSMASTER X3's description.
 - `/joint_states` is published by `joint_state_broadcaster`.
 - `/odom` is integrated from wheel joint positions by
   `wheel_state_odometry.py`.
@@ -714,6 +717,12 @@ truth, profile selection, and TF. The twelve maze/practice worlds each get a
 lighter `world_smoke_*` launch test covering spawn validity, initial
 collisions, a forward-motion check, and core topic liveness -- see "Maze
 Worlds" above.
+
+The robot frames follow the physical ROSMASTER X3: `base_footprint` is on the
+floor and `base_link` is 71.4 mm above it. Until #42 the simulator placed
+`base_footprint` at wheel-axle height (32.5 mm up) and `base_link` at 65 mm, so
+anything that compensated for those offsets must drop the compensation. Work to
+match the remaining sensors to the physical robot is tracked in #43.
 
 The following simulator limitations remain:
 
