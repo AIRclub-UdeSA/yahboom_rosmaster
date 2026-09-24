@@ -133,9 +133,10 @@ The script runs the description contract; the motion-profile, practice-world,
 launch-shutdown, and sensor-probe unit contracts; the empty-world
 sensor-correctness, base-feedback, ground-truth, ideal-motion, and
 wheel-odometry-resilience launch contracts. It also selects the ideal-yaw
-contract when that target is present. Tests run sequentially, return a failing
-status to CI, and always print the complete
-`colcon test-result --verbose --all` report.
+contract when that target is present, plus the ament `flake8`, `pep257`,
+`xmllint`, and `lint_cmake` targets of both packages, which add only a few
+seconds. Tests run sequentially, return a failing status to CI, and always
+print the complete `colcon test-result --verbose --all` report.
 
 The CI sensor target checks messages, payloads, frames, increasing timestamps,
 and timestamped-TF connectivity. It intentionally leaves software-rendering
@@ -146,8 +147,8 @@ sensor regression.
 This gate is deliberately representative so that every pull request stays
 within a reasonable runtime. It does not replace the full development checks:
 the second sensor world, stress profile, depth/LiDAR geometry and IMU-motion
-contracts, all eight practice-world smoke tests, and the repository's complete
-lint/test suite remain local/manual checks before review. Run the full suite as
+contracts, all eight practice-world smoke tests, and the lint/test suites of the
+other packages remain local/manual checks before review. Run the full suite as
 documented in [Development Checks](README.md#development-checks) when your
 change can affect those paths.
 

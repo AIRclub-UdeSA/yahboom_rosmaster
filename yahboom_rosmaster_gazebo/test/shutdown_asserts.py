@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Shared post-shutdown exit-code contract for the simulator launch tests.
+"""
+Shared post-shutdown exit-code contract for the simulator launch tests.
 
 The launch file force-kills Gazebo with SIGKILL when its service-requested
 clean stop stalls past GAZEBO_CLEAN_STOP_TIMEOUT, because the SIGINT fallback

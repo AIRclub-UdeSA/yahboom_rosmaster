@@ -225,7 +225,8 @@ def _wait_for_process_stop(
 
 
 def _stop_bridge_process(process, label, logger, timeout=2.0):
-    """Stop a transport-bridge consumer before its Gazebo publishers disappear.
+    """
+    Stop a transport-bridge consumer before its Gazebo publishers disappear.
 
     ros_gz bridge processes (parameter_bridge, image_bridge) can segfault
     during their own SIGINT teardown if Gazebo's transport node vanishes out
@@ -258,7 +259,8 @@ def _stop_bridge_process(process, label, logger, timeout=2.0):
 
 
 def _kill_gazebo_server(gazebo_server, logger):
-    """Force-kill Gazebo after its service-requested stop stalls.
+    """
+    Force-kill Gazebo after its service-requested stop stalls.
 
     SIGINT is caught by ign gazebo's own handler and re-enters
     Server::Stop() -> SensorsPrivate::Stop(), which can join the render
