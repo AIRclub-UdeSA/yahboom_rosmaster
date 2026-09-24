@@ -27,7 +27,9 @@
 # A simulator parity entry is a mapping with:
 #   nominal           value configured on main (xacro, bridge, controller or
 #                     node configuration).
-#   measured          value observed on main with the physical probe (step 2).
+#   measured          value observed on main with the physical probe (step 2),
+#                     or by a later step listed in step_measurements under
+#                     simulator.provenance.
 #   contract          [min, max] graded by the simulator's probes (rates only).
 #   matches_physical  true or false. real_robot_contract_test.py checks it
 #                     against the physical value at the same key whenever both
@@ -373,6 +375,22 @@ simulator:
         A 320x240 camera at 30 Hz halves the real-time factor on CI's
         llvmpipe (0.45-0.51; 0.957 on the host GPU). It still renders at 30 Hz
         in sim time. That is step 5's concern.
+    # Later #43 steps re-measure only the entries they change. Every measured
+    # value not listed here comes from the step-2 baseline above.
+    step_measurements:
+      - step: 4
+        commit: d7b19796457a9a4fb29b3494bba51b37a251fe7c
+        measured_on: "2026-09-24"
+        keys:
+          - frames.mounts.cam_1_link
+          - frames.mounts.cam_1_depth_frame
+          - frames.mounts.cam_1_color_frame
+          - frames.camera_frames
+        method: >
+          tf2 lookups from base_link on robot_state_publisher's /tf_static,
+          empty.world, headless, host GPU. Gazebo renders from the new mount:
+          the bottom image row reads the floor at 0.20368 m, as a camera
+          108.95 mm above it predicts.
 
   frames:
     base_footprint_to_base_link_z_m:
@@ -385,16 +403,19 @@ simulator:
     mounts:
       cam_1_link:
         nominal: {xyz: [0.057105, 0.000017948, 0.03755], rpy: [0.0, 0.0, 0.0]}
+        measured: {xyz: [0.057105, 0.000017948, 0.03755], rpy: [0.0, 0.0, 0.0]}
         matches_physical: true
         note: >
           #43 step 4; was (0.105, 0, 0.05). The Gazebo RGB-D camera renders
           from here, and cad_visual/camera.obj is generated relative to it.
       cam_1_depth_frame:
         nominal: {xyz: [0.057105, 0.000017948, 0.03755], rpy: [0.0, 0.0, 0.0]}
+        measured: {xyz: [0.057105, 0.000017948, 0.03755], rpy: [0.0, 0.0, 0.0]}
         matches_physical: true
         note: '#43 step 4. Identity to cam_1_link, as on the physical robot.'
       cam_1_color_frame:
         nominal: {xyz: [0.054937, 0.025094, 0.037410], rpy: [-0.000336, 0.004697, 0.003574]}
+        measured: {xyz: [0.054937, 0.025094, 0.037410], rpy: [-0.000336, 0.004697, 0.003574]}
         matches_physical: true
         note: >
           #43 step 4; was co-located with the depth frame. The Orbbec factory
@@ -413,6 +434,12 @@ simulator:
         note: rpy is pi and pi/2 truncated to 4 decimals.
     camera_frames:
       nominal:
+        - cam_1_link
+        - cam_1_depth_frame
+        - cam_1_depth_optical_frame
+        - cam_1_color_frame
+        - cam_1_color_optical_frame
+      measured:
         - cam_1_link
         - cam_1_depth_frame
         - cam_1_depth_optical_frame
