@@ -102,8 +102,9 @@ physical:
       note: >
         About +/-2 mm. The xacro predicts 0.10895 m, which confirms the
         0.0714 m base_link height. The camera setback shows camera_link.STL
-        and camera_mount_joint are right and cad_visual/camera.obj is drawn
-        58.9 mm too far back (physical_rosmaster#33).
+        and camera_mount_joint are right and physical_rosmaster's copy of
+        cad_visual/camera.obj is drawn 58.9 mm too far back
+        (physical_rosmaster#33).
 
   wheels:
     confidence: inferred
@@ -383,21 +384,23 @@ simulator:
         base_footprint is on the floor.
     mounts:
       cam_1_link:
-        nominal: {xyz: [0.105, 0.0, 0.05], rpy: [0.0, 0.0, 0.0]}
-        tolerance: 0.001
-        matches_physical: false
-        closes_in_step: 4
+        nominal: {xyz: [0.057105, 0.000017948, 0.03755], rpy: [0.0, 0.0, 0.0]}
+        matches_physical: true
+        note: >
+          #43 step 4; was (0.105, 0, 0.05). The Gazebo RGB-D camera renders
+          from here, and cad_visual/camera.obj is generated relative to it.
       cam_1_depth_frame:
-        nominal: {xyz: [0.105, 0.0, 0.05], rpy: [0.0, 0.0, 0.0]}
-        tolerance: 0.001
-        matches_physical: false
-        closes_in_step: 4
+        nominal: {xyz: [0.057105, 0.000017948, 0.03755], rpy: [0.0, 0.0, 0.0]}
+        matches_physical: true
+        note: '#43 step 4. Identity to cam_1_link, as on the physical robot.'
       cam_1_color_frame:
-        nominal: {xyz: [0.105, 0.0, 0.05], rpy: [0.0, 0.0, 0.0]}
-        tolerance: 0.001
-        matches_physical: false
-        closes_in_step: 4
-        note: Co-located with the depth frame, because Fortress renders RGB-D from one aperture.
+        nominal: {xyz: [0.054937, 0.025094, 0.037410], rpy: [-0.000336, 0.004697, 0.003574]}
+        matches_physical: true
+        note: >
+          #43 step 4; was co-located with the depth frame. The Orbbec factory
+          calibration of Astra ACRC64300ET, 25.1 mm left of depth; another
+          unit differs slightly. The images are still rendered from cam_1_link
+          and labelled cam_1_depth_optical_frame until step 5.
       laser_link:
         nominal: {xyz: [0.043, 0.0, 0.110], rpy: [0.0, 0.0, 3.141592653589793]}
         tolerance: 0.001

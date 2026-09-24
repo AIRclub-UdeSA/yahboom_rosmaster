@@ -22,10 +22,52 @@ DEPTH_TOPIC = "/cam_1/depth/image_raw"
 COLOR_INFO_TOPIC = "/cam_1/color/camera_info"
 DEPTH_INFO_TOPIC = "/cam_1/depth/camera_info"
 POINTS_TOPIC = "/cam_1/depth/color/points"
-COLOR_OPTICAL_ALIAS = "cam_1_color_optical_frame"
-COLOR_FRAME_ALIAS = "cam_1_color_frame"
+COLOR_FRAME = "cam_1_color_frame"
+COLOR_OPTICAL_FRAME = "cam_1_color_optical_frame"
+# REP 103 optical rotation of each *_optical_frame from its parent frame.
+OPTICAL_RPY = (-math.pi / 2.0, 0.0, -math.pi / 2.0)
+# Resolved camera TF must reproduce the ledger's poses to 1 um and 1 urad.
+CAMERA_TF_TOLERANCE = 1e-6
 OFF_AXIS_COLUMN_OFFSET = 40
 OFF_AXIS_ROW_OFFSET = 20
+
+
+def pose_matrix(xyz, rpy):
+    """Return the homogeneous transform of a URDF xyz/rpy origin."""
+    roll, pitch, yaw = rpy
+    cos_r, sin_r = math.cos(roll), math.sin(roll)
+    cos_p, sin_p = math.cos(pitch), math.sin(pitch)
+    cos_y, sin_y = math.cos(yaw), math.sin(yaw)
+    matrix = np.eye(4)
+    matrix[:3, :3] = (
+        np.array(((cos_y, -sin_y, 0.0), (sin_y, cos_y, 0.0), (0.0, 0.0, 1.0)))
+        @ np.array(((cos_p, 0.0, sin_p), (0.0, 1.0, 0.0), (-sin_p, 0.0, cos_p)))
+        @ np.array(((1.0, 0.0, 0.0), (0.0, cos_r, -sin_r), (0.0, sin_r, cos_r)))
+    )
+    matrix[:3, 3] = xyz
+    return matrix
+
+
+def transform_matrix(transform):
+    """Return the homogeneous matrix of a geometry_msgs Transform."""
+    x, y, z, w = (
+        transform.rotation.x,
+        transform.rotation.y,
+        transform.rotation.z,
+        transform.rotation.w,
+    )
+    matrix = np.eye(4)
+    matrix[:3, :3] = (
+        (1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)),
+        (2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)),
+        (2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)),
+    )
+    matrix[:3, 3] = (
+        transform.translation.x,
+        transform.translation.y,
+        transform.translation.z,
+    )
+    return matrix
 
 
 class DepthGeometryProbe(Node):
@@ -35,7 +77,8 @@ class DepthGeometryProbe(Node):
         super().__init__("depth_geometry_probe")
         self.declare_parameter("timeout", 45.0)
         self.declare_parameter("samples", 10)
-        self.declare_parameter("expected_depth", 0.695)
+        # depth_geometry.launch.py derives this from the ledger's camera mount.
+        self.declare_parameter("expected_depth", 0.743)
         self.declare_parameter("depth_tolerance", 0.03)
         self.declare_parameter("target_red_pixels", 500)
         self.declare_parameter("minimum_valid_fraction", 0.02)
@@ -63,6 +106,15 @@ class DepthGeometryProbe(Node):
             f"topics.{POINTS_TOPIC}.frame_id")
         self.depth_near = contract.nominal("depth.min_range_m")
         self.depth_far = contract.nominal("depth.max_range_m")
+        # Camera frame poses on base_link, from the ledger's mounts. The color
+        # frames sit at the physical unit's calibrated offset from depth.
+        optical = pose_matrix((0.0, 0.0, 0.0), OPTICAL_RPY)
+        self.camera_poses = {}
+        for sensor in ("depth", "color"):
+            frame = f"cam_1_{sensor}_frame"
+            pose = pose_matrix(**contract.nominal(f"frames.mounts.{frame}"))
+            self.camera_poses[frame] = pose
+            self.camera_poses[f"cam_1_{sensor}_optical_frame"] = pose @ optical
 
         self.observations = {
             COLOR_TOPIC: [],
@@ -395,7 +447,7 @@ class DepthGeometryProbe(Node):
                 break
 
     def validate_registered_frame_contract(self, coherent_stamps, errors):
-        """Validate stream headers and co-located color/depth TF aliases."""
+        """Validate stream headers and the calibrated color/depth offset."""
         if not coherent_stamps:
             return
 
@@ -430,41 +482,38 @@ class DepthGeometryProbe(Node):
                 break
 
         stamp = Time(nanoseconds=coherent_stamps[-1])
-        for depth_frame, color_alias in (
-                (self.expected_cloud_frame, COLOR_FRAME_ALIAS),
-                (self.expected_image_frame, COLOR_OPTICAL_ALIAS)):
+        for depth_frame, color_frame in (
+                (self.expected_cloud_frame, COLOR_FRAME),
+                (self.expected_image_frame, COLOR_OPTICAL_FRAME)):
             try:
                 transform = self.tf_buffer.lookup_transform(
                     depth_frame,
-                    color_alias,
+                    color_frame,
                     stamp,
                     timeout=Duration(seconds=0.2),
                 ).transform
             except TransformException as exception:
                 errors.append(
                     "registered camera TF: cannot resolve "
-                    f"{depth_frame} <- {color_alias} at the sensor stamp: "
+                    f"{depth_frame} <- {color_frame} at the sensor stamp: "
                     f"{exception}")
                 continue
 
-            translation = transform.translation
-            rotation = transform.rotation
-            translation_norm = math.sqrt(
-                translation.x ** 2
-                + translation.y ** 2
-                + translation.z ** 2)
-            vector_rotation_norm = math.sqrt(
-                rotation.x ** 2 + rotation.y ** 2 + rotation.z ** 2)
-            if (
-                    translation_norm > 1e-8
-                    or vector_rotation_norm > 1e-8
-                    or not math.isclose(abs(rotation.w), 1.0, abs_tol=1e-8)):
+            actual = transform_matrix(transform)
+            expected = (
+                np.linalg.inv(self.camera_poses[depth_frame])
+                @ self.camera_poses[color_frame])
+            translation_error = np.linalg.norm(actual[:3, 3] - expected[:3, 3])
+            cosine = (np.trace(actual[:3, :3].T @ expected[:3, :3]) - 1.0) / 2.0
+            rotation_error = math.acos(max(-1.0, min(1.0, cosine)))
+            if max(translation_error, rotation_error) > CAMERA_TF_TOLERANCE:
                 errors.append(
-                    "registered camera TF: expected identity transform "
-                    f"{depth_frame} <- {color_alias}, got translation "
-                    f"({translation.x}, {translation.y}, {translation.z}) "
-                    "and rotation "
-                    f"({rotation.x}, {rotation.y}, {rotation.z}, {rotation.w})")
+                    "registered camera TF: "
+                    f"{depth_frame} <- {color_frame} is "
+                    f"{translation_error * 1000:.4f} mm and "
+                    f"{rotation_error:.2e} rad from the ledger's calibrated "
+                    f"offset; got translation {actual[:3, 3].tolist()}, "
+                    f"expected {expected[:3, 3].tolist()}")
 
     def validate(self):
         errors = list(self.capture_errors)

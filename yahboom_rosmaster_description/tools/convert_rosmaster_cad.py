@@ -89,13 +89,13 @@ EXPECTED_BOUNDS = {
     "back_left": ((-0.032222, -0.017601, -0.032249), (0.032222, 0.017601, 0.032249)),
     "back_right": ((-0.032292, -0.017601, -0.032249), (0.032292, 0.017601, 0.032249)),
     "lidar": ((-0.039479, -0.035132, -0.041243), (0.058013, 0.036647, 0.015802)),
-    "camera": ((-0.098967, -0.082216, -0.043243), (-0.038773, 0.081987, 0.009424)),
+    "camera": ((-0.041070, -0.082232, -0.030791), (0.019121, 0.081968, 0.021873)),
 }
 
 # Link origins relative to base_link. These are deliberately duplicated from
 # xacro so visual baking cannot silently move a functional sensor frame.
 SENSOR_LINK_POSES = {
-    "camera": (np.array([0.105, 0.0, 0.050]), 0.0),
+    "camera": (np.array([0.057105, 0.000017948, 0.03755]), 0.0),
     "lidar": (np.array([0.043, 0.0, 0.110]), math.pi),
 }
 
@@ -237,15 +237,14 @@ def _build_groups(
     ] = defaultdict(lambda: defaultdict(list))
     for key, key_parts in parts.items():
         for part in key_parts:
-            vertices = part.vertices.copy()
+            vertices = part.vertices
             local_normals = _cad_normal_to_ros(part.normals)
             if key in wheel_keys:
                 local_vertices = _cad_to_ros(vertices - wheel_centers[key])
             else:
-                # The website shifts the camera 10 mm rearward in CAD z before
-                # applying the same cyclic CAD-to-ROS coordinate mapping.
-                if key == "camera":
-                    vertices[:, 2] -= 10.0
+                # The challenge website shifts the camera 10 mm rearward; this
+                # tool does not. Unshifted, the housing front sits 40 mm behind
+                # the chassis front, as tape-measured on the physical X3.
                 local_vertices = _cad_to_ros(vertices) + assembly_offset
                 if key in SENSOR_LINK_POSES:
                     translation, yaw = SENSOR_LINK_POSES[key]
