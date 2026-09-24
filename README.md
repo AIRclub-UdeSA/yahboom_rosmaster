@@ -331,7 +331,7 @@ centered on the same world-frame bounding box (generate or refresh them with
 | `maze_4_metal_6x6` | <img src="docs/media/maps/maze_4_metal_6x6.png" height="160"> | <img src="docs/media/maps/maze_4_metal_6x6_victimas.png" height="160"> | <img src="docs/media/maps/maze_4_metal_6x6_occupancy.png" height="160"> |
 
 Walls are 0.5 m tall in all twelve -- well above the LiDAR (0.18 m above the
-floor) and camera (about 0.12 m), but low enough to inspect the layout from
+floor) and camera (0.109 m), but low enough to inspect the layout from
 the Gazebo GUI.
 
 Every maze world above has a `world_smoke_*` launch test (see
@@ -506,14 +506,18 @@ per-environment QoS overrides. `sensor_contract_probe.py` asserts this on
 every launch test via `validate_qos`. `/joint_states`, `/odom`, and
 `/imu/data` remain Reliable, also matching the physical robot.
 
-The current camera is an idealized, pre-registered, single-aperture RGB-D
-model. Fortress renders the combined color and depth streams from one pose, so
-all four image and camera-information topics use
-`cam_1_depth_optical_frame`. The compatibility aliases `cam_1_color_frame` and
-`cam_1_color_optical_frame` remain available in TF but are co-located with the
-corresponding depth frames. This nominal model does not claim the independently
-calibrated color/depth extrinsics of the physical camera represented by the
-visual mesh.
+The camera frames match the physical X3. `cam_1_link` and
+`cam_1_depth_frame` sit at its camera mount,
+`(0.057105, 0.000017948, 0.03755) m` from `base_link` and 109 mm above the
+floor. `cam_1_color_frame` and
+`cam_1_color_optical_frame` sit 25.1 mm to the left, at the factory
+calibration of the physical robot's Astra. The simulator publishes no
+`cam_1_infra1_*` or `cam_1_infra2_*` frames. The current camera is an
+idealized, pre-registered, single-aperture RGB-D model: Fortress renders color
+and depth from `cam_1_link`, so all four image and camera-information topics
+use `cam_1_depth_optical_frame`. The physical robot registers depth to color
+and labels all four `cam_1_color_optical_frame`; #43 step 5 moves the
+simulator's rendering there.
 
 ## Verify the Simulator
 
@@ -568,7 +572,7 @@ ros2 topic echo /cam_1/depth/camera_info --once
 The repository registers a headless contract for both supported worlds plus
 known-geometry and commanded-motion gates. Together they validate ten-message
 delivery, nominal rates, first-message latency, timestamped TF, RGB-D geometry,
-registered color/depth frame origins, LiDAR geometry and handedness, IMU axes,
+the calibrated color/depth frame offset, LiDAR geometry and handedness, IMU axes,
 mecanum wheel signs, odometry/TF agreement, and odometry
 rewind/discontinuity handling. They also verify the ground-truth topic and the
 ideal-versus-stress motion-profile contract:
@@ -721,8 +725,13 @@ Worlds" above.
 The robot frames follow the physical ROSMASTER X3: `base_footprint` is on the
 floor and `base_link` is 71.4 mm above it. Until #42 the simulator placed
 `base_footprint` at wheel-axle height (32.5 mm up) and `base_link` at 65 mm, so
-anything that compensated for those offsets must drop the compensation. Work to
-match the remaining sensors to the physical robot is tracked in #43.
+anything that compensated for those offsets must drop the compensation. The
+camera frames follow the physical robot too (#43 step 4): `cam_1_link` moved
+from `(0.105, 0, 0.05) m` to the physical mount `(0.057105, 0.000017948, 0.03755) m`,
+the color frames moved 25.1 mm left of depth to their calibrated offset, and
+the `cam_1_infra1_*` and `cam_1_infra2_*` frames were removed. Anything that
+hard-coded the old camera pose or looked up an infra frame must be updated.
+Work to match the remaining sensors to the physical robot is tracked in #43.
 `yahboom_rosmaster_gazebo/config/real_robot_contract.yaml` records the physical
 robot's measurements, the simulator's current values, and the #43 step that
 closes each difference. The sensor contract probes read their expected values
@@ -737,9 +746,9 @@ The following simulator limitations remain:
   separate future calibration layers.
 - Sensor data is nominal simulation output. The camera, LiDAR, and IMU models
   have not been calibrated against measurements from the physical robot. The
-  combined RGB-D model is deliberately pre-registered at one color/depth
-  origin; a measured physical baseline requires independently rendered sensors
-  and is deferred until real camera calibration is available.
+  combined RGB-D model renders color and depth from the depth frame, although
+  TF places the color frames at the physical camera's calibrated offset; #43
+  step 5 moves the rendering to the color frame.
 - The Fortress bridge leaves LiDAR `scan_time` unspecified at zero. The GPU
   LiDAR is an instantaneous snapshot model, so `time_increment=0` is
   intentional. Tests verify the 0.2-second period from consecutive simulation
