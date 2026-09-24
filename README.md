@@ -476,19 +476,20 @@ a physical ROSMASTER X3. See
 | `/tf_static` | `tf2_msgs/msg/TFMessage` | — | Static robot transforms |
 | `/scan` | `sensor_msgs/msg/LaserScan` | `laser_link` / 5 Hz | 1080-sample 2D LiDAR scan |
 | `/imu/data` | `sensor_msgs/msg/Imu` | `imu_link` / 10 Hz | Simulated IMU data |
-| `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | `cam_1_depth_optical_frame` / 5 Hz | 424x240 `rgb8` image |
-| `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | `cam_1_depth_optical_frame` / 5 Hz | 424x240 `32FC1` depth in metres |
-| `/cam_1/color/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_depth_optical_frame` / 5 Hz | RGB camera intrinsics |
-| `/cam_1/depth/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_depth_optical_frame` / 5 Hz | Depth camera intrinsics |
-| `/cam_1/depth/color/points` | `sensor_msgs/msg/PointCloud2` | `cam_1_depth_frame` / 5 Hz | Organized XYZRGB point cloud, bridged lazily |
+| `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | `cam_1_color_optical_frame` / 30 Hz | 320x240 `rgb8` image |
+| `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | `cam_1_color_optical_frame` / 30 Hz | 320x240 `32FC1` depth in metres, registered to color |
+| `/cam_1/color/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_color_optical_frame` / 30 Hz | fx = fy = 271.809, (cx, cy) = (159.5, 119.5), `plumb_bob` with zero distortion |
+| `/cam_1/depth/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_color_optical_frame` / 30 Hz | Same as color: depth is registered to color |
+| `/cam_1/depth/color/points` | `sensor_msgs/msg/PointCloud2` | `cam_1_depth_frame` / up to 30 Hz | Organized 320x240 XYZRGB point cloud, bridged lazily; drops some frames |
 
 The images and camera information use the ROS optical convention (+Z forward,
-+X right, +Y down). Gazebo's native point cloud is correctly labelled in the
-camera's regular sensor frame (+X forward, +Y left, +Z up); TF provides the
-fixed transform between the two frames. Fortress stamps its native cloud with
-the optical frame id, so the bridge publishes it to the private handoff topic
-`/internal/cam_1/points_raw` and `pointcloud_frame_relay.py` relabels the
-header to the true frame before publishing `/cam_1/depth/color/points`.
++X right, +Y down). The point cloud uses the regular `cam_1_depth_frame` (+X
+forward, +Y left, +Z up), as on the physical robot; TF provides the fixed
+transforms between the frames. Gazebo computes its native cloud in the
+camera's own frame, `cam_1_color_frame`, and stamps it with the optical frame
+id, so the bridge publishes it to the private handoff topic
+`/internal/cam_1/points_raw`. `pointcloud_frame_relay.py` then transforms its
+points into `cam_1_depth_frame` before publishing `/cam_1/depth/color/points`.
 Topics under `/internal/` are implementation details: subscribe to the public
 contract topics instead.
 
@@ -512,12 +513,21 @@ The camera frames match the physical X3. `cam_1_link` and
 floor. `cam_1_color_frame` and
 `cam_1_color_optical_frame` sit 25.1 mm to the left, at the factory
 calibration of the physical robot's Astra. The simulator publishes no
-`cam_1_infra1_*` or `cam_1_infra2_*` frames. The current camera is an
-idealized, pre-registered, single-aperture RGB-D model: Fortress renders color
-and depth from `cam_1_link`, so all four image and camera-information topics
-use `cam_1_depth_optical_frame`. The physical robot registers depth to color
-and labels all four `cam_1_color_optical_frame`; #43 step 5 moves the
-simulator's rendering there.
+`cam_1_infra1_*` or `cam_1_infra2_*` frames.
+
+The camera itself matches the physical Astra's interface too. Both streams
+are 320x240 at 30 Hz, with the Astra's color focal length (a 60.97 degree
+horizontal field of view) and no distortion. The Astra registers depth to
+color, and the simulator models exactly that: Fortress renders color and depth
+from one aperture at `cam_1_color_frame`, and all four image and
+camera-information topics are labelled `cam_1_color_optical_frame`, as on the
+robot. A color pixel and the depth pixel at the same coordinates see the same
+point. The principal point is the rendered image centre, (159.5, 119.5), 0.8
+and 0.6 px from the physical unit's (158.719, 120.092): Fortress cannot render
+an off-centre one. Everything else about the depth is still nominal and
+idealized, with no measured noise, scale error, 0.6 m minimum range or
+dropouts (#43 step 7). The point cloud keeps Gazebo's organized layout and
+has none of the physical cloud's timing yet (#43 step 6).
 
 ## Verify the Simulator
 
@@ -731,6 +741,17 @@ from `(0.105, 0, 0.05) m` to the physical mount `(0.057105, 0.000017948, 0.03755
 the color frames moved 25.1 mm left of depth to their calibrated offset, and
 the `cam_1_infra1_*` and `cam_1_infra2_*` frames were removed. Anything that
 hard-coded the old camera pose or looked up an infra frame must be updated.
+
+**The camera changed in #43 step 5, which breaks code built against the old
+one.** Both streams went from 424x240 at 5 Hz with an 87 degree field of view
+to the physical Astra's 320x240 at 30 Hz and 60.97 degrees (fx = fy = 271.809).
+Gazebo now renders from `cam_1_color_frame`. The four image and
+camera-information topics are labelled `cam_1_color_optical_frame` instead of
+`cam_1_depth_optical_frame`. Code that reads `camera_info` and the header frame
+adapts on its own. Anything that hard-coded the old resolution, intrinsics,
+rate or image frame must be updated. The point cloud stays in
+`cam_1_depth_frame` with the same layout, now at up to 30 Hz.
+
 Work to match the remaining sensors to the physical robot is tracked in #43.
 `yahboom_rosmaster_gazebo/config/real_robot_contract.yaml` records the physical
 robot's measurements, the simulator's current values, and the #43 step that
@@ -744,11 +765,16 @@ The following simulator limitations remain:
   contact values are fitted against synchronized wheel odometry and external
   ground truth. Motor, encoder, floor, latency, and battery effects remain
   separate future calibration layers.
-- Sensor data is nominal simulation output. The camera, LiDAR, and IMU models
-  have not been calibrated against measurements from the physical robot. The
-  combined RGB-D model renders color and depth from the depth frame, although
-  TF places the color frames at the physical camera's calibrated offset; #43
-  step 5 moves the rendering to the color frame.
+- Sensor data is nominal simulation output. The camera's geometry,
+  resolution, intrinsics and rate follow the physical Astra, but its depth is
+  ideal: none of the measured noise, scale error, minimum range or dropouts
+  (#43 step 7). The LiDAR and IMU models have not been calibrated against
+  measurements from the physical robot (#43 step 8).
+- The 30 Hz camera is the heaviest sensor to render. With a GPU the simulator
+  runs at about 0.95x real time. Under software rendering (llvmpipe, as on CI
+  runners), it drops to about 0.4x with 4 CPUs. The sensors keep their rates
+  in simulation time, but everything takes about 2.5 times longer in wall
+  time.
 - The Fortress bridge leaves LiDAR `scan_time` unspecified at zero. The GPU
   LiDAR is an instantaneous snapshot model, so `time_increment=0` is
   intentional. Tests verify the 0.2-second period from consecutive simulation

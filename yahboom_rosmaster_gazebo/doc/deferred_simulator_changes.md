@@ -82,10 +82,8 @@ The camera frames follow the physical X3 (#43 step 4). The values are in
 - The `cam_1_infra1_*` and `cam_1_infra2_*` frames are gone; the physical
   robot publishes neither.
 
-The Gazebo camera still renders from `cam_1_link` and labels its images
-`cam_1_depth_optical_frame`. Step 5 moves it to the color frame, matches the
-physical 320x240, 30 Hz, 60.97-degree camera, and relabels the images
-`cam_1_color_optical_frame`, as the physical robot publishes them.
+Since step 5 the Gazebo camera renders from `cam_1_color_frame`; see "Camera
+sensor model" below.
 
 ### Camera visual
 
@@ -112,14 +110,77 @@ decision; `enable_collision` is off.
 
 ### Self-occlusion
 
-The render origin now sits inside the housing, 19 mm behind its front face.
-The 0.05 m near clip hides the whole housing; recheck this if the near clip ever
-drops below 19 mm. Beyond the near clip, the
-chassis front edge passes 4.6 mm below the bottom of the current 56.5-degree
-vertical field of view, and 11.1 mm below step 5's 47.6 degrees. Raw
-`/cam_1/color/image_raw` and `/cam_1/depth/image_raw` frames in the empty world
-show no robot pixels at either field of view, so the camera needs no visibility
-mask.
+The render origin, `cam_1_color_frame` since step 5, sits inside the housing,
+21 mm behind its front face. The 0.05 m near clip hides the whole housing;
+recheck this if the near clip ever drops below 21 mm. Beyond the near clip,
+the chassis front edge passes 9.7 mm below the bottom of the 47.6-degree
+vertical field of view. The color frame's 0.27-degree downward pitch and its
+position 2.2 mm further back take 1.4 mm off the 11.1 mm that step 4 found from
+`cam_1_link`. At step 4's 56.5 degrees from `cam_1_link` the margin was
+4.6 mm. Raw `/cam_1/depth/image_raw` frames in the empty world show no robot
+pixels at either step: every finite pixel within 0.5 m is floor to within
+1 um, and the bottom row sees the floor 0.245 m away. The camera needs no
+visibility mask.
+
+## Camera sensor model (implemented)
+
+The camera follows the physical Astra's interface (#43 step 5). The values are
+in `config/real_robot_contract.yaml`.
+
+- Both streams are 320x240 at 30 Hz with the color intrinsics of
+  physical_rosmaster's `camera_public.json`: fx = fy = 271.80938720703125,
+  `plumb_bob` with zero coefficients. `rgbd_camera.urdf.xacro` derives the
+  horizontal FOV Gazebo renders from, 1.0640610 rad (60.97 degrees). With the
+  1 ms physics step, `update_rate` 30 fires every 33 ms of sim time, so the
+  stamps run at 30.3 Hz. That is the closest the step allows: 34 ms would
+  give 29.4 Hz.
+- Gazebo renders from `cam_1_color_frame`, and all four image and
+  `camera_info` topics carry `cam_1_color_optical_frame`. The Astra registers
+  depth to color, so one aperture at the color frame is the physical model,
+  not a simplification. URDF-to-SDF lumping carries the frame's 25.1 mm
+  offset and 0.34-degree rotation into the sensor pose.
+- **The principal point cannot follow the physical unit.** Fortress
+  (gz-sensors 6.9, gz-rendering 6.6) writes `<intrinsics>` and `<projection>`
+  into `camera_info`, but `Ogre2DepthCamera` does not override
+  `SetProjectionMatrix`, so the RGB-D camera always renders a symmetric frustum
+  from the FOV. Principal points of (158.719, 120.092), (160, 120) and
+  (140, 100) produced bit-identical color, depth and cloud data; only
+  `camera_info` changed. A straight-line fit of Gazebo's own cloud rays puts
+  the rendered axis at (159.5, 119.5) in ROS pixel coordinates (pixel centres
+  at integers), with 7e-5 px residual. A red box's edges land in the depth
+  image on the columns and rows that axis predicts (97-242, 82-154), not on
+  those of (160, 120) or (158.719, 120.092). The simulator publishes
+  (159.5, 119.5): 0.78 px and 0.59 px from physical, recorded as ledger
+  tolerances. Gazebo's default of width / 2 would be half a pixel off its own
+  image.
+- Gazebo's native cloud is expressed in the sensor's regular frame, now
+  `cam_1_color_frame`. `pointcloud_frame_relay.py` used to relabel it
+  `cam_1_depth_frame`, which would now be 25 mm and 0.34 degrees wrong. The
+  relay instead transforms every finite point with the static
+  `cam_1_depth_frame` <- `cam_1_color_frame` transform, as physical_rosmaster's
+  `sensor_adapter.py` does, and keeps Gazebo's organized 24-byte layout for
+  step 6 to replace. It costs 1.6 ms per cloud. Back to back on the host GPU,
+  the cloud reached 25.2 Hz on the probe against 27.1 Hz with the
+  relabel-only relay (26.7 Hz in the final measurement). Keep its arithmetic
+  element-wise: a numpy matrix product
+  ran on a multithreaded BLAS whose spinning threads took 8.5 cores and cut the
+  real-time factor to 0.77.
+- `depth_geometry` checks the rendering origin through parallax. Its target
+  is centred on the depth aperture, so from the color aperture its centroid
+  sits at 169.5 px against 159.5 px from the depth aperture. It also checks
+  that each sampled cloud point lies within 5 mm of the depth image's point
+  transformed into `cam_1_depth_frame`.
+
+### Rendering cost
+
+On the host GPU (Radeon Renoir) the simulator runs at a real-time factor of
+0.95 with the 30 Hz camera, against 0.996 at 5 Hz. CI's software rendering
+(llvmpipe, reproduced with 4 pinned CPUs) drops to 0.38, against 0.87 at
+5 Hz. Every sensor keeps its sim-time rate there, so stamp-based checks pass,
+but wall-clock rates read low: 11.7 Hz for the images, and the cloud misses
+more than half its frames (13.0 Hz on stamps). The CI contract gate grades no
+rates and ran in about 125 s locally under those conditions. Lowering the
+camera for CI would stop CI testing the camera that ships (#43 decision D1).
 
 ## Legacy mesh removal
 

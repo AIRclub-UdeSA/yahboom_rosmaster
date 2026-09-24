@@ -25,12 +25,12 @@ The `simulator` section mirrors the `physical` keys. `simulator.camera.width`
 is compared with `physical.camera.width`, and so on. Each entry is a mapping:
 
 ```yaml
-rate_hz:
+rate_hz:                  # simulator.topics./scan.rate_hz
   nominal: 5.0            # configured on main
   contract: [4.5, 5.5]    # what sensor_contract_probe grades
-  measured: 4.98          # step 2 baseline
+  measured: 4.99          # step 2 baseline
   matches_physical: false
-  closes_in_step: 5       # the #43 step that closes the gap
+  closes_in_step: 8       # the #43 step that closes the gap
 ```
 
 - `nominal` is the configured value. `measured` is what the step-2 baseline
@@ -50,7 +50,7 @@ rate_hz:
 `test/real_robot_contract_test.py` checks every flag. Where the simulator and
 physical values are comparable it recomputes the match and fails when a flag
 disagrees. A `true` flag must be verifiable: if the two values can't be
-compared, for example a simulator rate of 5 Hz against the physical cloud's
+compared, for example a simulator rate of 30 Hz against the physical cloud's
 measured range of 2.83-10.93 Hz, the test fails it. Either make the values
 comparable, or set the flag to `false` with a `closes_in_step`. A `false` flag
 with values that can't be compared is accepted as a recorded gap.
