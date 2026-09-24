@@ -222,6 +222,12 @@ def _build_groups(
     # Align the CAD assembly's mean wheel centre with the model's wheel plane.
     # Individual wheel visuals can then be placed without changing joint or
     # collision geometry.
+    #
+    # -0.0325 is this tool's CAD reference plane: the axles one wheel radius
+    # below base_link. The physical X3 puts them 0.0389 m below (#42), and
+    # chassis_origin_z in urdf/mech/rosmaster_x3_base.urdf.xacro shifts the
+    # generated visuals by the difference. Changing this to -0.0389 without
+    # removing that compensation would shift the visuals twice.
     cad_wheel_mean = np.mean(np.stack(list(wheel_centers.values())), axis=0)
     assembly_offset = np.array([0.0, 0.0, -0.0325]) - _cad_to_ros(cad_wheel_mean[None, :])[0]
 
