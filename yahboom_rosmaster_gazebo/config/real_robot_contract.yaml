@@ -406,8 +406,8 @@ simulator:
         measured: {xyz: [0.057105, 0.000017948, 0.03755], rpy: [0.0, 0.0, 0.0]}
         matches_physical: true
         note: >
-          #43 step 4; was (0.105, 0, 0.05). The Gazebo RGB-D camera renders
-          from here, and cad_visual/camera.obj is generated relative to it.
+          #43 step 4; was (0.105, 0, 0.05). cad_visual/camera.obj is generated
+          relative to it.
       cam_1_depth_frame:
         nominal: {xyz: [0.057105, 0.000017948, 0.03755], rpy: [0.0, 0.0, 0.0]}
         measured: {xyz: [0.057105, 0.000017948, 0.03755], rpy: [0.0, 0.0, 0.0]}
@@ -420,8 +420,8 @@ simulator:
         note: >
           #43 step 4; was co-located with the depth frame. The Orbbec factory
           calibration of Astra ACRC64300ET, 25.1 mm left of depth; another
-          unit differs slightly. The images are still rendered from cam_1_link
-          and labelled cam_1_depth_optical_frame until step 5.
+          unit differs slightly. Since step 5 the Gazebo RGB-D camera renders
+          both images from here, as the Astra registers depth to color.
       laser_link:
         nominal: {xyz: [0.043, 0.0, 0.110], rpy: [0.0, 0.0, 3.141592653589793]}
         tolerance: 0.001
@@ -475,18 +475,20 @@ simulator:
   topics:
     /cam_1/color/image_raw:
       frame_id:
-        nominal: cam_1_depth_optical_frame
-        matches_physical: false
-        closes_in_step: 5
+        nominal: cam_1_color_optical_frame
+        matches_physical: true
+        note: '#43 step 5; was cam_1_depth_optical_frame.'
       encoding:
         nominal: rgb8
         matches_physical: true
       rate_hz:
-        nominal: 5.0
-        contract: [4.5, 5.5]
-        measured: 4.98
-        matches_physical: false
-        closes_in_step: 5
+        nominal: 30.0
+        contract: [27.0, 33.0]
+        tolerance: 0.5
+        matches_physical: true
+        note: >
+          #43 step 5; was 5 Hz. With the 1 ms physics step Gazebo fires every
+          33 ms of sim time, so the stamps run at 30.3 Hz.
       latency_ms:
         measured: {host_gpu: 16, llvmpipe_4cpu: [64, 66]}
         matches_physical: false
@@ -499,32 +501,36 @@ simulator:
         matches_physical: true
     /cam_1/color/camera_info:
       frame_id:
-        nominal: cam_1_depth_optical_frame
-        matches_physical: false
-        closes_in_step: 5
+        nominal: cam_1_color_optical_frame
+        matches_physical: true
+        note: '#43 step 5; was cam_1_depth_optical_frame.'
       rate_hz:
-        nominal: 5.0
-        contract: [4.5, 5.5]
-        measured: 4.98
-        matches_physical: false
-        closes_in_step: 5
+        nominal: 30.0
+        contract: [27.0, 33.0]
+        tolerance: 0.5
+        matches_physical: true
+        note: >
+          #43 step 5; was 5 Hz. With the 1 ms physics step Gazebo fires every
+          33 ms of sim time, so the stamps run at 30.3 Hz.
       reliability:
         nominal: best_effort
         matches_physical: true
     /cam_1/depth/image_raw:
       frame_id:
-        nominal: cam_1_depth_optical_frame
-        matches_physical: false
-        closes_in_step: 5
+        nominal: cam_1_color_optical_frame
+        matches_physical: true
+        note: '#43 step 5; was cam_1_depth_optical_frame.'
       encoding:
         nominal: 32FC1
         matches_physical: true
       rate_hz:
-        nominal: 5.0
-        contract: [4.5, 5.5]
-        measured: 4.98
-        matches_physical: false
-        closes_in_step: 5
+        nominal: 30.0
+        contract: [27.0, 33.0]
+        tolerance: 0.5
+        matches_physical: true
+        note: >
+          #43 step 5; was 5 Hz. With the 1 ms physics step Gazebo fires every
+          33 ms of sim time, so the stamps run at 30.3 Hz.
       latency_ms:
         measured: {host_gpu: 16, llvmpipe_4cpu: [64, 66]}
         matches_physical: false
@@ -537,15 +543,17 @@ simulator:
         matches_physical: true
     /cam_1/depth/camera_info:
       frame_id:
-        nominal: cam_1_depth_optical_frame
-        matches_physical: false
-        closes_in_step: 5
+        nominal: cam_1_color_optical_frame
+        matches_physical: true
+        note: '#43 step 5; was cam_1_depth_optical_frame.'
       rate_hz:
-        nominal: 5.0
-        contract: [4.5, 5.5]
-        measured: 4.98
-        matches_physical: false
-        closes_in_step: 5
+        nominal: 30.0
+        contract: [27.0, 33.0]
+        tolerance: 0.5
+        matches_physical: true
+        note: >
+          #43 step 5; was 5 Hz. With the 1 ms physics step Gazebo fires every
+          33 ms of sim time, so the stamps run at 30.3 Hz.
       reliability:
         nominal: best_effort
         matches_physical: true
@@ -553,16 +561,20 @@ simulator:
       frame_id:
         nominal: cam_1_depth_frame
         matches_physical: true
+        note: >
+          Since #43 step 5 Gazebo's cloud is in cam_1_color_frame, and
+          pointcloud_frame_relay.py transforms it into cam_1_depth_frame as
+          the physical sensor_adapter.py does.
       rate_hz:
-        nominal: 5.0
-        contract: [4.5, 5.5]
-        measured: 4.51
+        nominal: 30.0
+        contract: [27.0, 33.0]
         matches_physical: false
         closes_in_step: 6
         note: >
-          The cloud already drops frames (single misses; 0.90-1.16 Hz on
-          llvmpipe with 4 CPUs). The probe grades the median stamp period,
-          which stays at 5 Hz.
+          #43 step 5; was 5 Hz. Gazebo computes a cloud with every camera
+          frame, but the bridge and the Python relay drop some. The probe
+          grades the median stamp period, which stays at 33 ms on the host
+          GPU.
       period_p95_ms:
         measured: 402.6
         matches_physical: false
@@ -626,43 +638,48 @@ simulator:
 
   camera:
     width:
-      nominal: 424
-      measured: 424
-      matches_physical: false
-      closes_in_step: 5
+      nominal: 320
+      matches_physical: true
+      note: '#43 step 5; was 424.'
     height:
       nominal: 240
       measured: 240
       matches_physical: true
     fx:
-      nominal: 223.40954
-      measured: 223.40954
-      matches_physical: false
-      closes_in_step: 5
-    fy:
-      nominal: 223.40954
-      measured: 223.40954
-      matches_physical: false
-      closes_in_step: 5
-    cx:
-      nominal: 212.0
-      measured: 212.0
-      matches_physical: false
-      closes_in_step: 5
-    cy:
-      nominal: 120.0
-      measured: 120.0
-      tolerance: 0.5
+      nominal: 271.809387
+      tolerance: 0.001
       matches_physical: true
-      note: 0.09 px from the physical principal point.
-    horizontal_fov_rad:
-      nominal: 1.5184
-      measured: 1.5184
-      matches_physical: false
-      closes_in_step: 5
       note: >
-        Step 2 found Gazebo produces fx = 271.797 (0.012 px from physical)
-        with 1.06410 rad at 320x240.
+        #43 step 5; was 223.40954. The xacro uses camera_public.json's
+        271.80938720703125, which the physical section rounds to 271.809.
+    fy:
+      nominal: 271.809387
+      tolerance: 0.001
+      matches_physical: true
+      note: '#43 step 5; see fx.'
+    cx:
+      nominal: 159.5
+      tolerance: 0.8
+      matches_physical: true
+      note: >
+        #43 step 5; was 212.0. Fortress renders a symmetric frustum whatever
+        principal point the SDF gives: (158.719, 120.092) and (140, 100)
+        rendered bit-identical images and changed only camera_info. Gazebo's
+        own rays put that frustum's axis at (159.5, 119.5) in ROS pixel
+        coordinates, so the simulator publishes it, 0.78 px from physical.
+        Gazebo's default of width / 2 = 160 is half a pixel off its own image.
+    cy:
+      nominal: 119.5
+      tolerance: 0.6
+      matches_physical: true
+      note: '#43 step 5; was 120.0, half a pixel off the rendered image. 0.59 px from physical; see cx.'
+    horizontal_fov_rad:
+      nominal: 1.064061
+      tolerance: 0.00001
+      matches_physical: true
+      note: >
+        #43 step 5; was 1.5184. 2 atan(160 / fx) is 1.0640610 rad; the
+        physical section rounds it to 1.06406. Gazebo renders from it.
     distortion_model:
       nominal: plumb_bob
       measured: plumb_bob
@@ -727,7 +744,7 @@ simulator:
       measured: true
       matches_physical: false
       closes_in_step: 6
-      note: 424x240, the image dimensions.
+      note: 320x240, the image dimensions.
     is_dense:
       measured: true
       matches_physical: true
