@@ -372,9 +372,11 @@ simulator:
         timing models of steps 6 and 8 must add their delay on top of it, not
         assume it is zero.
       - >
-        A 320x240 camera at 30 Hz halves the real-time factor on CI's
-        llvmpipe (0.45-0.51; 0.957 on the host GPU). It still renders at 30 Hz
-        in sim time. That is step 5's concern.
+        The 320x240 camera at 30 Hz (step 5) cuts the real-time factor on
+        CI's llvmpipe to about 0.38 with 4 CPUs (0.95 on the host GPU). It
+        still renders at 30 Hz in sim time, so stamp-based rate checks pass,
+        but each sim second costs about 2.6 wall seconds there, and wall-clock
+        rates read low.
     # Later #43 steps re-measure only the entries they change. Every measured
     # value not listed here comes from the step-2 baseline above.
     step_measurements:
@@ -391,6 +393,46 @@ simulator:
           empty.world, headless, host GPU. Gazebo renders from the new mount:
           the bottom image row reads the floor at 0.20368 m, as a camera
           108.95 mm above it predicts.
+      - step: 5
+        commit: 556263d79d7f7d1be03f953b9227e22a6fcb8c99
+        measured_on: "2026-09-24"
+        keys:
+          - topics./cam_1/color/image_raw.frame_id
+          - topics./cam_1/color/image_raw.rate_hz
+          - topics./cam_1/color/image_raw.latency_ms
+          - topics./cam_1/color/camera_info.frame_id
+          - topics./cam_1/color/camera_info.rate_hz
+          - topics./cam_1/depth/image_raw.frame_id
+          - topics./cam_1/depth/image_raw.rate_hz
+          - topics./cam_1/depth/image_raw.latency_ms
+          - topics./cam_1/depth/camera_info.frame_id
+          - topics./cam_1/depth/camera_info.rate_hz
+          - topics./cam_1/depth/color/points.frame_id
+          - topics./cam_1/depth/color/points.rate_hz
+          - topics./cam_1/depth/color/points.period_p95_ms
+          - topics./cam_1/depth/color/points.latency_ms
+          - camera.width
+          - camera.height
+          - camera.fx
+          - camera.fy
+          - camera.cx
+          - camera.cy
+          - camera.horizontal_fov_rad
+          - camera.distortion_model
+          - camera.distortion_coefficients
+          - depth.valid_fraction
+        method: >
+          physical_rosmaster tools/sensor_capability_probe.py at b144d31,
+          unmodified (--group camera --duration 30), plus the sim-clock helper
+          for latency. empty.world, headless, default launch arguments, robot
+          at rest. host_gpu ran at real-time factor 0.95 (0.92 on /clock),
+          llvmpipe_4cpu (CI's software rendering pinned to 4 CPUs) at 0.38.
+          On stamps every image and camera_info topic ran at 30.30 Hz in
+          both, and the cloud at 26.9 Hz on the host GPU and 13.0 Hz on
+          llvmpipe. Rates are the probe's wall clock on the host GPU; frames,
+          sizes and intrinsics are its content samples. Gazebo's native cloud
+          puts the rendered principal point at (159.5, 119.5) whatever the SDF
+          gives (see camera.cx).
 
   frames:
     base_footprint_to_base_link_z_m:
@@ -476,6 +518,7 @@ simulator:
     /cam_1/color/image_raw:
       frame_id:
         nominal: cam_1_color_optical_frame
+        measured: cam_1_color_optical_frame
         matches_physical: true
         note: '#43 step 5; was cam_1_depth_optical_frame.'
       encoding:
@@ -484,29 +527,33 @@ simulator:
       rate_hz:
         nominal: 30.0
         contract: [27.0, 33.0]
+        measured: 28.75
         tolerance: 0.5
         matches_physical: true
         note: >
           #43 step 5; was 5 Hz. With the 1 ms physics step Gazebo fires every
           33 ms of sim time, so the stamps run at 30.3 Hz.
       latency_ms:
-        measured: {host_gpu: 16, llvmpipe_4cpu: [64, 66]}
+        measured: {host_gpu: 21, llvmpipe_4cpu: 33}
         matches_physical: false
         closes_in_step: out_of_scope
         note: >
           No step adds image latency: the simulator's intrinsic latency
-          already exceeds the physical 2-6 ms.
+          already exceeds the physical 2-6 ms. At 5 Hz (step 2) it was 16 ms
+          and 64-66 ms.
       reliability:
         nominal: best_effort
         matches_physical: true
     /cam_1/color/camera_info:
       frame_id:
         nominal: cam_1_color_optical_frame
+        measured: cam_1_color_optical_frame
         matches_physical: true
         note: '#43 step 5; was cam_1_depth_optical_frame.'
       rate_hz:
         nominal: 30.0
         contract: [27.0, 33.0]
+        measured: 28.76
         tolerance: 0.5
         matches_physical: true
         note: >
@@ -518,6 +565,7 @@ simulator:
     /cam_1/depth/image_raw:
       frame_id:
         nominal: cam_1_color_optical_frame
+        measured: cam_1_color_optical_frame
         matches_physical: true
         note: '#43 step 5; was cam_1_depth_optical_frame.'
       encoding:
@@ -526,29 +574,33 @@ simulator:
       rate_hz:
         nominal: 30.0
         contract: [27.0, 33.0]
+        measured: 28.76
         tolerance: 0.5
         matches_physical: true
         note: >
           #43 step 5; was 5 Hz. With the 1 ms physics step Gazebo fires every
           33 ms of sim time, so the stamps run at 30.3 Hz.
       latency_ms:
-        measured: {host_gpu: 16, llvmpipe_4cpu: [64, 66]}
+        measured: {host_gpu: 20, llvmpipe_4cpu: 33}
         matches_physical: false
         closes_in_step: out_of_scope
         note: >
           No step adds image latency: the simulator's intrinsic latency
-          already exceeds the physical 2-6 ms.
+          already exceeds the physical 2-6 ms. At 5 Hz (step 2) it was 16 ms
+          and 64-66 ms.
       reliability:
         nominal: best_effort
         matches_physical: true
     /cam_1/depth/camera_info:
       frame_id:
         nominal: cam_1_color_optical_frame
+        measured: cam_1_color_optical_frame
         matches_physical: true
         note: '#43 step 5; was cam_1_depth_optical_frame.'
       rate_hz:
         nominal: 30.0
         contract: [27.0, 33.0]
+        measured: 28.75
         tolerance: 0.5
         matches_physical: true
         note: >
@@ -560,6 +612,7 @@ simulator:
     /cam_1/depth/color/points:
       frame_id:
         nominal: cam_1_depth_frame
+        measured: cam_1_depth_frame
         matches_physical: true
         note: >
           Since #43 step 5 Gazebo's cloud is in cam_1_color_frame, and
@@ -568,19 +621,21 @@ simulator:
       rate_hz:
         nominal: 30.0
         contract: [27.0, 33.0]
+        measured: 26.66
         matches_physical: false
         closes_in_step: 6
         note: >
           #43 step 5; was 5 Hz. Gazebo computes a cloud with every camera
-          frame, but the bridge and the Python relay drop some. The probe
+          frame, but the bridge and the Python relay drop some: 26.9 Hz on
+          stamps on the host GPU, 13.0 Hz on llvmpipe with 4 CPUs. The probe
           grades the median stamp period, which stays at 33 ms on the host
-          GPU.
+          GPU (65 ms on llvmpipe, where the CI target does not grade rates).
       period_p95_ms:
-        measured: 402.6
+        measured: 66.4
         matches_physical: false
         closes_in_step: 6
       latency_ms:
-        measured: {host_gpu: 26, llvmpipe_4cpu: 80}
+        measured: {host_gpu: 31, llvmpipe_4cpu: 46}
         matches_physical: false
         closes_in_step: 6
       reliability:
@@ -639,6 +694,7 @@ simulator:
   camera:
     width:
       nominal: 320
+      measured: 320
       matches_physical: true
       note: '#43 step 5; was 424.'
     height:
@@ -647,6 +703,7 @@ simulator:
       matches_physical: true
     fx:
       nominal: 271.809387
+      measured: 271.809387
       tolerance: 0.001
       matches_physical: true
       note: >
@@ -654,11 +711,13 @@ simulator:
         271.80938720703125, which the physical section rounds to 271.809.
     fy:
       nominal: 271.809387
+      measured: 271.809387
       tolerance: 0.001
       matches_physical: true
       note: '#43 step 5; see fx.'
     cx:
       nominal: 159.5
+      measured: 159.5
       tolerance: 0.8
       matches_physical: true
       note: >
@@ -670,11 +729,13 @@ simulator:
         Gazebo's default of width / 2 = 160 is half a pixel off its own image.
     cy:
       nominal: 119.5
+      measured: 119.5
       tolerance: 0.6
       matches_physical: true
       note: '#43 step 5; was 120.0, half a pixel off the rendered image. 0.59 px from physical; see cx.'
     horizontal_fov_rad:
       nominal: 1.064061
+      measured: 1.064061
       tolerance: 0.00001
       matches_physical: true
       note: >
@@ -708,10 +769,12 @@ simulator:
       closes_in_step: out_of_scope
       note: The physical far limit has not been measured.
     valid_fraction:
-      measured: 0.484
+      measured: 0.489
       matches_physical: false
       closes_in_step: 7
-      note: The empty world's floor. Scene-dependent on both robots.
+      note: >
+        The empty world's floor, from the step-5 camera; 0.484 at 424x240
+        from cam_1_link. Scene-dependent on both robots.
     nan_fraction:
       measured: 0.0
       matches_physical: false

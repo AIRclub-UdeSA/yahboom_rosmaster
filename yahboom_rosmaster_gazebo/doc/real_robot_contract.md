@@ -64,9 +64,9 @@ shared loader.
 
 | Reader | Keys |
 |---|---|
-| `scripts/sensor_contract_probe.py` | `topics.<topic>.rate_hz.contract` (only with `performance_checks:=true`), `topics.<topic>.frame_id`, `topics./odom.child_frame_id`, `camera.horizontal_fov_rad` |
-| `scripts/depth_geometry_probe.py` | `camera.width`, `camera.height`, the depth image and cloud `frame_id`, `depth.min_range_m`, `depth.max_range_m` (the clip range), and the depth and color `frames.mounts` (the color frames' calibrated offset in TF) |
-| `test/depth_geometry.launch.py` | `frames.mounts.cam_1_link` and `frames.base_footprint_to_base_link_z_m`, to place the target on the optical axis at a known depth |
+| `scripts/sensor_contract_probe.py` | `topics.<topic>.rate_hz.contract` (only with `performance_checks:=true`), `topics.<topic>.frame_id`, `topics./odom.child_frame_id`, and the `camera` size, intrinsics, distortion and `horizontal_fov_rad` that `camera_info` must carry |
+| `scripts/depth_geometry_probe.py` | `camera.width`, `camera.height`, the depth image and cloud `frame_id`, `depth.min_range_m`, `depth.max_range_m` (the clip range), and the depth and color `frames.mounts`: the color frames' calibrated offset in TF, where the color aperture sees the target, and where each cloud point must land in `cam_1_depth_frame` |
+| `test/depth_geometry.launch.py` | `frames.mounts.cam_1_color_frame`, `frames.mounts.cam_1_depth_frame` and `frames.base_footprint_to_base_link_z_m`, to put the target at a known depth along the color optical axis, centred on the depth aperture |
 | `yahboom_rosmaster_description/test/robot_description_contract_test.py` | `frames.*` mounts and camera frames, `wheels.*`, the camera, LiDAR and IMU settings the xacro must produce, and the physical `frames.tape_check` camera setback that `camera.obj` must reproduce |
 | `test/sensor_contract_probe_test.py` | Every rate the probe grades has a contract; the probe's Best Effort topics and wheel joint names match the ledger |
 | `test/real_robot_contract_test.py` | Every parity flag (a `true` one must be verifiable), the provenance commits and `step_measurements` records, the legacy `superseded_by` references, and the `/joint_states` rate in `config/ros2_control.yaml` |
@@ -154,10 +154,11 @@ carry forward to every later measurement:
   and 120 ms. `/imu/data`, `/odom` and `/joint_states` stay under 1 ms. The
   timing models of steps 6 and 8 must add their delay on top of this, not
   assume it is zero.
-- **A 320x240 camera at 30 Hz halves the real-time factor on CI's llvmpipe**
-  (0.45-0.51, against 0.957 on the host GPU). It still renders at 30 Hz in sim
-  time, so stamp-based rate checks pass, but wall-clock deadlines get about
-  half the sim time. That is step 5's concern.
+- **The 320x240 camera at 30 Hz cuts the real-time factor on CI's llvmpipe to
+  about 0.38 with 4 CPUs** (0.95 on the host GPU, step 5). It still renders at
+  30 Hz in sim time, so stamp-based rate checks pass, but a wall-clock
+  deadline gets about 0.4 s of sim time per second, and wall-clock rates read
+  low. Measure rates on stamps, or on the host GPU.
 
 ## The legacy bag audit
 
