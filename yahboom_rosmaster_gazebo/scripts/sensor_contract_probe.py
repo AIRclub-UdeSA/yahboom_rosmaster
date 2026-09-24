@@ -67,7 +67,7 @@ BEST_EFFORT_TOPICS = (
 
 
 def validated_sample_count(value):
-    """Return enough samples for the third-from-last TF validation lookup."""
+    """Return at least the three samples the stamp and TF checks need."""
     return max(3, int(value))
 
 
@@ -202,10 +202,12 @@ class SensorContractProbe(Node):
                 )
                 for transform in message.transforms
             )
-        if not self.performance_checks and topic in self.recent_tf_messages:
-            # Keep exact-time TF lookups near the current simulation time while
-            # a software-rendered point cloud may lag the faster state topics.
-            # The primary evidence below remains frozen so early malformed
+        if topic in self.recent_tf_messages:
+            # Keep exact-time TF lookups near the current simulation time. A
+            # software-rendered point cloud may lag the faster state topics,
+            # and a 30 Hz camera fills its primary samples within a third of
+            # a sim second, which can be before the TF listener has matched
+            # /tf. The primary evidence below remains frozen so early malformed
             # messages cannot be hidden by later valid ones.
             self.recent_tf_messages[topic].append(message)
         if len(self.messages[topic]) < self.required_counts[topic]:
@@ -275,23 +277,30 @@ class SensorContractProbe(Node):
                 f"{minimum:.1f}..{maximum:.1f} Hz")
 
     def validate_timestamped_tf(self, errors):
-        """Require representative sensor frames to resolve at message time."""
-        tf_messages = (
-            self.messages
-            if self.performance_checks else self.recent_tf_messages
-        )
+        """
+        Require representative sensor frames to resolve at message time.
+
+        One of the recent samples must resolve: under software rendering the
+        oldest can predate the TF listener's first transform, and the newest
+        can be ahead of the latest one. A frame missing from TF fails them all.
+        """
         for topic in TIMESTAMPED_TF_TOPICS:
-            message = tf_messages[topic][-3]
-            frame = (
+            messages = self.recent_tf_messages[topic]
+            frames = [
                 message.child_frame_id if topic == "/odom"
                 else message.header.frame_id
-            )
-            stamp = Time.from_msg(message.header.stamp)
-            if not self.tf_buffer.can_transform(
-                    "odom", frame, stamp, timeout=Duration(seconds=0.1)):
+                for message in messages
+            ]
+            if not any(
+                    self.tf_buffer.can_transform(
+                        "odom", frame, Time.from_msg(message.header.stamp),
+                        timeout=Duration(seconds=0.1))
+                    for frame, message in zip(frames, messages)):
+                stamps = ", ".join(
+                    f"{self.stamp_seconds(message):.9f}" for message in messages)
                 errors.append(
-                    f"{topic}: cannot resolve odom -> {frame} at "
-                    f"{self.stamp_seconds(message):.9f}")
+                    f"{topic}: cannot resolve odom -> {frames[-1]} at any of "
+                    f"{stamps}")
 
     def validate(self):
         """Return contract errors after collection finishes."""

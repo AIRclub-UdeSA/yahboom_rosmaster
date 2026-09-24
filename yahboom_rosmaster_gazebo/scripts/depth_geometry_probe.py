@@ -28,6 +28,10 @@ COLOR_OPTICAL_FRAME = "cam_1_color_optical_frame"
 OPTICAL_RPY = (-math.pi / 2.0, 0.0, -math.pi / 2.0)
 # Resolved camera TF must reproduce the ledger's poses to 1 um and 1 urad.
 CAMERA_TF_TOLERANCE = 1e-6
+# The first color frames, before the target spawns, are the red baseline. At
+# 30 Hz the probe keeps them plus a rolling window of the latest frames.
+BASELINE_OBSERVATIONS = 3
+MAX_OBSERVATIONS = 120
 OFF_AXIS_COLUMN_OFFSET = 40
 OFF_AXIS_ROW_OFFSET = 20
 
@@ -167,9 +171,11 @@ class DepthGeometryProbe(Node):
             self.get_logger().error(error)
 
     def append(self, topic, observation):
-        """Retain a bounded sample history for final diagnostics."""
-        if len(self.observations[topic]) < 120:
-            self.observations[topic].append(observation)
+        """Retain the baseline frames and a rolling window of recent ones."""
+        observations = self.observations[topic]
+        if len(observations) >= MAX_OBSERVATIONS:
+            del observations[BASELINE_OBSERVATIONS]
+        observations.append(observation)
 
     @staticmethod
     def image_array(message, channels, dtype):
@@ -409,7 +415,9 @@ class DepthGeometryProbe(Node):
                 len(items) < self.samples
                 for items in self.observations.values()):
             return False
-        if len(self.observations[COLOR_TOPIC]) < self.samples + 3:
+        if (
+                len(self.observations[COLOR_TOPIC])
+                < self.samples + BASELINE_OBSERVATIONS):
             return False
         return len(self.coherent_target_stamps()) >= self.samples
 
@@ -536,7 +544,7 @@ class DepthGeometryProbe(Node):
         self.validate_common_image_contract(
             DEPTH_TOPIC, depths, "32FC1", errors)
 
-        baseline = colors[:3]
+        baseline = colors[:BASELINE_OBSERVATIONS]
         baseline_red = [item["red_pixels"] for item in baseline]
         target_colors = [
             item for item in colors

@@ -24,7 +24,7 @@ CONTRACT = RealRobotContract.load(SOURCE_PATH)
 
 
 class TestSensorContractBuffering(unittest.TestCase):
-    """Keep primary evidence immutable while CI TF samples stay recent."""
+    """Keep primary evidence immutable while TF samples stay recent."""
 
     @staticmethod
     def make_probe(performance_checks):
@@ -52,13 +52,16 @@ class TestSensorContractBuffering(unittest.TestCase):
                 self.capture(probe)
                 self.assertEqual(probe.messages["/odom"], [0, 1, 2])
 
-    def test_correctness_mode_keeps_separate_recent_tf_samples(self):
-        """CI exact-time TF validation should use its bounded recent window."""
-        probe = self.make_probe(False)
-        self.capture(probe)
-        self.assertEqual(list(probe.recent_tf_messages["/odom"]), [2, 3, 4])
+    def test_both_modes_keep_separate_recent_tf_samples(self):
+        """Exact-time TF validation should use its bounded recent window."""
+        for performance_checks in (True, False):
+            with self.subTest(performance_checks=performance_checks):
+                probe = self.make_probe(performance_checks)
+                self.capture(probe)
+                self.assertEqual(
+                    list(probe.recent_tf_messages["/odom"]), [2, 3, 4])
 
-    def test_sample_count_supports_third_from_last_lookup(self):
+    def test_sample_count_is_at_least_three(self):
         """Requested counts below three must be clamped to three."""
         self.assertEqual(PROBE_MODULE.validated_sample_count(0), 3)
         self.assertEqual(PROBE_MODULE.validated_sample_count(2), 3)
