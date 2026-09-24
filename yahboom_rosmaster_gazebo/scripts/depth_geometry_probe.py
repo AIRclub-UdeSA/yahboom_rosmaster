@@ -14,20 +14,16 @@ from rclpy.time import Time
 from sensor_msgs.msg import CameraInfo, Image, PointCloud2, PointField
 from tf2_ros import Buffer, TransformException, TransformListener
 
+from real_robot_contract import RealRobotContract
+
 
 COLOR_TOPIC = "/cam_1/color/image_raw"
 DEPTH_TOPIC = "/cam_1/depth/image_raw"
 COLOR_INFO_TOPIC = "/cam_1/color/camera_info"
 DEPTH_INFO_TOPIC = "/cam_1/depth/camera_info"
 POINTS_TOPIC = "/cam_1/depth/color/points"
-EXPECTED_IMAGE_FRAME = "cam_1_depth_optical_frame"
-EXPECTED_CLOUD_FRAME = "cam_1_depth_frame"
 COLOR_OPTICAL_ALIAS = "cam_1_color_optical_frame"
 COLOR_FRAME_ALIAS = "cam_1_color_frame"
-EXPECTED_WIDTH = 424
-EXPECTED_HEIGHT = 240
-DEPTH_NEAR = 0.05
-DEPTH_FAR = 8.0
 OFF_AXIS_COLUMN_OFFSET = 40
 OFF_AXIS_ROW_OFFSET = 20
 
@@ -54,6 +50,19 @@ class DepthGeometryProbe(Node):
             self.get_parameter("target_red_pixels").value)
         self.minimum_valid_fraction = float(
             self.get_parameter("minimum_valid_fraction").value)
+
+        # Registered RGB-D: all four image and camera_info topics share one
+        # optical frame (real_robot_contract_test.py checks the ledger for it),
+        # so the depth image's frame applies to every one of them.
+        contract = RealRobotContract.load()
+        self.expected_width = contract.nominal("camera.width")
+        self.expected_height = contract.nominal("camera.height")
+        self.expected_image_frame = contract.nominal(
+            f"topics.{DEPTH_TOPIC}.frame_id")
+        self.expected_cloud_frame = contract.nominal(
+            f"topics.{POINTS_TOPIC}.frame_id")
+        self.depth_near = contract.nominal("depth.min_range_m")
+        self.depth_far = contract.nominal("depth.max_range_m")
 
         self.observations = {
             COLOR_TOPIC: [],
@@ -370,17 +379,18 @@ class DepthGeometryProbe(Node):
                     f"{topic}: expected {encoding}, got {item['encoding']}")
                 break
             if (item["width"], item["height"]) != (
-                    EXPECTED_WIDTH, EXPECTED_HEIGHT):
+                    self.expected_width, self.expected_height):
                 errors.append(
-                    f"{topic}: expected {EXPECTED_WIDTH}x{EXPECTED_HEIGHT}, "
+                    f"{topic}: expected {self.expected_width}x"
+                    f"{self.expected_height}, "
                     f"got {item['width']}x{item['height']}")
                 break
             if item["data_size"] != item["expected_data_size"]:
                 errors.append(f"{topic}: data length does not equal step*height")
                 break
-            if item["frame"] != EXPECTED_IMAGE_FRAME:
+            if item["frame"] != self.expected_image_frame:
                 errors.append(
-                    f"{topic}: expected frame {EXPECTED_IMAGE_FRAME}, "
+                    f"{topic}: expected frame {self.expected_image_frame}, "
                     f"got {item['frame']}")
                 break
 
@@ -421,8 +431,8 @@ class DepthGeometryProbe(Node):
 
         stamp = Time(nanoseconds=coherent_stamps[-1])
         for depth_frame, color_alias in (
-                (EXPECTED_CLOUD_FRAME, COLOR_FRAME_ALIAS),
-                (EXPECTED_IMAGE_FRAME, COLOR_OPTICAL_ALIAS)):
+                (self.expected_cloud_frame, COLOR_FRAME_ALIAS),
+                (self.expected_image_frame, COLOR_OPTICAL_ALIAS)):
             try:
                 transform = self.tf_buffer.lookup_transform(
                     depth_frame,
@@ -519,8 +529,8 @@ class DepthGeometryProbe(Node):
                 break
             if (
                     item["valid_min"] is None
-                    or item["valid_min"] < DEPTH_NEAR - 0.01
-                    or item["valid_max"] > DEPTH_FAR + 0.01):
+                    or item["valid_min"] < self.depth_near - 0.01
+                    or item["valid_max"] > self.depth_far + 0.01):
                 errors.append(
                     "depth validity: finite values fall outside configured "
                     f"clip range ({item['valid_min']}, {item['valid_max']})")
@@ -531,12 +541,12 @@ class DepthGeometryProbe(Node):
                 (DEPTH_INFO_TOPIC, depth_info)):
             for item in info_samples:
                 if (item["width"], item["height"]) != (
-                        EXPECTED_WIDTH, EXPECTED_HEIGHT):
+                        self.expected_width, self.expected_height):
                     errors.append(f"{topic}: dimensions do not match images")
                     break
-                if item["frame"] != EXPECTED_IMAGE_FRAME:
+                if item["frame"] != self.expected_image_frame:
                     errors.append(
-                        f"{topic}: expected frame {EXPECTED_IMAGE_FRAME}, "
+                        f"{topic}: expected frame {self.expected_image_frame}, "
                         f"got {item['frame']}")
                     break
                 if (
@@ -566,8 +576,8 @@ class DepthGeometryProbe(Node):
                 errors.append("point cloud: XYZRGB fields are not scalar FLOAT32")
                 break
             if (
-                    item["width"] != EXPECTED_WIDTH
-                    or item["height"] != EXPECTED_HEIGHT
+                    item["width"] != self.expected_width
+                    or item["height"] != self.expected_height
                     or item["height"] <= 1):
                 errors.append(
                     "point cloud: cloud is not organized to image dimensions")
@@ -576,9 +586,9 @@ class DepthGeometryProbe(Node):
                 errors.append(
                     "point cloud: data length does not equal row_step*height")
                 break
-            if item["frame"] != EXPECTED_CLOUD_FRAME:
+            if item["frame"] != self.expected_cloud_frame:
                 errors.append(
-                    f"point cloud: expected frame {EXPECTED_CLOUD_FRAME}, "
+                    f"point cloud: expected frame {self.expected_cloud_frame}, "
                     f"got {item['frame']}")
                 break
             if item["valid_fraction"] < self.minimum_valid_fraction:

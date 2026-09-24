@@ -17,6 +17,8 @@ from sensor_msgs.msg import CameraInfo, Image, Imu, JointState, LaserScan, Point
 from tf2_msgs.msg import TFMessage
 from tf2_ros import Buffer, TransformListener
 
+from real_robot_contract import RealRobotContract
+
 
 EXPECTED_WHEEL_JOINTS = {
     "front_left_wheel_joint",
@@ -24,7 +26,21 @@ EXPECTED_WHEEL_JOINTS = {
     "back_left_wheel_joint",
     "back_right_wheel_joint",
 }
-CAMERA_HORIZONTAL_FOV = 1.5184
+CAMERA_IMAGE_TOPICS = (
+    "/cam_1/color/image_raw",
+    "/cam_1/depth/image_raw",
+    "/cam_1/color/camera_info",
+    "/cam_1/depth/camera_info",
+)
+# Expected rates come from the simulator section of real_robot_contract.yaml.
+RATE_GRADED_TOPICS = (
+    "/scan",
+    "/imu/data",
+    *CAMERA_IMAGE_TOPICS,
+    "/cam_1/depth/color/points",
+    "/joint_states",
+    "/odom",
+)
 REQUIRED_DYNAMIC_TF_EDGE = ("odom", "base_footprint")
 TIMESTAMPED_TF_TOPICS = (
     "/scan",
@@ -68,6 +84,25 @@ class SensorContractProbe(Node):
             self.get_parameter("samples").value)
         self.performance_checks = bool(
             self.get_parameter("performance_checks").value)
+
+        contract = RealRobotContract.load()
+        self.rate_contracts = {
+            topic: contract.rate_bounds(topic) for topic in RATE_GRADED_TOPICS
+        }
+        self.camera_horizontal_fov = contract.nominal(
+            "camera.horizontal_fov_rad")
+        self.expected_frames = {
+            topic: contract.nominal(f"topics.{topic}.frame_id")
+            for topic in (
+                *CAMERA_IMAGE_TOPICS,
+                "/cam_1/depth/color/points",
+                "/scan",
+                "/imu/data",
+                "/odom",
+            )
+        }
+        self.expected_odom_child_frame = contract.nominal(
+            "topics./odom.child_frame_id")
 
         self.required_counts = {
             "/clock": self.samples,
@@ -294,19 +329,8 @@ class SensorContractProbe(Node):
         for topic in BEST_EFFORT_TOPICS:
             self.validate_qos(topic, errors)
 
-        rate_contracts = {
-            "/scan": (4.5, 5.5),
-            "/imu/data": (8.0, 12.0),
-            "/cam_1/color/image_raw": (4.5, 5.5),
-            "/cam_1/depth/image_raw": (4.5, 5.5),
-            "/cam_1/color/camera_info": (4.5, 5.5),
-            "/cam_1/depth/camera_info": (4.5, 5.5),
-            "/cam_1/depth/color/points": (4.5, 5.5),
-            "/joint_states": (20.0, 40.0),
-            "/odom": (20.0, 40.0),
-        }
         if self.performance_checks:
-            for topic, (minimum, maximum) in rate_contracts.items():
+            for topic, (minimum, maximum) in self.rate_contracts.items():
                 self.validate_rate(topic, minimum, maximum, errors)
                 first_latency = self.first_arrivals[topic] - self.started_at
                 if first_latency > 5.0:
@@ -320,6 +344,12 @@ class SensorContractProbe(Node):
             errors.append(f"color image: expected rgb8, got {color.encoding}")
         if depth.encoding != "32FC1":
             errors.append(f"depth image: expected 32FC1, got {depth.encoding}")
+        for topic in CAMERA_IMAGE_TOPICS:
+            frame = self.messages[topic][-1].header.frame_id
+            if frame != self.expected_frames[topic]:
+                errors.append(
+                    f"{topic}: expected frame {self.expected_frames[topic]}, "
+                    f"got {frame}")
         for label, image in (("color", color), ("depth", depth)):
             if image.width == 0 or image.height == 0:
                 errors.append(f"{label} image: dimensions are zero")
@@ -336,7 +366,7 @@ class SensorContractProbe(Node):
                 errors.append(f"{label} camera info: invalid intrinsic matrix")
             else:
                 expected_focal_length = image.width / (
-                    2.0 * math.tan(CAMERA_HORIZONTAL_FOV / 2.0))
+                    2.0 * math.tan(self.camera_horizontal_fov / 2.0))
                 if not math.isclose(
                         info.k[0], expected_focal_length, rel_tol=1e-5):
                     errors.append(
@@ -365,9 +395,10 @@ class SensorContractProbe(Node):
                 errors.append(f"{label} camera info: frame does not match image")
 
         points = self.messages["/cam_1/depth/color/points"][-1]
-        if points.header.frame_id != "cam_1_depth_frame":
+        cloud_frame = self.expected_frames["/cam_1/depth/color/points"]
+        if points.header.frame_id != cloud_frame:
             errors.append(
-                "point cloud: expected x-forward cam_1_depth_frame, got "
+                f"point cloud: expected x-forward {cloud_frame}, got "
                 f"{points.header.frame_id}")
         point_fields = {field.name for field in points.fields}
         if not {"x", "y", "z", "rgb"}.issubset(point_fields):
@@ -378,8 +409,10 @@ class SensorContractProbe(Node):
             errors.append("point cloud: data length does not match row_step*height")
 
         scan = self.messages["/scan"][-1]
-        if scan.header.frame_id != "laser_link":
-            errors.append(f"scan: expected laser_link, got {scan.header.frame_id}")
+        if scan.header.frame_id != self.expected_frames["/scan"]:
+            errors.append(
+                f"scan: expected {self.expected_frames['/scan']}, got "
+                f"{scan.header.frame_id}")
         if not scan.ranges or scan.angle_increment <= 0.0:
             errors.append("scan: ranges are empty or angle increment is invalid")
         if not 0.0 < scan.range_min < scan.range_max:
@@ -390,8 +423,10 @@ class SensorContractProbe(Node):
             errors.append("scan: metadata contains non-finite values")
 
         imu = self.messages["/imu/data"][-1]
-        if imu.header.frame_id != "imu_link":
-            errors.append(f"imu: expected imu_link, got {imu.header.frame_id}")
+        if imu.header.frame_id != self.expected_frames["/imu/data"]:
+            errors.append(
+                f"imu: expected {self.expected_frames['/imu/data']}, got "
+                f"{imu.header.frame_id}")
         imu_values = (
             imu.angular_velocity.x, imu.angular_velocity.y, imu.angular_velocity.z,
             imu.linear_acceleration.x, imu.linear_acceleration.y,
@@ -415,11 +450,14 @@ class SensorContractProbe(Node):
             errors.append("joint states: missing velocity values")
 
         odometry = self.messages["/odom"][-1]
-        if odometry.header.frame_id != "odom":
-            errors.append(f"odom: expected frame odom, got {odometry.header.frame_id}")
-        if odometry.child_frame_id != "base_footprint":
+        if odometry.header.frame_id != self.expected_frames["/odom"]:
             errors.append(
-                f"odom: expected child base_footprint, got {odometry.child_frame_id}")
+                f"odom: expected frame {self.expected_frames['/odom']}, got "
+                f"{odometry.header.frame_id}")
+        if odometry.child_frame_id != self.expected_odom_child_frame:
+            errors.append(
+                f"odom: expected child {self.expected_odom_child_frame}, got "
+                f"{odometry.child_frame_id}")
 
         if REQUIRED_DYNAMIC_TF_EDGE not in self.observed_dynamic_tf_edges:
             errors.append("/tf: odom -> base_footprint transform was not observed")

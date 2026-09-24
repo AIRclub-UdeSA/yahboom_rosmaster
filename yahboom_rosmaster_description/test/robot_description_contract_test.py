@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import subprocess
+import sys
 import unittest
 import xml.etree.ElementTree as ElementTree
 
@@ -11,15 +12,23 @@ PACKAGE_DIR = Path(__file__).resolve().parents[1]
 ROBOT_XACRO = (
     PACKAGE_DIR / "urdf" / "robots" / "rosmaster_x3.urdf.xacro"
 )
-WHEEL_RADIUS = 0.0325
-# Physical X3: base_footprint on the floor, base_link 71.4 mm up and the wheel
-# axles 38.9 mm below it (physical_rosmaster yahboomcar_X3.urdf.xacro).
-BASE_LINK_HEIGHT = 0.0714
+# The parity ledger lives in the sibling simulator package. Read it from the
+# source tree so this test also runs standalone.
+GAZEBO_DIR = PACKAGE_DIR.parent / "yahboom_rosmaster_gazebo"
+sys.path.insert(0, str(GAZEBO_DIR / "scripts"))
+
+from real_robot_contract import RealRobotContract  # noqa: E402
+
+CONTRACT = RealRobotContract.load(
+    GAZEBO_DIR / "config" / "real_robot_contract.yaml"
+)
+WHEEL_RADIUS = CONTRACT.nominal("wheels.radius_m")
+# base_footprint is on the floor and base_link 71.4 mm up, as on the physical
+# X3; the ledger records both values.
+BASE_LINK_HEIGHT = CONTRACT.nominal("frames.base_footprint_to_base_link_z_m")
 WHEEL_ORIGINS = {
-    "front_left": (0.08, 0.0845, -0.0389),
-    "front_right": (0.08, -0.0845, -0.0389),
-    "back_left": (-0.08, 0.0845, -0.0389),
-    "back_right": (-0.08, -0.0845, -0.0389),
+    side: tuple(origin)
+    for side, origin in CONTRACT.nominal("wheels.origins").items()
 }
 # The CAD assembly was generated with the axles one wheel radius below
 # base_link; its visuals are shifted by the difference to keep resting on the
@@ -83,8 +92,21 @@ JOINT_NAMES = {
     "laser_link_joint",
     "imu_joint",
 }
+# Sensor mounts on base_link come from the ledger; the camera-internal frames
+# below cam_1_link are structural.
+MOUNT_JOINTS = {
+    "cam_1_joint": "cam_1_link",
+    "laser_link_joint": "laser_link",
+    "imu_joint": "imu_link",
+}
 SENSOR_JOINT_POSES = {
-    "cam_1_joint": ((0.105, 0.0, 0.05), (0.0, 0.0, 0.0)),
+    **{
+        joint: tuple(
+            tuple(CONTRACT.nominal(f"frames.mounts.{frame}")[component])
+            for component in ("xyz", "rpy")
+        )
+        for joint, frame in MOUNT_JOINTS.items()
+    },
     "cam_1_depth_joint": ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
     "cam_1_depth_optical_joint": (
         (0.0, 0.0, 0.0),
@@ -105,11 +127,6 @@ SENSOR_JOINT_POSES = {
         (0.0, 0.0, 0.0),
         (-1.5707963267948966, 0.0, -1.5707963267948966),
     ),
-    "laser_link_joint": (
-        (0.043, 0.0, 0.110),
-        (0.0, 0.0, 3.141592653589793),
-    ),
-    "imu_joint": ((-0.06, 0.01, 0.01), (0.0, 3.1415, 1.5707)),
 }
 
 
@@ -155,9 +172,11 @@ class TestRobotDescriptionContract(unittest.TestCase):
     def test_link_joint_and_backend_contracts_are_unchanged(self):
         for backend, robot in self.robots.items():
             with self.subTest(backend=backend):
+                links = {link.get("name") for link in robot.findall("link")}
+                self.assertEqual(links, LINK_NAMES)
                 self.assertEqual(
-                    {link.get("name") for link in robot.findall("link")},
-                    LINK_NAMES,
+                    {name for name in links if name.startswith("cam_1_")},
+                    set(CONTRACT.nominal("frames.camera_frames")),
                 )
                 joints = {
                     joint.get("name"): joint
@@ -262,12 +281,66 @@ class TestRobotDescriptionContract(unittest.TestCase):
                     self.assertEqual(vector(origin.get("xyz")), expected_xyz)
                     self.assertEqual(vector(origin.get("rpy")), expected_rpy)
 
-    def test_fortress_camera_rate_is_five_hertz(self):
+    def test_fortress_camera_matches_contract(self):
         camera = self.robots["fortress"].find(
             "./gazebo[@reference='cam_1_link']/sensor[@name='cam_1']"
         )
         self.assertIsNotNone(camera)
-        self.assertEqual(float(camera.findtext("update_rate")), 5.0)
+        expected = {
+            "update_rate": CONTRACT.nominal(
+                "topics./cam_1/color/image_raw.rate_hz"
+            ),
+            "camera/horizontal_fov": CONTRACT.nominal(
+                "camera.horizontal_fov_rad"
+            ),
+            "camera/image/width": CONTRACT.nominal("camera.width"),
+            "camera/image/height": CONTRACT.nominal("camera.height"),
+            "camera/clip/near": CONTRACT.nominal("depth.min_range_m"),
+            "camera/clip/far": CONTRACT.nominal("depth.max_range_m"),
+            "camera/lens/intrinsics/fx": CONTRACT.nominal("camera.fx"),
+            "camera/lens/intrinsics/fy": CONTRACT.nominal("camera.fy"),
+            "camera/lens/intrinsics/cx": CONTRACT.nominal("camera.cx"),
+            "camera/lens/intrinsics/cy": CONTRACT.nominal("camera.cy"),
+        }
+        for path, expected_value in expected.items():
+            with self.subTest(element=path):
+                self.assertAlmostEqual(
+                    float(camera.findtext(path)), expected_value, places=5
+                )
+
+    def test_fortress_lidar_and_imu_match_contract(self):
+        robot = self.robots["fortress"]
+        lidar = robot.find("./gazebo/sensor[@type='gpu_lidar']")
+        imu = robot.find("./gazebo/sensor[@type='imu']")
+        expected = {
+            (lidar, "update_rate"): CONTRACT.nominal("topics./scan.rate_hz"),
+            (lidar, "lidar/scan/horizontal/samples"): CONTRACT.nominal(
+                "lidar.ray_count"
+            ),
+            (lidar, "lidar/scan/horizontal/min_angle"): CONTRACT.nominal(
+                "lidar.angle_min_rad"
+            ),
+            (lidar, "lidar/scan/horizontal/max_angle"): CONTRACT.nominal(
+                "lidar.angle_max_rad"
+            ),
+            (lidar, "lidar/range/min"): CONTRACT.nominal("lidar.range_min_m"),
+            (lidar, "lidar/range/max"): CONTRACT.nominal("lidar.range_max_m"),
+            (imu, "update_rate"): CONTRACT.nominal("topics./imu/data.rate_hz"),
+        }
+        gyro = CONTRACT.nominal("imu.gyro_noise_stddev_rad_s")
+        accel = CONTRACT.nominal("imu.accel_noise_stddev_mps2")
+        for index, axis in enumerate("xyz"):
+            expected[
+                (imu, f"imu/angular_velocity/{axis}/noise/stddev")
+            ] = gyro[index]
+            expected[
+                (imu, f"imu/linear_acceleration/{axis}/noise/stddev")
+            ] = accel[index]
+        for (sensor, path), expected_value in expected.items():
+            with self.subTest(sensor=sensor.get("type"), element=path):
+                self.assertAlmostEqual(
+                    float(sensor.findtext(path)), expected_value
+                )
 
     def test_only_generated_installed_visuals_are_referenced(self):
         for backend, robot in self.robots.items():

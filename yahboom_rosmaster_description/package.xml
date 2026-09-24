@@ -21,6 +21,8 @@
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
+  <!-- robot_description_contract reads yahboom_rosmaster_gazebo's parity ledger. -->
+  <test_depend>python3-yaml</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
