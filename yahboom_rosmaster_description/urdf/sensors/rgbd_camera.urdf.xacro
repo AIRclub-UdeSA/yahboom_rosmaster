@@ -20,10 +20,6 @@
     optical_rpy_offset:='${-M_PI/2} 0 ${-M_PI/2}'
     depth_frame_xyz_offset:='0 0 0'
     depth_frame_rpy_offset:='0 0 0'
-    infra1_xyz_offset:='0 0 0'
-    infra1_rpy_offset:='0 0 0'
-    infra2_xyz_offset:='0 -0.05 0'
-    infra2_rpy_offset:='0 0 0'
     color_xyz_offset:='0 0 0'
     color_rpy_offset:='0 0 0'
     cam_width:=0.090
@@ -98,34 +94,6 @@
       <child link="${prefix}${camera_name}_depth_optical_frame" />
     </joint>
     <link name="${prefix}${camera_name}_depth_optical_frame"/>
-
-    <joint name="${prefix}${camera_name}_infra1_joint" type="fixed">
-      <origin xyz="${infra1_xyz_offset}" rpy="${infra1_rpy_offset}" />
-      <parent link="${prefix}${camera_name}_link" />
-      <child link="${prefix}${camera_name}_infra1_frame" />
-    </joint>
-    <link name="${prefix}${camera_name}_infra1_frame"/>
-
-    <joint name="${prefix}${camera_name}_infra1_optical_joint" type="fixed">
-      <origin xyz="${optical_xyz_offset}" rpy="${optical_rpy_offset}" />
-      <parent link="${prefix}${camera_name}_infra1_frame" />
-      <child link="${prefix}${camera_name}_infra1_optical_frame" />
-    </joint>
-    <link name="${prefix}${camera_name}_infra1_optical_frame"/>
-
-    <joint name="${prefix}${camera_name}_infra2_joint" type="fixed">
-      <origin xyz="${infra2_xyz_offset}" rpy="${infra2_rpy_offset}" />
-      <parent link="${prefix}${camera_name}_link" />
-      <child link="${prefix}${camera_name}_infra2_frame" />
-    </joint>
-    <link name="${prefix}${camera_name}_infra2_frame"/>
-
-    <joint name="${prefix}${camera_name}_infra2_optical_joint" type="fixed">
-      <origin xyz="${optical_xyz_offset}" rpy="${optical_rpy_offset}" />
-      <parent link="${prefix}${camera_name}_infra2_frame" />
-      <child link="${prefix}${camera_name}_infra2_optical_frame" />
-    </joint>
-    <link name="${prefix}${camera_name}_infra2_optical_frame"/>
 
     <!-- The Fortress rgbd_camera renders color and depth from one aperture and
          exposes only one optical frame ID.  Keep the color-named frames as

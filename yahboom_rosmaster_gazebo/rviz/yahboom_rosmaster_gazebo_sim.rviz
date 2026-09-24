@@ -88,22 +88,6 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        cam_1_infra1_frame:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        cam_1_infra1_optical_frame:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        cam_1_infra2_frame:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        cam_1_infra2_optical_frame:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
         cam_1_link:
           Alpha: 1
           Show Axes: false
@@ -160,14 +144,6 @@ Visualization Manager:
           Value: true
         cam_1_depth_optical_frame:
           Value: true
-        cam_1_infra1_frame:
-          Value: true
-        cam_1_infra1_optical_frame:
-          Value: true
-        cam_1_infra2_frame:
-          Value: true
-        cam_1_infra2_optical_frame:
-          Value: true
         cam_1_link:
           Value: true
         front_left_wheel_link:
@@ -198,12 +174,6 @@ Visualization Manager:
                   {}
               cam_1_depth_frame:
                 cam_1_depth_optical_frame:
-                  {}
-              cam_1_infra1_frame:
-                cam_1_infra1_optical_frame:
-                  {}
-              cam_1_infra2_frame:
-                cam_1_infra2_optical_frame:
                   {}
             front_left_wheel_link:
               {}

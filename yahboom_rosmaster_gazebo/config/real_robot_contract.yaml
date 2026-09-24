@@ -415,12 +415,8 @@ simulator:
         - cam_1_depth_optical_frame
         - cam_1_color_frame
         - cam_1_color_optical_frame
-        - cam_1_infra1_frame
-        - cam_1_infra1_optical_frame
-        - cam_1_infra2_frame
-        - cam_1_infra2_optical_frame
-      matches_physical: false
-      closes_in_step: 4
+      matches_physical: true
+      note: '#43 step 4 removed cam_1_infra1_* and cam_1_infra2_*, which the physical robot does not publish.'
 
   wheels:
     radius_m:
