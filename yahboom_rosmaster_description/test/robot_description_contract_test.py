@@ -11,12 +11,20 @@ PACKAGE_DIR = Path(__file__).resolve().parents[1]
 ROBOT_XACRO = (
     PACKAGE_DIR / "urdf" / "robots" / "rosmaster_x3.urdf.xacro"
 )
+WHEEL_RADIUS = 0.0325
+# Physical X3: base_footprint on the floor, base_link 71.4 mm up and the wheel
+# axles 38.9 mm below it (physical_rosmaster yahboomcar_X3.urdf.xacro).
+BASE_LINK_HEIGHT = 0.0714
 WHEEL_ORIGINS = {
-    "front_left": (0.08, 0.0845, -0.0325),
-    "front_right": (0.08, -0.0845, -0.0325),
-    "back_left": (-0.08, 0.0845, -0.0325),
-    "back_right": (-0.08, -0.0845, -0.0325),
+    "front_left": (0.08, 0.0845, -0.0389),
+    "front_right": (0.08, -0.0845, -0.0389),
+    "back_left": (-0.08, 0.0845, -0.0389),
+    "back_right": (-0.08, -0.0845, -0.0389),
 }
+# The CAD assembly was generated with the axles one wheel radius below
+# base_link; its visuals are shifted by the difference to keep resting on the
+# wheels.
+CHASSIS_ORIGIN_Z = WHEEL_ORIGINS["front_left"][2] + WHEEL_RADIUS
 MESHES = {
     "base_link": "rosmaster_base.obj",
     "front_left_wheel_link": "front_left_wheel.obj",
@@ -27,13 +35,13 @@ MESHES = {
     "laser_link": "lidar.obj",
 }
 VISUAL_ORIGINS = {
-    "base_link": (0.0, 0.0, 0.0),
+    "base_link": (0.0, 0.0, CHASSIS_ORIGIN_Z),
     "front_left_wheel_link": (0.0, 0.0, 0.0),
     "front_right_wheel_link": (0.0, 0.0, 0.0),
     "back_left_wheel_link": (0.0, 0.0, 0.0),
     "back_right_wheel_link": (0.0, 0.0, 0.0),
-    "cam_1_link": (0.0, 0.0, 0.0),
-    "laser_link": (0.0, 0.0, 0.0),
+    "cam_1_link": (0.0, 0.0, CHASSIS_ORIGIN_Z),
+    "laser_link": (0.0, 0.0, CHASSIS_ORIGIN_Z),
 }
 CAD_VISUAL_DIR = (
     PACKAGE_DIR / "meshes" / "rosmaster_x3" / "cad_visual"
@@ -131,6 +139,12 @@ def expand(backend):
 class TestRobotDescriptionContract(unittest.TestCase):
     """Protect interfaces while allowing the render geometry to evolve."""
 
+    def assertVectorAlmostEqual(self, actual, expected):
+        """Compare two xyz vectors component by component."""
+        self.assertEqual(len(actual), len(expected))
+        for actual_value, expected_value in zip(actual, expected):
+            self.assertAlmostEqual(actual_value, expected_value)
+
     @classmethod
     def setUpClass(cls):
         cls.robots = {
@@ -165,9 +179,9 @@ class TestRobotDescriptionContract(unittest.TestCase):
                     joint = robot.find(
                         f"./joint[@name='{side}_wheel_joint']"
                     )
-                    actual = vector(joint.find("origin").get("xyz"))
-                    for actual_value, expected_value in zip(actual, expected):
-                        self.assertAlmostEqual(actual_value, expected_value)
+                    self.assertVectorAlmostEqual(
+                        vector(joint.find("origin").get("xyz")), expected
+                    )
                     self.assertEqual(
                         vector(joint.find("origin").get("rpy")),
                         (0.0, 0.0, 0.0),
@@ -189,8 +203,32 @@ class TestRobotDescriptionContract(unittest.TestCase):
                                 "./collision/geometry/sphere"
                             ).get("radius")
                         ),
-                        abs(expected[2]),
+                        WHEEL_RADIUS,
                     )
+
+    def test_base_footprint_is_on_the_floor(self):
+        for backend, robot in self.robots.items():
+            with self.subTest(backend=backend):
+                base_joint = robot.find("./joint[@name='base_joint']")
+                self.assertEqual(base_joint.find("parent").get("link"),
+                                 "base_footprint")
+                self.assertVectorAlmostEqual(
+                    vector(base_joint.find("origin").get("xyz")),
+                    (0.0, 0.0, BASE_LINK_HEIGHT),
+                )
+                for side in WHEEL_ORIGINS:
+                    with self.subTest(wheel=side):
+                        axle_z = vector(robot.find(
+                            f"./joint[@name='{side}_wheel_joint']/origin"
+                        ).get("xyz"))[2]
+                        radius = float(robot.find(
+                            f"./link[@name='{side}_wheel_link']"
+                            "/collision/geometry/sphere"
+                        ).get("radius"))
+                        # The wheel's lowest point touches base_footprint z=0.
+                        self.assertAlmostEqual(
+                            BASE_LINK_HEIGHT + axle_z - radius, 0.0
+                        )
 
     def test_fortress_drive_geometry_matches_physical_wheels(self):
         robot = self.robots["fortress"]
@@ -204,7 +242,7 @@ class TestRobotDescriptionContract(unittest.TestCase):
         expected = {
             "wheelbase": abs(front_left[0] - back_left[0]),
             "wheel_separation": abs(front_left[1] - front_right[1]),
-            "wheel_radius": abs(front_left[2]),
+            "wheel_radius": WHEEL_RADIUS,
         }
         for element_name, expected_value in expected.items():
             with self.subTest(element=element_name):
@@ -239,7 +277,7 @@ class TestRobotDescriptionContract(unittest.TestCase):
                         f"./link[@name='{link_name}']/visual"
                     )
                     origin = visual.find("origin")
-                    self.assertEqual(
+                    self.assertVectorAlmostEqual(
                         vector(origin.get("xyz")), VISUAL_ORIGINS[link_name]
                     )
                     self.assertEqual(
@@ -280,15 +318,15 @@ class TestRobotDescriptionContract(unittest.TestCase):
                     vector(collision.find("./geometry/box").get("size")),
                     (0.3, 0.1386, 0.19724999999999998),
                 )
-                self.assertEqual(
+                self.assertVectorAlmostEqual(
                     vector(collision.find("origin").get("xyz")),
-                    (-0.031, 0.0, 0.10674999999999998),
+                    (-0.031, 0.0, 0.10674999999999998 + CHASSIS_ORIGIN_Z),
                 )
                 inertial = base.find("inertial")
                 self.assertEqual(float(inertial.find("mass").get("value")), 1.5)
-                self.assertEqual(
+                self.assertVectorAlmostEqual(
                     vector(inertial.find("origin").get("xyz")),
-                    (-0.031, 0.0, 0.10674999999999998),
+                    (-0.031, 0.0, 0.10674999999999998 + CHASSIS_ORIGIN_Z),
                 )
                 inertia = inertial.find("inertia")
                 expected = {

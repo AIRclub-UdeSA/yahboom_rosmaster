@@ -126,7 +126,8 @@ def _launch_robot(context, xacro_path, profile_config):
         arguments=[
             "-string", robot_description,
             "-name", "rosmaster_x3",
-            "-z", "0.0325",
+            # base_footprint is on the floor, so the default z=0 spawn rests
+            # the wheels on the ground.
         ],
         output="screen",
     )
