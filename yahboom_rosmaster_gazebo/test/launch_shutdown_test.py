@@ -5,6 +5,7 @@ import ast
 import importlib.util
 from pathlib import Path
 import signal
+import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -256,7 +257,7 @@ class TestLaunchShutdown(unittest.TestCase):
         self.assertFalse(stopped)
         sleep.assert_called_once_with(LAUNCH_MODULE.PROCESS_STOP_POLL_INTERVAL)
 
-    def test_bridges_are_stopped_before_gazebo_service_request(self):
+    def test_bridges_are_stopped_and_world_paused_before_gazebo_stop(self):
         calls = []
         context = SimpleNamespace(environment={})
         gazebo = FakeProcess(process_details={"pid": 456})
@@ -267,9 +268,12 @@ class TestLaunchShutdown(unittest.TestCase):
             del process, args
             calls.append(label)
 
-        def record_gazebo_stop(*args, **kwargs):
-            del args, kwargs
-            calls.append("gazebo")
+        def record_gazebo_service(command, **kwargs):
+            del kwargs
+            service = command[command.index("-s") + 1]
+            calls.append(
+                "pause" if service == "/world/empty_world/control"
+                else "stop" if service == "/server_control" else service)
             return SimpleNamespace(
                 returncode=0, stdout="data: true", stderr="")
 
@@ -281,18 +285,58 @@ class TestLaunchShutdown(unittest.TestCase):
             patch.object(LAUNCH_MODULE.shutil, "which", return_value="/usr/bin/ign"),
             patch.object(
                 LAUNCH_MODULE.subprocess, "run",
-                side_effect=record_gazebo_stop,
+                side_effect=record_gazebo_service,
             ),
+            patch.object(LAUNCH_MODULE.time, "sleep") as sleep,
             patch.object(
                 LAUNCH_MODULE, "_wait_for_process_stop", return_value=True,
             ) as wait_for_stop,
         ):
             LAUNCH_MODULE._request_gazebo_stop(
-                None, context, gazebo, image_bridge, parameter_bridge)
+                None, context, gazebo, "empty_world", image_bridge,
+                parameter_bridge)
 
-        self.assertEqual(calls, ["image bridge", "parameter bridge", "gazebo"])
+        self.assertEqual(
+            calls, ["image bridge", "parameter bridge", "pause", "stop"])
+        sleep.assert_called_once_with(LAUNCH_MODULE.GAZEBO_PAUSE_SETTLE)
         wait_for_stop.assert_called_once_with(
             gazebo, LAUNCH_MODULE.GAZEBO_CLEAN_STOP_TIMEOUT)
+
+    def test_unknown_world_skips_the_pause_but_still_stops(self):
+        logger = RecordingLogger()
+        context = SimpleNamespace(environment={})
+        gazebo = FakeProcess(process_details={"pid": 456})
+
+        with (
+            patch.object(LAUNCH_MODULE, "_stop_bridge_process"),
+            patch.object(LAUNCH_MODULE.shutil, "which", return_value="/usr/bin/ign"),
+            patch.object(
+                LAUNCH_MODULE.subprocess, "run",
+                return_value=SimpleNamespace(
+                    returncode=0, stdout="data: true", stderr=""),
+            ) as run,
+            patch.object(
+                LAUNCH_MODULE, "_wait_for_process_stop", return_value=True),
+            patch.object(LAUNCH_MODULE, "get_logger", return_value=logger),
+        ):
+            LAUNCH_MODULE._request_gazebo_stop(
+                None, context, gazebo, None, FakeProcess(), FakeProcess())
+
+        run.assert_called_once()
+        self.assertIn("/server_control", run.call_args.args[0])
+        self.assertTrue(any(
+            "unknown world name" in message
+            for message in logger.warning_messages))
+
+    def test_world_name_is_read_from_the_sdf(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".world") as world:
+            world.write(
+                '<?xml version="1.0"?>\n'
+                '<sdf version="1.7"><world name="maze_6x5_v1"/></sdf>\n')
+            world.flush()
+            self.assertEqual(
+                LAUNCH_MODULE._world_name(world.name), "maze_6x5_v1")
+        self.assertIsNone(LAUNCH_MODULE._world_name("/nonexistent.world"))
 
     def test_gazebo_clean_stop_grace_is_bounded_and_force_killed(self):
         logger = RecordingLogger()
@@ -313,11 +357,13 @@ class TestLaunchShutdown(unittest.TestCase):
             patch.object(
                 LAUNCH_MODULE, "_wait_for_process_stop", return_value=False,
             ) as wait_for_stop,
+            patch.object(LAUNCH_MODULE.time, "sleep"),
             patch.object(LAUNCH_MODULE, "_kill_gazebo_server") as kill_gazebo,
             patch.object(LAUNCH_MODULE, "get_logger", return_value=logger),
         ):
             LAUNCH_MODULE._request_gazebo_stop(
-                None, context, gazebo, image_bridge, parameter_bridge)
+                None, context, gazebo, "empty_world", image_bridge,
+                parameter_bridge)
 
         wait_for_stop.assert_called_once_with(
             gazebo, LAUNCH_MODULE.GAZEBO_CLEAN_STOP_TIMEOUT)

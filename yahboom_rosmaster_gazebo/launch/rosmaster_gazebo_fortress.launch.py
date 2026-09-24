@@ -12,6 +12,7 @@ import signal
 import subprocess
 import tempfile
 import time
+import xml.etree.ElementTree as ElementTree
 
 import yaml
 
@@ -52,6 +53,9 @@ MOTION_PROFILE_KEYS = (
 # in-flight, which can race SensorsPrivate::Stop.
 GAZEBO_CLEAN_STOP_TIMEOUT = 10.0
 PROCESS_STOP_POLL_INTERVAL = 0.05
+# Time for a sensor frame already being rendered when the world pauses to
+# finish; a 30 Hz RGB-D frame under software rendering takes up to about 0.1 s.
+GAZEBO_PAUSE_SETTLE = 0.5
 
 
 def _load_motion_profile(config_path, profile_name):
@@ -282,7 +286,61 @@ def _kill_gazebo_server(gazebo_server, logger):
         logger.warning(f"Could not force-kill Gazebo: {exception}")
 
 
-def _request_gazebo_stop(event, context, gazebo_server, image_bridge, parameter_bridge):
+def _world_name(world_path):
+    """Return the name of the world in an SDF file, or None if unreadable."""
+    try:
+        world = ElementTree.parse(world_path).getroot().find("world")
+    except (OSError, ElementTree.ParseError):
+        return None
+    return None if world is None else world.get("name")
+
+
+def _pause_gazebo(ign_executable, world_name, context, logger):
+    """
+    Pause the world so the sensor render thread is idle when Gazebo stops.
+
+    Gazebo emits its Stop event from a helper thread when /server_control asks
+    it to stop. The Sensors system's handler disconnects itself and joins the
+    render thread inside that emit, while the main thread, already out of its
+    run loop, emits Stop again as the server is destroyed. The two emits are
+    not synchronised and can segfault the server (exit -11, as in #31). The
+    join is only slow when a frame is being rendered, which a 30 Hz camera
+    under software rendering makes common. A paused world starts no new sensor
+    frames, so once the current one finishes the join returns at once.
+    """
+    if world_name is None:
+        logger.warning("Cannot pause Gazebo before stopping: unknown world name")
+        return
+    try:
+        result = subprocess.run(
+            [
+                ign_executable,
+                "service",
+                "-s", f"/world/{world_name}/control",
+                "--reqtype", "ignition.msgs.WorldControl",
+                "--reptype", "ignition.msgs.Boolean",
+                "--timeout", "1500",
+                "--req", "pause: true",
+            ],
+            capture_output=True,
+            check=False,
+            env=context.environment,
+            text=True,
+            timeout=2.0,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exception:
+        logger.warning(f"Could not pause Gazebo before stopping it: {exception}")
+        return
+    if result.returncode != 0 or "data: true" not in result.stdout:
+        detail = result.stderr.strip() or result.stdout.strip() or "no response"
+        logger.warning(f"Gazebo did not acknowledge the pause request: {detail}")
+        return
+    time.sleep(GAZEBO_PAUSE_SETTLE)
+    logger.info("Paused Gazebo before stopping it")
+
+
+def _request_gazebo_stop(
+        event, context, gazebo_server, world_name, image_bridge, parameter_bridge):
     """Stop transport consumers, then Gazebo, before launch signal fallback."""
     del event
     logger = get_logger("rosmaster_gazebo_shutdown")
@@ -293,6 +351,8 @@ def _request_gazebo_stop(event, context, gazebo_server, image_bridge, parameter_
     if ign_executable is None:
         logger.warning("Cannot request Gazebo stop: 'ign' is not available")
         return None
+
+    _pause_gazebo(ign_executable, world_name, context, logger)
 
     try:
         result = subprocess.run(
@@ -361,10 +421,12 @@ def _launch_gazebo_server(context, ign_executable, pkg_gz, image_bridge, paramet
         ],
         output="screen",
     )
+    world_name = _world_name(world_path)
     return [
         RegisterEventHandler(OnShutdown(
             on_shutdown=lambda event, ctx: _request_gazebo_stop(
-                event, ctx, gazebo_server, image_bridge, parameter_bridge))),
+                event, ctx, gazebo_server, world_name, image_bridge,
+                parameter_bridge))),
         gazebo_server,
     ]
 
