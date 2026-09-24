@@ -723,6 +723,10 @@ floor and `base_link` is 71.4 mm above it. Until #42 the simulator placed
 `base_footprint` at wheel-axle height (32.5 mm up) and `base_link` at 65 mm, so
 anything that compensated for those offsets must drop the compensation. Work to
 match the remaining sensors to the physical robot is tracked in #43.
+`yahboom_rosmaster_gazebo/config/real_robot_contract.yaml` records the physical
+robot's measurements, the simulator's current values, and the #43 step that
+closes each difference. The sensor contract probes read their expected values
+from it; see `yahboom_rosmaster_gazebo/doc/real_robot_contract.md`.
 
 The following simulator limitations remain:
 
