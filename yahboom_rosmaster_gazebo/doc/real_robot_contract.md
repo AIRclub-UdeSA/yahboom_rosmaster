@@ -44,8 +44,11 @@ rate_hz:
 
 `test/real_robot_contract_test.py` checks every flag. Where the simulator and
 physical values are comparable it recomputes the match and fails when a flag
-disagrees. It skips them when they aren't, for example a simulator rate of
-5 Hz against the physical cloud's measured range of 2.83-10.93 Hz.
+disagrees. A `true` flag must be verifiable: if the two values can't be
+compared, for example a simulator rate of 5 Hz against the physical cloud's
+measured range of 2.83-10.93 Hz, the test fails it. Either make the values
+comparable, or set the flag to `false` with a `closes_in_step`. A `false` flag
+with values that can't be compared is accepted as a recorded gap.
 
 ## Who reads it
 
@@ -60,7 +63,7 @@ shared loader.
 | `scripts/depth_geometry_probe.py` | `camera.width`, `camera.height`, the depth image and cloud `frame_id`, `depth.min_range_m`, `depth.max_range_m` (the clip range) |
 | `yahboom_rosmaster_description/test/robot_description_contract_test.py` | `frames.*` mounts and camera frames, `wheels.*`, and the camera, LiDAR and IMU settings the xacro must produce |
 | `test/sensor_contract_probe_test.py` | Every rate the probe grades has a contract; the probe's Best Effort topics and wheel joint names match the ledger |
-| `test/real_robot_contract_test.py` | Every parity flag, the provenance commits, the legacy `superseded_by` references, and the `/joint_states` rate in `config/ros2_control.yaml` |
+| `test/real_robot_contract_test.py` | Every parity flag (a `true` one must be verifiable), the provenance commits, the legacy `superseded_by` references, and the `/joint_states` rate in `config/ros2_control.yaml` |
 
 `sensor_contract_ci` still runs with `performance_checks:=false`, so it reads
 the frames and field of view but never grades the rate contracts.

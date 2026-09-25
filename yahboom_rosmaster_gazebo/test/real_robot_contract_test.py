@@ -73,6 +73,37 @@ class TestRealRobotContract(unittest.TestCase):
             errors,
         )
 
+    def test_parity_errors_fail_a_true_flag_it_cannot_verify(self):
+        contract = RealRobotContract({
+            "physical": {"cloud": {"rate_hz": [2.83, 10.93], "limit": 0.5}},
+            "simulator": {"cloud": {
+                "rate_hz": {"nominal": 5.0, "matches_physical": True},
+                "limit": {"nominal": {"x": 0.5}, "matches_physical": True},
+            }},
+        })
+        errors = contract.parity_errors()
+        self.assertEqual(
+            [error.split(":")[0] for error in errors],
+            ["cloud.rate_hz", "cloud.limit"],
+            errors,
+        )
+        for error in errors:
+            self.assertIn("not comparable", error)
+            self.assertIn("matches_physical to false", error)
+
+    def test_parity_errors_accept_a_recorded_gap_that_is_not_comparable(self):
+        contract = RealRobotContract({
+            "physical": {"cloud": {"rate_hz": [2.83, 10.93], "limit": 0.5}},
+            "simulator": {"cloud": {
+                "rate_hz": {"nominal": 5.0, "matches_physical": False,
+                            "closes_in_step": 6},
+                "limit": {"nominal": {"x": 0.5}, "matches_physical": False,
+                          "closes_in_step": "out_of_scope",
+                          "note": "The physical limit is a scalar."},
+            }},
+        })
+        self.assertEqual(contract.parity_errors(), [])
+
     def test_provenance_pins_both_commits(self):
         physical = CONTRACT.data["physical"]["provenance"]
         simulator = CONTRACT.data["simulator"]["provenance"]

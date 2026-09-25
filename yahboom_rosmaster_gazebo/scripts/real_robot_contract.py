@@ -154,7 +154,15 @@ class RealRobotContract:
             simulator = entry.get("nominal", entry.get("measured"))
             agreement = values_agree(
                 simulator, physical, float(entry.get("tolerance", 0.0)))
-            if agreement is not None and agreement != matches:
+            if agreement is None:
+                if matches is True:
+                    errors.append(
+                        f"{key}: matches_physical is true but simulator "
+                        f"{simulator!r} and physical {physical!r} are not "
+                        f"comparable, so nothing verifies it; make the "
+                        f"values comparable, or set matches_physical to "
+                        f"false with a closes_in_step")
+            elif agreement != matches:
                 errors.append(
                     f"{key}: matches_physical is {matches} but simulator "
                     f"{simulator!r} and physical {physical!r} "
