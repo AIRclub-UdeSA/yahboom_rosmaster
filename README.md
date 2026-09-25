@@ -749,8 +749,11 @@ Gazebo now renders from `cam_1_color_frame`. The four image and
 camera-information topics are labelled `cam_1_color_optical_frame` instead of
 `cam_1_depth_optical_frame`. Code that reads `camera_info` and the header frame
 adapts on its own. Anything that hard-coded the old resolution, intrinsics,
-rate or image frame must be updated. The point cloud stays in
-`cam_1_depth_frame` with the same layout, now at up to 30 Hz.
+rate or image frame must be updated. The `rgbd_camera` xacro macro changed
+too: `focal_length:=` in pixels replaces `horizontal_fov:=`, which xacro now
+rejects, and the defaults are `image_width:=320` and `update_rate:=30`. The
+point cloud stays in `cam_1_depth_frame` with the same layout, now at up to
+30 Hz.
 
 Work to match the remaining sensors to the physical robot is tracked in #43.
 `yahboom_rosmaster_gazebo/config/real_robot_contract.yaml` records the physical

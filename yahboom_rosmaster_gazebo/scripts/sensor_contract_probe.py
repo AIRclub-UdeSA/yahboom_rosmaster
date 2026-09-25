@@ -289,9 +289,13 @@ class SensorContractProbe(Node):
         """
         Require representative sensor frames to resolve at message time.
 
-        One of the recent samples must resolve: under software rendering the
-        oldest can predate the TF listener's first transform, and the newest
-        can be ahead of the latest one. A frame missing from TF fails them all.
+        This is a deliberate loosening. It passes when any one of the recent
+        samples resolves, which is weaker than requiring every sample to.
+        Under software rendering the oldest can predate the TF listener's
+        first transform, and the newest can be ahead of the latest one, so
+        requiring all of them fails on timing, not on TF. What it no longer
+        catches is a stamp that is wrong for only some of the samples. A frame
+        missing from TF still fails, because it fails every sample.
         """
         for topic in TIMESTAMPED_TF_TOPICS:
             messages = self.recent_tf_messages[topic]
