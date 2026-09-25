@@ -338,6 +338,15 @@ class TestLaunchShutdown(unittest.TestCase):
                 LAUNCH_MODULE._world_name(world.name), "maze_6x5_v1")
         self.assertIsNone(LAUNCH_MODULE._world_name("/nonexistent.world"))
 
+    def test_every_shipped_world_has_a_readable_name(self):
+        # A world that is not well-formed XML has no readable name, so the
+        # shutdown skips the pause for it.
+        worlds = sorted((LAUNCH_FILE.parents[1] / "worlds").glob("*.world"))
+        self.assertTrue(worlds, "no worlds found")
+        for world in worlds:
+            with self.subTest(world=world.name):
+                self.assertTrue(LAUNCH_MODULE._world_name(str(world)))
+
     def test_gazebo_clean_stop_grace_is_bounded_and_force_killed(self):
         logger = RecordingLogger()
         context = SimpleNamespace(environment={})
