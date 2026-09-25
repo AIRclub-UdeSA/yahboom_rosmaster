@@ -46,17 +46,24 @@ jobs:
             python3-colcon-common-extensions \
             python3-rosdep \
             ros-humble-gz-ros2-control \
-            ros-humble-ros-gz \
+            ros-humble-ros-gz-bridge \
+            ros-humble-ros-gz-image \
+            ros-humble-ros-gz-sim \
             xauth \
             xvfb
           if [[ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]]; then
             rosdep init
           fi
           rosdep update --rosdistro humble
+          # The gate is headless (every launch test passes rviz:=false), so skip
+          # the GUI tools; ros-humble-ros-gz would pull rviz2 and rqt through
+          # its sim-demos dependency, which is why the ros_gz_* packages are
+          # installed individually above.
           rosdep install \
             --from-paths . \
             --ignore-src \
             --rosdistro humble \
+            --skip-keys "rviz2 rqt_robot_steering rviz_imu_plugin joint_state_publisher_gui" \
             --default-yes
 
       - name: Verify simulator environment
@@ -72,8 +79,9 @@ jobs:
         shell: bash
         run: |
           source /opt/ros/humble/setup.bash
+          # No --symlink-install: CI installs once, and symlinking the ~2,500
+          # model files one at a time costs ~20 s more than copying them.
           colcon build \
-            --symlink-install \
             --event-handlers console_direct+ \
             --cmake-args -DBUILD_TESTING=ON
 
