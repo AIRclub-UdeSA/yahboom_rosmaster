@@ -20,10 +20,26 @@ import launch_testing.asserts
 import pytest
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, TEST_DIR)
+sys.path.insert(0, os.path.join(os.path.dirname(TEST_DIR), "scripts"))
 
+from real_robot_contract import RealRobotContract  # noqa: E402
 from shutdown_asserts import assert_clean_shutdown  # noqa: E402
 
+
+# The robot spawns with base_footprint at the world origin and the RGB-D
+# camera renders from cam_1_link. Centre the 0.2 m deep target on the optical
+# axis so its front face lies at a known depth along it.
+CONTRACT = RealRobotContract.load()
+CAMERA_XYZ = CONTRACT.nominal("frames.mounts.cam_1_link")["xyz"]
+TARGET_X = 0.9
+# 0.1 is half the target's 0.2 m depth (the SDF box's x size), so the front
+# face is at TARGET_X - 0.1.
+EXPECTED_DEPTH = TARGET_X - 0.1 - CAMERA_XYZ[0]
+TARGET_Z = (
+    CONTRACT.nominal("frames.base_footprint_to_base_link_z_m") + CAMERA_XYZ[2]
+)
 
 TARGET_SDF = """
 <sdf version="1.7">
@@ -71,7 +87,7 @@ def generate_test_description():
             "--ros-args",
             "-p", "timeout:=45.0",
             "-p", "samples:=10",
-            "-p", "expected_depth:=0.695",
+            "-p", f"expected_depth:={EXPECTED_DEPTH}",
         ],
         output="screen",
     )
@@ -81,9 +97,9 @@ def generate_test_description():
         arguments=[
             "-string", TARGET_SDF,
             "-name", "depth_geometry_target",
-            "-x", "0.9",
+            "-x", str(TARGET_X),
             "-y", "0.0",
-            "-z", "0.115",
+            "-z", str(TARGET_Z),
         ],
         output="screen",
     )

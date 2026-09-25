@@ -12,6 +12,7 @@ PACKAGE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_DIR / "scripts"))
 
 from real_robot_contract import (  # noqa: E402
+    OPEN_STEPS,
     RealRobotContract,
     SOURCE_PATH,
     default_path,
@@ -110,6 +111,12 @@ class TestRealRobotContract(unittest.TestCase):
         self.assertRegex(physical["commit"], COMMIT)
         self.assertRegex(simulator["measured_commit"], COMMIT)
         self.assertIn("issuecomment", simulator["measurement"])
+        for record in simulator.get("step_measurements", []):
+            with self.subTest(step=record["step"]):
+                self.assertIn(record["step"], OPEN_STEPS)
+                self.assertRegex(record["commit"], COMMIT)
+                for key in record["keys"]:
+                    self.assertIn("measured", CONTRACT.entry(key), key)
 
     def test_dotted_keys_are_unambiguous(self):
         for section in ("physical", "simulator"):

@@ -65,10 +65,6 @@ LINK_NAMES = {
     "cam_1_link",
     "cam_1_depth_frame",
     "cam_1_depth_optical_frame",
-    "cam_1_infra1_frame",
-    "cam_1_infra1_optical_frame",
-    "cam_1_infra2_frame",
-    "cam_1_infra2_optical_frame",
     "cam_1_color_frame",
     "cam_1_color_optical_frame",
     "laser_link",
@@ -83,17 +79,13 @@ JOINT_NAMES = {
     "cam_1_joint",
     "cam_1_depth_joint",
     "cam_1_depth_optical_joint",
-    "cam_1_infra1_joint",
-    "cam_1_infra1_optical_joint",
-    "cam_1_infra2_joint",
-    "cam_1_infra2_optical_joint",
     "cam_1_color_joint",
     "cam_1_color_optical_joint",
     "laser_link_joint",
     "imu_joint",
 }
-# Sensor mounts on base_link come from the ledger; the camera-internal frames
-# below cam_1_link are structural.
+# Sensor mounts on base_link come from the ledger; the optical frames below
+# the camera frames are structural (REP 103).
 MOUNT_JOINTS = {
     "cam_1_joint": "cam_1_link",
     "laser_link_joint": "laser_link",
@@ -107,32 +99,34 @@ SENSOR_JOINT_POSES = {
         )
         for joint, frame in MOUNT_JOINTS.items()
     },
-    "cam_1_depth_joint": ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
     "cam_1_depth_optical_joint": (
         (0.0, 0.0, 0.0),
         (-1.5707963267948966, 0.0, -1.5707963267948966),
     ),
-    "cam_1_infra1_joint": ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
-    "cam_1_infra1_optical_joint": (
-        (0.0, 0.0, 0.0),
-        (-1.5707963267948966, 0.0, -1.5707963267948966),
-    ),
-    "cam_1_infra2_joint": ((0.0, -0.05, 0.0), (0.0, 0.0, 0.0)),
-    "cam_1_infra2_optical_joint": (
-        (0.0, 0.0, 0.0),
-        (-1.5707963267948966, 0.0, -1.5707963267948966),
-    ),
-    "cam_1_color_joint": ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
     "cam_1_color_optical_joint": (
         (0.0, 0.0, 0.0),
         (-1.5707963267948966, 0.0, -1.5707963267948966),
     ),
+}
+# Camera frames attached to cam_1_link, whose ledger poses are on base_link.
+# The color frame is the Orbbec factory calibration of the physical unit.
+CAMERA_FRAME_JOINTS = {
+    "cam_1_depth_joint": "cam_1_depth_frame",
+    "cam_1_color_joint": "cam_1_color_frame",
 }
 
 
 def vector(value):
     """Convert a three-component URDF attribute to floats."""
     return tuple(float(component) for component in value.split())
+
+
+def max_vertex_x(filename):
+    """Return the largest vertex x of a generated OBJ, in its link frame."""
+    with (CAD_VISUAL_DIR / filename).open(encoding="ascii") as stream:
+        return max(
+            float(line.split()[1]) for line in stream if line.startswith("v ")
+        )
 
 
 def expand(backend):
@@ -280,6 +274,56 @@ class TestRobotDescriptionContract(unittest.TestCase):
                     )
                     self.assertEqual(vector(origin.get("xyz")), expected_xyz)
                     self.assertEqual(vector(origin.get("rpy")), expected_rpy)
+
+    def test_camera_frames_match_the_physical_calibration(self):
+        mount_xyz, mount_rpy = SENSOR_JOINT_POSES["cam_1_joint"]
+        # With cam_1_link unrotated, a child frame's pose on base_link is the
+        # mount translation plus the child joint's offset, with its rotation.
+        self.assertEqual(mount_rpy, (0.0, 0.0, 0.0))
+        for backend, robot in self.robots.items():
+            for name, frame in CAMERA_FRAME_JOINTS.items():
+                with self.subTest(backend=backend, joint=name):
+                    joint = robot.find(f"./joint[@name='{name}']")
+                    self.assertEqual(
+                        joint.find("parent").get("link"), "cam_1_link"
+                    )
+                    origin = joint.find("origin")
+                    expected = CONTRACT.nominal(f"frames.mounts.{frame}")
+                    self.assertVectorAlmostEqual(
+                        tuple(
+                            mount + offset
+                            for mount, offset in zip(
+                                mount_xyz, vector(origin.get("xyz"))
+                            )
+                        ),
+                        expected["xyz"],
+                    )
+                    self.assertVectorAlmostEqual(
+                        vector(origin.get("rpy")), expected["rpy"]
+                    )
+
+    def test_camera_visual_matches_the_tape_measured_setback(self):
+        # physical_rosmaster#33 found the housing drawn 59 mm behind its
+        # mount. The tape measured its front 40 mm behind the chassis front,
+        # to about +/-2 mm.
+        tape = CONTRACT.physical("frames.tape_check")
+        robot = self.robots["fortress"]
+        mount_x = vector(
+            robot.find("./joint[@name='cam_1_joint']/origin").get("xyz")
+        )[0]
+        chassis_front = (
+            max_vertex_x(MESHES["base_link"]) + VISUAL_ORIGINS["base_link"][0]
+        )
+        camera_front = (
+            mount_x
+            + max_vertex_x(MESHES["cam_1_link"])
+            + VISUAL_ORIGINS["cam_1_link"][0]
+        )
+        self.assertAlmostEqual(
+            chassis_front - camera_front,
+            tape["camera_setback_from_chassis_front_m"],
+            delta=0.002,
+        )
 
     def test_fortress_camera_matches_contract(self):
         camera = self.robots["fortress"].find(

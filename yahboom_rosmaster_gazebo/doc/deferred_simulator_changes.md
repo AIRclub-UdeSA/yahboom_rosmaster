@@ -53,7 +53,8 @@ They can hide robot visuals from its own rendering sensors.
 The current CAD migration does not enable a blanket robot-wide mask. It gives
 only the LiDAR housing a private render bit because the detailed shell encloses
 the GPU ray origin; the LiDAR geometry test requires that self-filter. The RViz
-camera panel is configured as image-only instead.
+camera panel is configured as image-only instead. The camera needs no mask at
+its physical mount; see "Self-occlusion" below.
 
 ## Startup timing changes
 
@@ -65,45 +66,60 @@ reduce transient message-filter warnings on slow machines.
 - Evaluate with: repeated cold starts on supported platforms and explicit
   readiness checks instead of fixed delays.
 
-## Camera rate and optical extrinsics
+## Camera mount and extrinsics (implemented)
 
-The simulator now publishes its RGB-D outputs at `5 Hz`. The physical robot's
-current setup guide starts `usb_cam` at `10 Hz`, so rate and latency should be
-measured on the robot before treating either value as a Sim2Real requirement.
+The camera frames follow the physical X3 (#43 step 4). The values are in
+`config/real_robot_contract.yaml`, relative to `base_link`:
 
-The physical description places `camera_link` at
-`(0.057105, 0.000017948, 0.03755) m` relative to `base_link`. That value locates
-the camera housing mesh; it is not a measured lens or optical-frame transform.
-The current USB-camera launch publishes `default_cam` and does not connect that
-frame to `base_link`, while the Astra launch in the repository is disabled.
+- `cam_1_link` and `cam_1_depth_frame` sit at
+  `(0.057105, 0.000017948, 0.03755) m`, physical_rosmaster's
+  `camera_mount_joint`. The robot's live TF confirms it, and so does the tape:
+  the optical axis is 108.95 mm above the floor, against a measured 105-109 mm.
+  The mount was `(0.105, 0, 0.05) m`.
+- `cam_1_color_frame` sits 25.1 mm to the left, at the Orbbec factory
+  calibration of the robot's Astra (serial ACRC64300ET), rotated 0.34 degrees.
+  It is specific to that unit. It was co-located with the depth frame.
+- The `cam_1_infra1_*` and `cam_1_infra2_*` frames are gone; the physical
+  robot publishes neither.
 
-The model comparison also explains the visible gap before the point cloud:
+The Gazebo camera still renders from `cam_1_link` and labels its images
+`cam_1_depth_optical_frame`. Step 5 moves it to the color frame, matches the
+physical 320x240, 30 Hz, 60.97-degree camera, and relabels the images
+`cam_1_color_optical_frame`, as the physical robot publishes them.
 
-- The former D435 visual ended at base-link `x = 0.105 m`, coincident with the
-  unchanged functional camera origin.
-- The Donatello camera housing ends at `x = 0.0662 m`, placing its front 38.8 mm
-  behind the functional origin.
-- The sensor's 0.05 m near clip puts the first possible sample about 88.8 mm
-  ahead of the visible housing.
-- The website assembly deliberately moved the camera 10 mm rearward. Undoing
-  that adjustment would improve agreement with the physical repository's
-  nominal housing placement, but it would not calibrate the optical frame.
+### Camera visual
+
+The challenge website moves the camera housing 10 mm rearward, and
+`tools/convert_rosmaster_cad.py` used to copy that shift. It no longer does,
+because the physical robot disagrees:
+
+| Housing front | x from `base_link` | Behind the chassis front (116.5 mm) |
+|---|---|---|
+| Tape measurement on the physical X3 | about 76.5 mm | 40 mm, +/-2 mm |
+| physical_rosmaster `camera_link.STL` at the physical mount | 77.2 mm | 39.3 mm |
+| `camera.obj` without the 10 mm shift (now) | 76.2 mm | 40.3 mm |
+| `camera.obj` with the shift (before) | 66.2 mm | 50.3 mm |
+
+The unshifted mesh matches the physical STL's bounding box within 1 mm on
+every axis. The tool now bakes `camera.obj` relative to the physical mount, and
+the description contract checks the 40 mm setback.
 
 The legacy chassis STL is byte-identical to the body mesh in the physical
-repository, while the Donatello camera and LiDAR envelopes match its sensor
-meshes and the wheels agree within about 0.2 mm. Neither complete visual should
-be treated as the measured robot envelope until the real unit is checked.
+repository, and the Donatello LiDAR envelope and wheels match its meshes (the
+wheels within about 0.2 mm). Only the camera placement has been checked against
+the physical unit itself. A camera collision envelope remains a separate
+decision; `enable_collision` is off.
 
-Do not move the simulator's functional camera frame to the physical
-`camera_link` value without a real-unit measurement. First identify the camera
-and mount actually installed, measure the lens centre and pitch relative to
-`base_link`, then refine the extrinsics with a calibration target or a known
-floor plane. Re-evaluate camera near clipping, ground coverage, robot
-self-occlusion, depth geometry, and point-cloud TF after any accepted change.
+### Self-occlusion
 
-Keep these as separate later decisions: the selected simulator rate, the
-10 mm visual offset, the functional optical transform, and any future collision
-envelope. A measurement may justify one without justifying the others.
+The render origin now sits inside the housing, 19 mm behind its front face.
+The 0.05 m near clip hides the whole housing; recheck this if the near clip ever
+drops below 19 mm. Beyond the near clip, the
+chassis front edge passes 4.6 mm below the bottom of the current 56.5-degree
+vertical field of view, and 11.1 mm below step 5's 47.6 degrees. Raw
+`/cam_1/color/image_raw` and `/cam_1/depth/image_raw` frames in the empty world
+show no robot pixels at either field of view, so the camera needs no visibility
+mask.
 
 ## Legacy mesh removal
 

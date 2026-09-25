@@ -34,13 +34,18 @@ rate_hz:
 ```
 
 - `nominal` is the configured value. `measured` is what the step-2 baseline
-  observed. An entry needs at least one of them.
+  observed, or the step that last re-measured the entry (see "Closing a
+  gap"). An entry needs at least one of them.
 - `contract` is the `[min, max]` range the probes grade. Only rates have one.
 - `matches_physical` is `true` or `false`. When it is `false`,
   `closes_in_step` names the #43 step (4-9) that closes the gap, or
   `out_of_scope` with a `note` saying why #43 leaves it open.
 - `tolerance` is an absolute tolerance in the entry's unit. Without it,
-  numbers must be equal.
+  numbers must be equal. The camera mounts carry none, so the simulator holds
+  the same digits as the physical entry: the color frame's are the live TF
+  rounded to six decimals, and `cam_1_link` and `cam_1_depth_frame` keep the
+  xacro's own values (their y has nine decimals). Re-measuring or re-rounding
+  a physical value means changing the simulator's with it.
 
 `test/real_robot_contract_test.py` checks every flag. Where the simulator and
 physical values are comparable it recomputes the match and fails when a flag
@@ -60,10 +65,11 @@ shared loader.
 | Reader | Keys |
 |---|---|
 | `scripts/sensor_contract_probe.py` | `topics.<topic>.rate_hz.contract` (only with `performance_checks:=true`), `topics.<topic>.frame_id`, `topics./odom.child_frame_id`, `camera.horizontal_fov_rad` |
-| `scripts/depth_geometry_probe.py` | `camera.width`, `camera.height`, the depth image and cloud `frame_id`, `depth.min_range_m`, `depth.max_range_m` (the clip range) |
-| `yahboom_rosmaster_description/test/robot_description_contract_test.py` | `frames.*` mounts and camera frames, `wheels.*`, and the camera, LiDAR and IMU settings the xacro must produce |
+| `scripts/depth_geometry_probe.py` | `camera.width`, `camera.height`, the depth image and cloud `frame_id`, `depth.min_range_m`, `depth.max_range_m` (the clip range), and the depth and color `frames.mounts` (the color frames' calibrated offset in TF) |
+| `test/depth_geometry.launch.py` | `frames.mounts.cam_1_link` and `frames.base_footprint_to_base_link_z_m`, to place the target on the optical axis at a known depth |
+| `yahboom_rosmaster_description/test/robot_description_contract_test.py` | `frames.*` mounts and camera frames, `wheels.*`, the camera, LiDAR and IMU settings the xacro must produce, and the physical `frames.tape_check` camera setback that `camera.obj` must reproduce |
 | `test/sensor_contract_probe_test.py` | Every rate the probe grades has a contract; the probe's Best Effort topics and wheel joint names match the ledger |
-| `test/real_robot_contract_test.py` | Every parity flag (a `true` one must be verifiable), the provenance commits, the legacy `superseded_by` references, and the `/joint_states` rate in `config/ros2_control.yaml` |
+| `test/real_robot_contract_test.py` | Every parity flag (a `true` one must be verifiable), the provenance commits and `step_measurements` records, the legacy `superseded_by` references, and the `/joint_states` rate in `config/ros2_control.yaml` |
 
 `sensor_contract_ci` still runs with `performance_checks:=false`, so it reads
 the frames and field of view but never grades the rate contracts.
@@ -76,9 +82,12 @@ Each step of #43 closes gaps the same way:
 2. In each affected `simulator` entry, set `nominal` to the new value, set
    `matches_physical: true` and remove `closes_in_step`. Move `contract` ranges
    along with rates.
-3. Re-measure with the physical probe (see the caveats below). Update
-   `measured` and `simulator.provenance` with the commit and the measurement
-   link.
+3. Re-measure with the physical probe (see the caveats below), or with TF
+   lookups for frames. Update `measured`, and add a record to
+   `simulator.provenance.step_measurements` with the step, the commit you
+   measured, the date, the method and the keys you re-measured.
+   `real_robot_contract` checks that the commit is a full SHA and that every
+   listed key has a `measured` value.
 4. Run `real_robot_contract`, `robot_description_contract` and the launch
    contracts. A flag that no longer agrees with the values fails the first.
 
@@ -128,7 +137,9 @@ re-measures it. Refresh `physical.topics./cam_1/depth/color/points` and
 ## The simulator baseline and its caveats
 
 The `measured` values come from the step-2 baseline on `main` @ `f7c931b`
-([#43 comment](https://github.com/AIRclub-UdeSA/yahboom_rosmaster/issues/43#issuecomment-5814742158)).
+([#43 comment](https://github.com/AIRclub-UdeSA/yahboom_rosmaster/issues/43#issuecomment-5814742158)),
+except for the keys a later step re-measured and listed in
+`simulator.provenance.step_measurements`.
 It ran physical_rosmaster's `tools/sensor_capability_probe.py`, unmodified,
 against the simulator, plus a sim-clock helper for latency. Three caveats
 carry forward to every later measurement:

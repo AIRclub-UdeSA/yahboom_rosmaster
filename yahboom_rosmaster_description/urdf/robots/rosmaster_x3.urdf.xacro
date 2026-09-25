@@ -106,12 +106,21 @@
     simple_friction="${backend == 'classic'}"
     joint_type="${'fixed' if backend == 'classic' else 'continuous'}"/>
 
+  <!-- The physical X3's camera mount (camera_mount_joint in physical_rosmaster,
+       confirmed by its live TF); cam_1_depth_frame coincides with it.
+       tools/convert_rosmaster_cad.py bakes camera.obj relative to this pose, so
+       regenerate the visual when it changes. The color offset is the Orbbec
+       factory calibration of one unit, Astra serial ACRC64300ET: the color
+       sensor sits 25.1 mm left of depth, and another unit differs slightly.
+       yahboom_rosmaster_gazebo/config/real_robot_contract.yaml records both. -->
   <xacro:rgbd_camera
     prefix="$(arg prefix)"
     camera_name="cam_1"
-    xyz_offset="0.105 0 0.05"
+    xyz_offset="0.057105 0.000017948 0.03755"
     rpy_offset="0 0 0"
     mesh_xyz_offset="0 0 ${chassis_origin_z}"
+    color_xyz_offset="-0.002168 0.025076052 -0.000140"
+    color_rpy_offset="-0.000336 0.004697 0.003574"
     enable_gz_sensor="${backend == 'fortress' and '$(arg render_sensors)' in ['true', 'True', '1']}"/>
 
   <!-- Classic's CPU raycast starts each ray at range_min, so anything nearer is
