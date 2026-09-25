@@ -41,7 +41,11 @@ rate_hz:
   `closes_in_step` names the #43 step (4-9) that closes the gap, or
   `out_of_scope` with a `note` saying why #43 leaves it open.
 - `tolerance` is an absolute tolerance in the entry's unit. Without it,
-  numbers must be equal.
+  numbers must be equal. The camera mounts carry none, so the simulator holds
+  the same digits as the physical entry: the color frame's are the live TF
+  rounded to six decimals, and `cam_1_link` and `cam_1_depth_frame` keep the
+  xacro's own values (their y has nine decimals). Re-measuring or re-rounding
+  a physical value means changing the simulator's with it.
 
 `test/real_robot_contract_test.py` checks every flag. Where the simulator and
 physical values are comparable it recomputes the match and fails when a flag

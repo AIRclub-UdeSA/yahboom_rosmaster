@@ -34,6 +34,8 @@ from shutdown_asserts import assert_clean_shutdown  # noqa: E402
 CONTRACT = RealRobotContract.load()
 CAMERA_XYZ = CONTRACT.nominal("frames.mounts.cam_1_link")["xyz"]
 TARGET_X = 0.9
+# 0.1 is half the target's 0.2 m depth (the SDF box's x size), so the front
+# face is at TARGET_X - 0.1.
 EXPECTED_DEPTH = TARGET_X - 0.1 - CAMERA_XYZ[0]
 TARGET_Z = (
     CONTRACT.nominal("frames.base_footprint_to_base_link_z_m") + CAMERA_XYZ[2]
