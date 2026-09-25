@@ -37,7 +37,9 @@ install(
 )
 
 install(
-  FILES scripts/ground_truth_alignment.py
+  FILES
+    scripts/ground_truth_alignment.py
+    scripts/real_robot_contract.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -72,6 +74,10 @@ if(BUILD_TESTING)
   add_test(
     NAME sensor_contract_probe_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/sensor_contract_probe_test.py
+  )
+  add_test(
+    NAME real_robot_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/real_robot_contract_test.py
   )
   add_launch_test(
     test/sensor_contract.launch.py

@@ -57,6 +57,8 @@ The highest-leverage places to jump in, straight from the project's own
 - **Help calibrate sensors.** Camera, LiDAR, and IMU output is nominal
   simulation data, not yet validated against the physical robot; IMU
   covariance arrays are all zero (ROS's "unknown," not a measured value).
+  `yahboom_rosmaster_gazebo/config/real_robot_contract.yaml` lists each
+  measured difference and the #43 step that closes it.
 - **Improve macOS / Gazebo Classic parity.** The Apple Silicon backend
   trades away the Gazebo GUI and LiDAR on Fortress for a Classic backend that
   restores both — see [What does not work on macOS](README.md#what-does-not-work-on-macos)
@@ -130,8 +132,8 @@ bash src/yahboom_rosmaster/scripts/test_simulator_contracts.sh
 ```
 
 The script runs the description contract; the motion-profile, practice-world,
-launch-shutdown, and sensor-probe unit contracts; the empty-world
-sensor-correctness, base-feedback, ground-truth, ideal-motion, and
+launch-shutdown, sensor-probe, and real-robot ledger unit contracts; the
+empty-world sensor-correctness, base-feedback, ground-truth, ideal-motion, and
 wheel-odometry-resilience launch contracts. It also selects the ideal-yaw
 contract when that target is present, plus the ament `flake8`, `pep257`,
 `xmllint`, and `lint_cmake` targets of both packages, which add only a few
