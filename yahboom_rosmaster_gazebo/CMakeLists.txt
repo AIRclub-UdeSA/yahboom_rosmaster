@@ -98,11 +98,7 @@ if(BUILD_TESTING)
     test/sensor_contract.launch.py
     TARGET sensor_contract_ci
     TIMEOUT 90
-    ARGS
-      "world:=empty.world"
-      "samples:=3"
-      "performance_checks:=false"
-      "probe_delay:=8.0"
+    ARGS "world:=empty.world" "samples:=3" "performance_checks:=false"
   )
   add_launch_test(
     test/base_feedback.launch.py

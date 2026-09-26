@@ -131,6 +131,11 @@ colcon build --symlink-install
 bash src/yahboom_rosmaster/scripts/test_simulator_contracts.sh
 ```
 
+CI builds without `--symlink-install`: it installs once and never edits, and
+symlinking the gazebo package's ~2,500 model files takes about 20 s longer than
+copying them. Only the install layout differs, so a failure that shows up with
+one build mode and not the other points at a path that depends on symlinks.
+
 The script runs the description contract; the motion-profile, practice-world,
 launch-shutdown, sensor-probe, and real-robot ledger unit contracts; the
 empty-world sensor-correctness, base-feedback, ground-truth, ideal-motion, and

@@ -13,7 +13,11 @@ from launch.actions import (
     TimerAction,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import (
+    LaunchConfiguration,
+    PathJoinSubstitution,
+    PythonExpression,
+)
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 import launch_testing
@@ -25,6 +29,10 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from shutdown_asserts import assert_clean_shutdown  # noqa: E402
+from sim_timing import (  # noqa: E402
+    PERFORMANCE_PROBE_START_DELAY,
+    PROBE_START_DELAY,
+)
 
 
 @pytest.mark.launch_test
@@ -33,6 +41,11 @@ def generate_test_description():
     world = LaunchConfiguration("world")
     samples = LaunchConfiguration("samples")
     performance_checks = LaunchConfiguration("performance_checks")
+    # The performance checks need a sim that is already publishing; a run
+    # without them waits for readiness itself and can start its probe early.
+    probe_delay = PythonExpression([
+        str(PERFORMANCE_PROBE_START_DELAY), " if '", performance_checks,
+        "'.lower() in ('true', '1', 'yes') else ", str(PROBE_START_DELAY)])
     simulator = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(package_share, "launch", "rosmaster_gazebo_fortress.launch.py")
@@ -60,17 +73,13 @@ def generate_test_description():
         DeclareLaunchArgument("world", default_value="empty.world"),
         DeclareLaunchArgument("samples", default_value="10"),
         DeclareLaunchArgument("performance_checks", default_value="true"),
-        # The performance checks time each topic's first message from probe
-        # start, so the strict variants keep a delay that has every sensor
-        # publishing already. Runs without them wait for readiness themselves.
-        DeclareLaunchArgument("probe_delay", default_value="15.0"),
         SetEnvironmentVariable(
             "IGN_PARTITION", f"yahboom_sensor_contract_{os.getpid()}"),
         # Keep sequential world tests isolated even when their PIDs differ by a
         # round multiple of 100 (a pattern observed under CTest).
         SetEnvironmentVariable("ROS_DOMAIN_ID", str(10 + os.getpid() % 211)),
         simulator,
-        TimerAction(period=LaunchConfiguration("probe_delay"), actions=[probe]),
+        TimerAction(period=probe_delay, actions=[probe]),
         launch_testing.actions.ReadyToTest(),
     ]), {"probe": probe}
 

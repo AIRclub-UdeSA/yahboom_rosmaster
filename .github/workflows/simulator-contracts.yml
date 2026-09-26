@@ -46,9 +46,6 @@ jobs:
             python3-colcon-common-extensions \
             python3-rosdep \
             ros-humble-gz-ros2-control \
-            ros-humble-ros-gz-bridge \
-            ros-humble-ros-gz-image \
-            ros-humble-ros-gz-sim \
             xauth \
             xvfb
           if [[ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]]; then
@@ -56,9 +53,9 @@ jobs:
           fi
           rosdep update --rosdistro humble
           # The gate is headless (every launch test passes rviz:=false), so skip
-          # the GUI tools; ros-humble-ros-gz would pull rviz2 and rqt through
-          # its sim-demos dependency, which is why the ros_gz_* packages are
-          # installed individually above.
+          # the GUI tools. rosdep installs the ros_gz_* packages that package.xml
+          # declares; the ros-humble-ros-gz metapackage is left out on purpose,
+          # because its sim-demos dependency pulls in rviz2 and rqt.
           rosdep install \
             --from-paths . \
             --ignore-src \
