@@ -17,6 +17,7 @@ install(
 install(
   PROGRAMS
     scripts/base_feedback_probe.py
+    scripts/camera_adapter.py
     scripts/depth_geometry_probe.py
     scripts/ground_truth_contract_probe.py
     scripts/ground_truth_display_probe.py
@@ -38,8 +39,10 @@ install(
 
 install(
   FILES
+    scripts/cloud_timing.py
     scripts/ground_truth_alignment.py
     scripts/real_robot_contract.py
+    scripts/sensor_profiles.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -74,6 +77,18 @@ if(BUILD_TESTING)
   add_test(
     NAME sensor_contract_probe_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/sensor_contract_probe_test.py
+  )
+  add_test(
+    NAME sensor_profiles_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/sensor_profiles_test.py
+  )
+  add_test(
+    NAME cloud_timing_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/cloud_timing_test.py
+  )
+  add_test(
+    NAME camera_adapter_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/camera_adapter_test.py
   )
   add_test(
     NAME real_robot_contract
