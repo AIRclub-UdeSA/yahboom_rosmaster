@@ -22,14 +22,27 @@ DEPTH_TOPIC = "/cam_1/depth/image_raw"
 COLOR_INFO_TOPIC = "/cam_1/color/camera_info"
 DEPTH_INFO_TOPIC = "/cam_1/depth/camera_info"
 POINTS_TOPIC = "/cam_1/depth/color/points"
+DEPTH_FRAME = "cam_1_depth_frame"
+DEPTH_OPTICAL_FRAME = "cam_1_depth_optical_frame"
 COLOR_FRAME = "cam_1_color_frame"
 COLOR_OPTICAL_FRAME = "cam_1_color_optical_frame"
 # REP 103 optical rotation of each *_optical_frame from its parent frame.
 OPTICAL_RPY = (-math.pi / 2.0, 0.0, -math.pi / 2.0)
 # Resolved camera TF must reproduce the ledger's poses to 1 um and 1 urad.
 CAMERA_TF_TOLERANCE = 1e-6
+# The first color frames, before the target spawns, are the red baseline. At
+# 30 Hz the probe keeps them plus a rolling window of the latest frames.
+BASELINE_OBSERVATIONS = 3
+MAX_OBSERVATIONS = 120
 OFF_AXIS_COLUMN_OFFSET = 40
 OFF_AXIS_ROW_OFFSET = 20
+# A cloud point must land within this distance of where the depth image and
+# the ledger's color-to-depth offset put it. The offset itself is 25.1 mm.
+CLOUD_POINT_TOLERANCE = 0.005
+# The red target's centroid must land within this many pixels of its
+# projection from the image frame. Seen from the depth aperture instead, it
+# would sit about 9 px away at 0.745 m.
+TARGET_CENTROID_TOLERANCE = 2.0
 
 
 def pose_matrix(xyz, rpy):
@@ -77,8 +90,11 @@ class DepthGeometryProbe(Node):
         super().__init__("depth_geometry_probe")
         self.declare_parameter("timeout", 45.0)
         self.declare_parameter("samples", 10)
-        # depth_geometry.launch.py derives this from the ledger's camera mount.
-        self.declare_parameter("expected_depth", 0.743)
+        # depth_geometry.launch.py derives these from the ledger's camera
+        # mounts: the depth of the target's front face along the image
+        # frame's optical axis, and the face's centre on base_link.
+        self.declare_parameter("expected_depth", 0.745)
+        self.declare_parameter("target_face_center", [0.8, 0.0, 0.0374])
         self.declare_parameter("depth_tolerance", 0.03)
         self.declare_parameter("target_red_pixels", 500)
         self.declare_parameter("minimum_valid_fraction", 0.02)
@@ -87,6 +103,8 @@ class DepthGeometryProbe(Node):
         self.samples = max(10, int(self.get_parameter("samples").value))
         self.expected_depth = float(
             self.get_parameter("expected_depth").value)
+        self.target_face_center = np.array(
+            self.get_parameter("target_face_center").value, dtype=float)
         self.depth_tolerance = float(
             self.get_parameter("depth_tolerance").value)
         self.target_red_pixels = int(
@@ -124,6 +142,7 @@ class DepthGeometryProbe(Node):
             POINTS_TOPIC: [],
         }
         self.capture_errors = []
+        self.parallax_report = "target parallax not checked"
         self._subscription_handles = []
 
         sensor_qos = QoSProfile(
@@ -167,9 +186,11 @@ class DepthGeometryProbe(Node):
             self.get_logger().error(error)
 
     def append(self, topic, observation):
-        """Retain a bounded sample history for final diagnostics."""
-        if len(self.observations[topic]) < 120:
-            self.observations[topic].append(observation)
+        """Retain the baseline frames and a rolling window of recent ones."""
+        observations = self.observations[topic]
+        if len(observations) >= MAX_OBSERVATIONS:
+            del observations[BASELINE_OBSERVATIONS]
+        observations.append(observation)
 
     @staticmethod
     def image_array(message, channels, dtype):
@@ -193,6 +214,7 @@ class DepthGeometryProbe(Node):
     def capture_color(self, message):
         try:
             red_pixels = None
+            red_centroid = None
             if message.encoding == "rgb8":
                 image = self.image_array(message, 3, np.uint8).astype(
                     np.int16, copy=False)
@@ -202,6 +224,9 @@ class DepthGeometryProbe(Node):
                     & (image[:, :, 0] > image[:, :, 2] + 40)
                 )
                 red_pixels = int(np.count_nonzero(red_mask))
+                if red_pixels:
+                    rows, columns = np.nonzero(red_mask)
+                    red_centroid = (float(columns.mean()), float(rows.mean()))
             self.append(COLOR_TOPIC, {
                 "stamp": self.stamp_ns(message),
                 "frame": message.header.frame_id,
@@ -211,6 +236,7 @@ class DepthGeometryProbe(Node):
                 "data_size": len(message.data),
                 "expected_data_size": int(message.step * message.height),
                 "red_pixels": red_pixels,
+                "red_centroid": red_centroid,
             })
         except Exception as exception:  # ROS callbacks must remain alive.
             self.record_error(COLOR_TOPIC, exception)
@@ -409,7 +435,9 @@ class DepthGeometryProbe(Node):
                 len(items) < self.samples
                 for items in self.observations.values()):
             return False
-        if len(self.observations[COLOR_TOPIC]) < self.samples + 3:
+        if (
+                len(self.observations[COLOR_TOPIC])
+                < self.samples + BASELINE_OBSERVATIONS):
             return False
         return len(self.coherent_target_stamps()) >= self.samples
 
@@ -483,8 +511,8 @@ class DepthGeometryProbe(Node):
 
         stamp = Time(nanoseconds=coherent_stamps[-1])
         for depth_frame, color_frame in (
-                (self.expected_cloud_frame, COLOR_FRAME),
-                (self.expected_image_frame, COLOR_OPTICAL_FRAME)):
+                (DEPTH_FRAME, COLOR_FRAME),
+                (DEPTH_OPTICAL_FRAME, COLOR_OPTICAL_FRAME)):
             try:
                 transform = self.tf_buffer.lookup_transform(
                     depth_frame,
@@ -515,6 +543,93 @@ class DepthGeometryProbe(Node):
                     f"offset; got translation {actual[:3, 3].tolist()}, "
                     f"expected {expected[:3, 3].tolist()}")
 
+    def project_target(self, frame, k):
+        """Return the target face centre's pixel as seen from an optical frame."""
+        point = np.linalg.inv(self.camera_poses[frame]) @ np.append(
+            self.target_face_center, 1.0)
+        return (
+            k[0] * point[0] / point[2] + k[2],
+            k[4] * point[1] / point[2] + k[5],
+        )
+
+    def validate_target_parallax(self, coherent_stamps, errors):
+        """Require the red target where the image frame's aperture sees it."""
+        colors = {
+            item["stamp"]: item for item in self.observations[COLOR_TOPIC]}
+        infos = {
+            item["stamp"]: item for item in self.observations[COLOR_INFO_TOPIC]}
+        for stamp in coherent_stamps[-self.samples:]:
+            centroid = colors[stamp]["red_centroid"]
+            k = infos[stamp]["k"]
+            expected = self.project_target(self.expected_image_frame, k)
+            self.parallax_report = (
+                f"red target centroid ({centroid[0]:.2f}, {centroid[1]:.2f}) "
+                f"px, predicted ({expected[0]:.2f}, {expected[1]:.2f}) from "
+                f"{self.expected_image_frame}")
+            if max(
+                    abs(actual - predicted)
+                    for actual, predicted in zip(centroid, expected)
+            ) > TARGET_CENTROID_TOLERANCE:
+                other = self.project_target(DEPTH_OPTICAL_FRAME, k)
+                errors.append(
+                    f"target parallax: {self.parallax_report} is off by more "
+                    f"than {TARGET_CENTROID_TOLERANCE} px; from "
+                    f"{DEPTH_OPTICAL_FRAME} it would be at "
+                    f"({other[0]:.2f}, {other[1]:.2f})")
+                return
+
+    def expected_cloud_point(self, column, row, depth, k):
+        """Return where a depth pixel should land in the cloud's frame."""
+        optical = np.array((
+            (column - k[2]) * depth / k[0],
+            (row - k[5]) * depth / k[4],
+            depth,
+            1.0,
+        ))
+        cloud_from_image = (
+            np.linalg.inv(self.camera_poses[self.expected_cloud_frame])
+            @ self.camera_poses[self.expected_image_frame])
+        return (cloud_from_image @ optical)[:3]
+
+    def validate_cloud_geometry(self, coherent_stamps, errors):
+        """Require each sampled pixel's cloud point where its depth puts it."""
+        depths = {
+            item["stamp"]: item for item in self.observations[DEPTH_TOPIC]}
+        clouds = {
+            item["stamp"]: item for item in self.observations[POINTS_TOPIC]}
+        infos = {
+            item["stamp"]: item for item in self.observations[DEPTH_INFO_TOPIC]}
+        for label, row_offset, column_offset, depth_key, cloud_key in (
+                ("centre", 0, 0, "center_depth", "center_xyz"),
+                ("lower-right", OFF_AXIS_ROW_OFFSET, OFF_AXIS_COLUMN_OFFSET,
+                 "off_axis_depth", "off_axis_xyz")):
+            matches = 0
+            first_mismatch = None
+            for stamp in coherent_stamps[-self.samples:]:
+                depth_sample = depths[stamp]
+                depth = depth_sample[depth_key]
+                xyz = clouds[stamp][cloud_key]
+                expected = self.expected_cloud_point(
+                    depth_sample["width"] // 2 + column_offset,
+                    depth_sample["height"] // 2 + row_offset,
+                    depth,
+                    infos[stamp]["k"])
+                if (
+                        xyz is not None
+                        and math.isfinite(depth)
+                        and np.linalg.norm(np.array(xyz) - expected)
+                        <= CLOUD_POINT_TOLERANCE):
+                    matches += 1
+                elif first_mismatch is None:
+                    first_mismatch = (xyz, np.round(expected, 4).tolist())
+            if matches < self.samples:
+                errors.append(
+                    f"point cloud geometry: {matches}/{self.samples} {label} "
+                    f"points lie within {CLOUD_POINT_TOLERANCE * 1000:.0f} mm "
+                    "of the depth image's point expressed in "
+                    f"{self.expected_cloud_frame} (+X forward, +Y left, +Z "
+                    f"up); first cloud/expected XYZ was {first_mismatch}")
+
     def validate(self):
         errors = list(self.capture_errors)
         for topic, observations in self.observations.items():
@@ -536,7 +651,7 @@ class DepthGeometryProbe(Node):
         self.validate_common_image_contract(
             DEPTH_TOPIC, depths, "32FC1", errors)
 
-        baseline = colors[:3]
+        baseline = colors[:BASELINE_OBSERVATIONS]
         baseline_red = [item["red_pixels"] for item in baseline]
         target_colors = [
             item for item in colors
@@ -663,61 +778,8 @@ class DepthGeometryProbe(Node):
                 f"{self.samples} target cycles have an exact common stamp")
         else:
             self.validate_registered_frame_contract(coherent_stamps, errors)
-            depth_by_stamp = {item["stamp"]: item for item in depths}
-            cloud_by_stamp = {item["stamp"]: item for item in clouds}
-            depth_frame_matches = 0
-            off_axis_matches = 0
-            first_mismatch = None
-            for stamp in coherent_stamps[-self.samples:]:
-                depth_sample = depth_by_stamp[stamp]
-                cloud_sample = cloud_by_stamp[stamp]
-                depth = depth_sample["center_depth"]
-                xyz = cloud_sample["center_xyz"]
-                if (
-                        xyz is not None
-                        and math.isclose(xyz[0], depth, abs_tol=0.01)
-                        and abs(xyz[1]) < 0.01
-                        and abs(xyz[2]) < 0.01):
-                    depth_frame_matches += 1
-                elif first_mismatch is None:
-                    first_mismatch = (depth, xyz)
-
-                off_depth = depth_sample["off_axis_depth"]
-                off_xyz = cloud_sample["off_axis_xyz"]
-                info = next(
-                    item for item in depth_info if item["stamp"] == stamp)
-                expected_y = -(
-                    OFF_AXIS_COLUMN_OFFSET * off_depth / info["k"][0])
-                expected_z = -(
-                    OFF_AXIS_ROW_OFFSET * off_depth / info["k"][4])
-                if (
-                        off_xyz is not None
-                        and math.isfinite(off_depth)
-                        and math.isclose(
-                            off_depth, self.expected_depth,
-                            abs_tol=self.depth_tolerance)
-                        and math.isclose(
-                            off_xyz[0], off_depth, abs_tol=0.01)
-                        and math.isclose(
-                            off_xyz[1], expected_y, abs_tol=0.01)
-                        and math.isclose(
-                            off_xyz[2], expected_z, abs_tol=0.01)):
-                    off_axis_matches += 1
-            if depth_frame_matches < self.samples:
-                errors.append(
-                    "point cloud depth-frame geometry: "
-                    f"{depth_frame_matches}/{self.samples} center points use "
-                    "ROS depth-frame +X-forward coordinates; first depth/XYZ "
-                    f"mismatch was {first_mismatch}")
-            if off_axis_matches < self.samples:
-                first_stamp = coherent_stamps[-self.samples]
-                first_depth = depth_by_stamp[first_stamp]["off_axis_depth"]
-                first_xyz = cloud_by_stamp[first_stamp]["off_axis_xyz"]
-                errors.append(
-                    "point cloud off-axis geometry: "
-                    f"{off_axis_matches}/{self.samples} samples match +X "
-                    "forward, +Y left, +Z up signs at the lower-right image "
-                    f"pixel; first depth/XYZ was {first_depth}/{first_xyz}")
+            self.validate_target_parallax(coherent_stamps, errors)
+            self.validate_cloud_geometry(coherent_stamps, errors)
 
         return errors
 
@@ -727,7 +789,7 @@ class DepthGeometryProbe(Node):
             for topic, items in self.observations.items())
         return (
             f"{counts}, coherent_target_cycles="
-            f"{len(self.coherent_target_stamps())}")
+            f"{len(self.coherent_target_stamps())}, {self.parallax_report}")
 
 
 def main():

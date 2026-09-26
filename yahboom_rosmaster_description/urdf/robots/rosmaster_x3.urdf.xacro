@@ -112,7 +112,9 @@
        regenerate the visual when it changes. The color offset is the Orbbec
        factory calibration of one unit, Astra serial ACRC64300ET: the color
        sensor sits 25.1 mm left of depth, and another unit differs slightly.
-       yahboom_rosmaster_gazebo/config/real_robot_contract.yaml records both. -->
+       Gazebo renders both images from the color frame, as the Astra registers
+       depth to color. yahboom_rosmaster_gazebo/config/real_robot_contract.yaml
+       records both frames. -->
   <xacro:rgbd_camera
     prefix="$(arg prefix)"
     camera_name="cam_1"

@@ -555,10 +555,10 @@ def generate_launch_description():
     )
 
     # Fortress 6.18 labels the RGB-D cloud with the optical frame even though
-    # its XYZ data is +X-forward. Relabel the header to the true regular frame
-    # so TF, RViz, and depth pipelines stay mutually consistent without
-    # collapsing the REP-104 optical rotation. Also fixes the cloud's QoS to
-    # Best Effort; see the module docstring.
+    # its XYZ data is +X-forward in the camera's regular frame, which is
+    # cam_1_color_frame. Transform the points into cam_1_depth_frame, where the
+    # physical robot publishes its cloud, and label them so. Also fixes the
+    # cloud's QoS to Best Effort; see the module docstring.
     pointcloud_frame_relay = Node(
         package="yahboom_rosmaster_gazebo",
         executable="pointcloud_frame_relay.py",

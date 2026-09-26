@@ -41,6 +41,8 @@ RATE_GRADED_TOPICS = (
     "/joint_states",
     "/odom",
 )
+# camera_info must reproduce the ledger's intrinsics to this many pixels.
+INTRINSICS_TOLERANCE = 1e-3
 REQUIRED_DYNAMIC_TF_EDGE = ("odom", "base_footprint")
 TIMESTAMPED_TF_TOPICS = (
     "/scan",
@@ -67,7 +69,7 @@ BEST_EFFORT_TOPICS = (
 
 
 def validated_sample_count(value):
-    """Return enough samples for the third-from-last TF validation lookup."""
+    """Return at least the three samples the stamp and TF checks need."""
     return max(3, int(value))
 
 
@@ -91,6 +93,13 @@ class SensorContractProbe(Node):
         }
         self.camera_horizontal_fov = contract.nominal(
             "camera.horizontal_fov_rad")
+        self.expected_camera = {
+            key: contract.nominal(f"camera.{key}")
+            for key in (
+                "width", "height", "fx", "fy", "cx", "cy",
+                "distortion_model", "distortion_coefficients",
+            )
+        }
         self.expected_frames = {
             topic: contract.nominal(f"topics.{topic}.frame_id")
             for topic in (
@@ -202,10 +211,12 @@ class SensorContractProbe(Node):
                 )
                 for transform in message.transforms
             )
-        if not self.performance_checks and topic in self.recent_tf_messages:
-            # Keep exact-time TF lookups near the current simulation time while
-            # a software-rendered point cloud may lag the faster state topics.
-            # The primary evidence below remains frozen so early malformed
+        if topic in self.recent_tf_messages:
+            # Keep exact-time TF lookups near the current simulation time. A
+            # software-rendered point cloud may lag the faster state topics,
+            # and a 30 Hz camera fills its primary samples within a third of
+            # a sim second, which can be before the TF listener has matched
+            # /tf. The primary evidence below remains frozen so early malformed
             # messages cannot be hidden by later valid ones.
             self.recent_tf_messages[topic].append(message)
         if len(self.messages[topic]) < self.required_counts[topic]:
@@ -275,23 +286,34 @@ class SensorContractProbe(Node):
                 f"{minimum:.1f}..{maximum:.1f} Hz")
 
     def validate_timestamped_tf(self, errors):
-        """Require representative sensor frames to resolve at message time."""
-        tf_messages = (
-            self.messages
-            if self.performance_checks else self.recent_tf_messages
-        )
+        """
+        Require representative sensor frames to resolve at message time.
+
+        This is a deliberate loosening. It passes when any one of the recent
+        samples resolves, which is weaker than requiring every sample to.
+        Under software rendering the oldest can predate the TF listener's
+        first transform, and the newest can be ahead of the latest one, so
+        requiring all of them fails on timing, not on TF. What it no longer
+        catches is a stamp that is wrong for only some of the samples. A frame
+        missing from TF still fails, because it fails every sample.
+        """
         for topic in TIMESTAMPED_TF_TOPICS:
-            message = tf_messages[topic][-3]
-            frame = (
+            messages = self.recent_tf_messages[topic]
+            frames = [
                 message.child_frame_id if topic == "/odom"
                 else message.header.frame_id
-            )
-            stamp = Time.from_msg(message.header.stamp)
-            if not self.tf_buffer.can_transform(
-                    "odom", frame, stamp, timeout=Duration(seconds=0.1)):
+                for message in messages
+            ]
+            if not any(
+                    self.tf_buffer.can_transform(
+                        "odom", frame, Time.from_msg(message.header.stamp),
+                        timeout=Duration(seconds=0.1))
+                    for frame, message in zip(frames, messages)):
+                stamps = ", ".join(
+                    f"{self.stamp_seconds(message):.9f}" for message in messages)
                 errors.append(
-                    f"{topic}: cannot resolve odom -> {frame} at "
-                    f"{self.stamp_seconds(message):.9f}")
+                    f"{topic}: cannot resolve odom -> {frames[-1]} at any of "
+                    f"{stamps}")
 
     def validate(self):
         """Return contract errors after collection finishes."""
@@ -350,9 +372,13 @@ class SensorContractProbe(Node):
                 errors.append(
                     f"{topic}: expected frame {self.expected_frames[topic]}, "
                     f"got {frame}")
+        expected_size = (
+            self.expected_camera["width"], self.expected_camera["height"])
         for label, image in (("color", color), ("depth", depth)):
-            if image.width == 0 or image.height == 0:
-                errors.append(f"{label} image: dimensions are zero")
+            if (image.width, image.height) != expected_size:
+                errors.append(
+                    f"{label} image: {image.width}x{image.height}, expected "
+                    f"{expected_size[0]}x{expected_size[1]}")
             if len(image.data) != image.step * image.height:
                 errors.append(f"{label} image: data length does not match step*height")
 
@@ -365,6 +391,14 @@ class SensorContractProbe(Node):
             if len(info.k) != 9 or not self.finite(info.k):
                 errors.append(f"{label} camera info: invalid intrinsic matrix")
             else:
+                for name, index in (("fx", 0), ("fy", 4), ("cx", 2), ("cy", 5)):
+                    expected = self.expected_camera[name]
+                    if not math.isclose(
+                            info.k[index], expected,
+                            abs_tol=INTRINSICS_TOLERANCE):
+                        errors.append(
+                            f"{label} camera info: {name} {info.k[index]:.4f} "
+                            f"does not match the ledger's {expected:.4f}")
                 expected_focal_length = image.width / (
                     2.0 * math.tan(self.camera_horizontal_fov / 2.0))
                 if not math.isclose(
@@ -372,19 +406,16 @@ class SensorContractProbe(Node):
                     errors.append(
                         f"{label} camera info: fx {info.k[0]:.3f} does not "
                         f"match image/FOV {expected_focal_length:.3f}")
-                if not math.isclose(
-                        info.k[4], expected_focal_length, rel_tol=1e-5):
-                    errors.append(
-                        f"{label} camera info: fy {info.k[4]:.3f} does not "
-                        f"match image/FOV {expected_focal_length:.3f}")
-                if not math.isclose(info.k[2], image.width / 2.0, abs_tol=0.5):
-                    errors.append(
-                        f"{label} camera info: cx {info.k[2]:.3f} is not "
-                        f"centered in width {image.width}")
-                if not math.isclose(info.k[5], image.height / 2.0, abs_tol=0.5):
-                    errors.append(
-                        f"{label} camera info: cy {info.k[5]:.3f} is not "
-                        f"centered in height {image.height}")
+            if info.distortion_model != self.expected_camera["distortion_model"]:
+                errors.append(
+                    f"{label} camera info: distortion model "
+                    f"{info.distortion_model!r}, expected "
+                    f"{self.expected_camera['distortion_model']!r}")
+            if list(info.d) != self.expected_camera["distortion_coefficients"]:
+                errors.append(
+                    f"{label} camera info: distortion coefficients "
+                    f"{list(info.d)}, expected "
+                    f"{self.expected_camera['distortion_coefficients']}")
             if len(info.p) != 12 or not self.finite(info.p):
                 errors.append(f"{label} camera info: invalid projection matrix")
             elif not all(math.isclose(info.p[p_index], info.k[k_index])

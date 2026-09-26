@@ -326,10 +326,17 @@ class TestRobotDescriptionContract(unittest.TestCase):
         )
 
     def test_fortress_camera_matches_contract(self):
+        # The Astra registers depth to color, so Gazebo renders both images
+        # from the color aperture and labels them with its optical frame.
         camera = self.robots["fortress"].find(
-            "./gazebo[@reference='cam_1_link']/sensor[@name='cam_1']"
+            "./gazebo[@reference='cam_1_color_frame']/sensor[@name='cam_1']"
         )
         self.assertIsNotNone(camera)
+        self.assertEqual(camera.findtext("gz_frame_id"), "cam_1_color_frame")
+        self.assertEqual(
+            camera.findtext("camera/optical_frame_id"),
+            CONTRACT.nominal("topics./cam_1/color/image_raw.frame_id"),
+        )
         expected = {
             "update_rate": CONTRACT.nominal(
                 "topics./cam_1/color/image_raw.rate_hz"
@@ -345,6 +352,10 @@ class TestRobotDescriptionContract(unittest.TestCase):
             "camera/lens/intrinsics/fy": CONTRACT.nominal("camera.fy"),
             "camera/lens/intrinsics/cx": CONTRACT.nominal("camera.cx"),
             "camera/lens/intrinsics/cy": CONTRACT.nominal("camera.cy"),
+            "camera/lens/projection/p_fx": CONTRACT.nominal("camera.fx"),
+            "camera/lens/projection/p_fy": CONTRACT.nominal("camera.fy"),
+            "camera/lens/projection/p_cx": CONTRACT.nominal("camera.cx"),
+            "camera/lens/projection/p_cy": CONTRACT.nominal("camera.cy"),
         }
         for path, expected_value in expected.items():
             with self.subTest(element=path):

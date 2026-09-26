@@ -32,25 +32,34 @@
     iyy:=0.000498940
     iyz:=0.0
     izz:=0.003879257
-    horizontal_fov:=1.5184
-    image_width:=424
+    focal_length:=271.80938720703125
+    image_width:=320
     image_height:=240
     clip_near:=0.05
     clip_far:=8.0
-    update_rate:=5
+    update_rate:=30
     always_on:=1
     visualize:=false
     enable_collision:=false
     enable_gz_sensor:=true">
 
-    <!-- Fortress 6.8 populates RGB-D CameraInfo before configuring the
-         renderer, so its implicit values remain the SDFormat 320x240 defaults
-         (fx=fy=277, cx=160, cy=120). Publish intrinsics that actually match
-         this image size and horizontal FOV. -->
-    <xacro:property name="focal_length"
-                    value="${image_width / (2.0 * tan(horizontal_fov / 2.0))}" />
-    <xacro:property name="principal_x" value="${image_width / 2.0}" />
-    <xacro:property name="principal_y" value="${image_height / 2.0}" />
+    <!-- The defaults are the physical X3's Astra: both streams at 320x240 and
+         30 Hz with the color intrinsics, to which the driver registers depth
+         (physical_rosmaster robot_artifacts/x3c_sensor_capability_2026-09-17/
+         camera_public.json). Gazebo renders from the horizontal FOV, so it is
+         derived from the focal length.
+         The principal point is not a parameter. Fortress copies <intrinsics>
+         and <projection> into CameraInfo, but its RGB-D camera
+         (Ogre2DepthCamera) never applies them and always renders a symmetric
+         frustum: an off-centre or deliberately wrong principal point changes
+         CameraInfo and leaves the image bit-identical. With ROS pixel centres
+         at integer coordinates, that frustum's axis is at ((width - 1) / 2,
+         (height - 1) / 2). Publish that, not Gazebo's own width / 2, which is
+         half a pixel off the rendered image. -->
+    <xacro:property name="horizontal_fov"
+                    value="${2.0 * atan(image_width / (2.0 * focal_length))}" />
+    <xacro:property name="principal_x" value="${(image_width - 1) / 2.0}" />
+    <xacro:property name="principal_y" value="${(image_height - 1) / 2.0}" />
 
     <link name="${prefix}${camera_name}_link">
       <visual>
@@ -97,8 +106,8 @@
 
     <!-- The color frames sit at the color sensor's offset from cam_1_link, as
          the physical Astra driver publishes them. The Fortress rgbd_camera
-         still renders color and depth from one aperture at cam_1_link and
-         labels both with the depth optical frame. -->
+         below renders color and depth from this one aperture: the Astra
+         registers depth to color, so its depth image is also seen from here. -->
     <joint name="${prefix}${camera_name}_color_joint" type="fixed">
       <origin xyz="${color_xyz_offset}" rpy="${color_rpy_offset}" />
       <parent link="${prefix}${camera_name}_link" />
@@ -117,7 +126,7 @@
          <topic>/camera_info, and <topic>/points through the Sensors system loaded
          by the world. Data is bridged to ROS by ros_gz_bridge and ros_gz_image.
          libgazebo_ros_camera.so is Classic-only and must NOT be used here. -->
-    <gazebo reference="${prefix}${camera_name}_link">
+    <gazebo reference="${prefix}${camera_name}_color_frame">
       <!-- See lidar.urdf.xacro: the ogre2 render pipeline cannot initialise in
            the Gazebo server's render thread on macOS. -->
       <xacro:if value="${enable_gz_sensor}">
@@ -127,7 +136,7 @@
                uses a +Z-forward optical frame.  Keep the sensor frame for
                the native XYZ point cloud and label image/calibration data
                with the optical frame through SDFormat's dedicated field. -->
-          <optical_frame_id>${prefix}${camera_name}_depth_optical_frame</optical_frame_id>
+          <optical_frame_id>${prefix}${camera_name}_color_optical_frame</optical_frame_id>
           <horizontal_fov>${horizontal_fov}</horizontal_fov>
           <image>
             <width>${image_width}</width>
@@ -162,7 +171,7 @@
         <update_rate>${update_rate}</update_rate>
         <visualize>${visualize}</visualize>
         <topic>${prefix}${camera_name}</topic>
-        <gz_frame_id>${prefix}${camera_name}_depth_frame</gz_frame_id>
+        <gz_frame_id>${prefix}${camera_name}_color_frame</gz_frame_id>
       </sensor>
       </xacro:if>
     </gazebo>

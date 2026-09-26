@@ -29,17 +29,22 @@ from shutdown_asserts import assert_clean_shutdown  # noqa: E402
 
 
 # The robot spawns with base_footprint at the world origin and the RGB-D
-# camera renders from cam_1_link. Centre the 0.2 m deep target on the optical
-# axis so its front face lies at a known depth along it.
+# camera renders from cam_1_color_frame, as the physical Astra registers depth
+# to color. The 0.2 m deep target's front face lies at a known depth along the
+# color optical axis, and the target is centred on cam_1_depth_frame so the
+# 25.1 mm between the two apertures shows as parallax in the image.
 CONTRACT = RealRobotContract.load()
-CAMERA_XYZ = CONTRACT.nominal("frames.mounts.cam_1_link")["xyz"]
+COLOR_XYZ = CONTRACT.nominal("frames.mounts.cam_1_color_frame")["xyz"]
+DEPTH_XYZ = CONTRACT.nominal("frames.mounts.cam_1_depth_frame")["xyz"]
+BASE_LINK_Z = CONTRACT.nominal("frames.base_footprint_to_base_link_z_m")
 TARGET_X = 0.9
+TARGET_Y = DEPTH_XYZ[1]
+TARGET_Z = BASE_LINK_Z + COLOR_XYZ[2]
 # 0.1 is half the target's 0.2 m depth (the SDF box's x size), so the front
-# face is at TARGET_X - 0.1.
-EXPECTED_DEPTH = TARGET_X - 0.1 - CAMERA_XYZ[0]
-TARGET_Z = (
-    CONTRACT.nominal("frames.base_footprint_to_base_link_z_m") + CAMERA_XYZ[2]
-)
+# face is at TARGET_X - 0.1. EXPECTED_DEPTH and TARGET_FACE_CENTER both use it.
+EXPECTED_DEPTH = TARGET_X - 0.1 - COLOR_XYZ[0]
+# The front face's centre on base_link.
+TARGET_FACE_CENTER = (TARGET_X - 0.1, TARGET_Y, TARGET_Z - BASE_LINK_Z)
 
 TARGET_SDF = """
 <sdf version="1.7">
@@ -88,6 +93,8 @@ def generate_test_description():
             "-p", "timeout:=45.0",
             "-p", "samples:=10",
             "-p", f"expected_depth:={EXPECTED_DEPTH}",
+            "-p", "target_face_center:=[{}]".format(
+                ", ".join(f"{value:.9f}" for value in TARGET_FACE_CENTER)),
         ],
         output="screen",
     )
@@ -98,7 +105,7 @@ def generate_test_description():
             "-string", TARGET_SDF,
             "-name", "depth_geometry_target",
             "-x", str(TARGET_X),
-            "-y", "0.0",
+            "-y", str(TARGET_Y),
             "-z", str(TARGET_Z),
         ],
         output="screen",

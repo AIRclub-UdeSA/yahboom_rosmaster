@@ -15,14 +15,19 @@ these items.
   the physical robot's frames; the tape confirms their height and setback to
   about 2 mm. The pitch is the physical description's nominal zero and has not
   been measured separately (#43 step 4).
-- [ ] Compare the physical camera's actual rate and latency with the simulator's
-  current 5 Hz RGB-D output.
+- [x] Compare the physical camera's actual rate and latency with the simulator's
+  current 5 Hz RGB-D output. The simulator now runs the physical 30 Hz. Its
+  intrinsic image latency, 20-21 ms of sim time on a GPU, already exceeds the
+  physical 2-6 ms, so none is added (#43 step 5). The cloud's timing is step 6.
 - [x] Decide whether to retain the website assembly's 10 mm rearward camera
   visual adjustment after measuring the physical robot. Dropped: without it the
   housing front sits 40.3 mm behind the chassis front, against the tape's 40 mm
   (#43 step 4).
-- [ ] Re-evaluate the near clip, first visible ground points, self-occlusion,
-  depth geometry, and point-cloud TF after any accepted camera change.
+- [x] Re-evaluate the near clip, first visible ground points, self-occlusion,
+  depth geometry, and point-cloud TF after any accepted camera change. Done for
+  #43 step 5: no robot pixels, the bottom row sees the floor 0.245 m away,
+  `depth_geometry` checks the new render origin by parallax, and the cloud is
+  transformed into `cam_1_depth_frame`. Repeat for later camera changes.
 
 ## CAD model validation and cleanup
 
