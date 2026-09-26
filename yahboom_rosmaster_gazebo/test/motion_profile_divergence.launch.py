@@ -98,7 +98,10 @@ def generate_test_description():
             "IGN_PARTITION", f"yahboom_profile_divergence_{os.getpid()}"),
         SetEnvironmentVariable("ROS_DOMAIN_ID", str(10 + os.getpid() % 211)),
         simulator,
-        TimerAction(period=15.0, actions=[probe]),
+        # The simulator launch starts its controllers once the robot is spawned
+        # (~3.5 s in); the probe waits for the clock and both pose paths on its
+        # own, then settles the robot before measuring.
+        TimerAction(period=8.0, actions=[probe]),
         launch_testing.actions.ReadyToTest(),
     ]), {"probe": probe}
 

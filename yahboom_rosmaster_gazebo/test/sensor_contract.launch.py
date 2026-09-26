@@ -60,13 +60,17 @@ def generate_test_description():
         DeclareLaunchArgument("world", default_value="empty.world"),
         DeclareLaunchArgument("samples", default_value="10"),
         DeclareLaunchArgument("performance_checks", default_value="true"),
+        # The performance checks time each topic's first message from probe
+        # start, so the strict variants keep a delay that has every sensor
+        # publishing already. Runs without them wait for readiness themselves.
+        DeclareLaunchArgument("probe_delay", default_value="15.0"),
         SetEnvironmentVariable(
             "IGN_PARTITION", f"yahboom_sensor_contract_{os.getpid()}"),
         # Keep sequential world tests isolated even when their PIDs differ by a
         # round multiple of 100 (a pattern observed under CTest).
         SetEnvironmentVariable("ROS_DOMAIN_ID", str(10 + os.getpid() % 211)),
         simulator,
-        TimerAction(period=15.0, actions=[probe]),
+        TimerAction(period=LaunchConfiguration("probe_delay"), actions=[probe]),
         launch_testing.actions.ReadyToTest(),
     ]), {"probe": probe}
 

@@ -28,7 +28,7 @@ from launch.actions import (
     OpaqueFunction,
 )
 from launch.conditions import IfCondition, UnlessCondition
-from launch.event_handlers import OnShutdown
+from launch.event_handlers import OnProcessExit, OnShutdown
 from launch.logging import get_logger
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
@@ -91,8 +91,13 @@ def _load_motion_profile(config_path, profile_name):
     return values
 
 
-def _launch_robot(context, xacro_path, profile_config):
-    """Expand the selected motion profile once for RSP and Gazebo spawn."""
+def _launch_robot(context, xacro_path, profile_config, after_spawn):
+    """
+    Expand the selected motion profile once for RSP and Gazebo spawn.
+
+    ``after_spawn`` lists the actions that need the spawned robot, and are
+    launched as soon as the spawn request has finished.
+    """
     profile_name = LaunchConfiguration("motion_profile").perform(context)
     profile = _load_motion_profile(profile_config, profile_name)
     render_sensors = LaunchConfiguration("render_sensors").perform(context)
@@ -138,6 +143,12 @@ def _launch_robot(context, xacro_path, profile_config):
     return [
         # RSP starts after /clock is available, avoiding wall-clock TF poisoning.
         TimerAction(period=2.0, actions=[robot_state_publisher]),
+        # Everything that needs the robot waits for the spawn request to finish
+        # instead of for a fixed delay. gz_ros2_control creates the controller
+        # manager with the robot, and the controller spawner waits for its
+        # service, so nothing downstream needs a safety margin on top.
+        RegisterEventHandler(OnProcessExit(
+            target_action=spawn, on_exit=after_spawn)),
         # Spawn from the same expanded string. The create node never subscribes
         # to robot_description, preventing stale transient-local double spawns.
         TimerAction(period=3.0, actions=[spawn]),
@@ -674,8 +685,8 @@ def generate_launch_description():
     # A runtime node, not the contract probe. The probe validates and exits, so
     # launching it here left a process that always exits non-zero and broke
     # test_all_processes_exit_cleanly in every launch test including this file.
-    # It aligns against odom -> base_footprint, so it starts with the wheel
-    # odometry that owns that edge rather than with the bridges.
+    # It aligns against odom -> base_footprint, so it is launched with the wheel
+    # odometry that owns that edge.
     ground_truth_tf_node = Node(
         package="yahboom_rosmaster_gazebo",
         executable="ground_truth_tf.py",
@@ -696,6 +707,27 @@ def generate_launch_description():
         cmd=["python3", wheel_odometry_script],
         output="screen",
     )
+
+    # Launched once the robot has been spawned: the transport bridges and
+    # relays, then the controller and the odometry that consume its joint state.
+    after_spawn = [
+        ros_gz_bridge,
+        ros_gz_image_bridge,
+        pointcloud_frame_relay,
+        color_image_qos_relay,
+        depth_image_qos_relay,
+        color_camera_info_qos_relay,
+        depth_camera_info_qos_relay,
+        scan_qos_relay,
+        joint_state_bridge,
+        joint_state_throttle,
+        cmd_vel_watchdog,
+        cmd_vel_watchdog_unbiased,
+        calculated_odometry_node,
+        load_joint_state_broadcaster,
+        wheel_state_odometry,
+        ground_truth_tf_node,
+    ]
 
     return LaunchDescription([
         declare_use_sim_time,
@@ -730,27 +762,7 @@ def generate_launch_description():
         gazebo_client,
         OpaqueFunction(
             function=_launch_robot,
-            args=[default_xacro, motion_profile_config],
+            args=[default_xacro, motion_profile_config, after_spawn],
         ),
-        TimerAction(period=5.0, actions=[
-            ros_gz_bridge,
-            ros_gz_image_bridge,
-            pointcloud_frame_relay,
-            color_image_qos_relay,
-            depth_image_qos_relay,
-            color_camera_info_qos_relay,
-            depth_camera_info_qos_relay,
-            scan_qos_relay,
-            joint_state_bridge,
-            joint_state_throttle,
-            cmd_vel_watchdog,
-            cmd_vel_watchdog_unbiased,
-            calculated_odometry_node,
-        ]),
-        TimerAction(period=12.0, actions=[
-            load_joint_state_broadcaster,
-            wheel_state_odometry,
-            ground_truth_tf_node,
-        ]),
         OpaqueFunction(function=_launch_rviz),
     ])
