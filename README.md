@@ -367,6 +367,10 @@ migration assets, not supported practice worlds.
 | `motion_profile` | `stress` | Wheel contact model: uncalibrated `stress` or zero-slip `ideal` |
 | `motion_bias` | `false` | Add randomized command drift when enabled |
 | `ground_truth_frame` | `auto` | Ground-truth display frame: `auto`, `odom`, `map`, or another localization frame |
+| `sensor_profile` | `physical` | Sensor quality and timing: `physical` delivers the point cloud with the physical X3's gaps and latency; `ideal` delivers every frame as soon as it is built. Never changes topics, frames or layouts |
+| `sensor_seed` | `-1` | Seed of the sensor profiles' random draws. `-1` picks a random one per launch, which the camera adapter logs; tests pass a fixed one |
+| `cloud_strip_nan` | `true` | Drop non-finite points from the cloud, leaving an unorganized dense cloud, as the physical robot's adapter does by default. `false` keeps the organized 320x240 cloud |
+| `cloud_decimation` | `1` | Keep every Nth row and column of the cloud, as on the robot |
 
 ## Controlling the Robot
 
@@ -480,27 +484,48 @@ a physical ROSMASTER X3. See
 | `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | `cam_1_color_optical_frame` / 30 Hz | 320x240 `32FC1` depth in metres, registered to color |
 | `/cam_1/color/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_color_optical_frame` / 30 Hz | fx = fy = 271.809, (cx, cy) = (159.5, 119.5), `plumb_bob` with zero distortion |
 | `/cam_1/depth/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_color_optical_frame` / 30 Hz | Same as color: depth is registered to color |
-| `/cam_1/depth/color/points` | `sensor_msgs/msg/PointCloud2` | `cam_1_depth_frame` / up to 30 Hz | Organized 320x240 XYZRGB point cloud, bridged lazily; drops some frames |
+| `/cam_1/depth/color/points` | `sensor_msgs/msg/PointCloud2` | `cam_1_depth_frame` / about 8 Hz (every frame under `sensor_profile:=ideal`) | Unorganized XYZRGB cloud, 16-byte points with the NaN returns stripped. Under `physical` it arrives in gaps of whole 30 Hz frames, up to 1.1 s, about 50 ms after its stamp |
 
 The images and camera information use the ROS optical convention (+Z forward,
 +X right, +Y down). The point cloud uses the regular `cam_1_depth_frame` (+X
 forward, +Y left, +Z up), as on the physical robot; TF provides the fixed
-transforms between the frames. Gazebo computes its native cloud in the
-camera's own frame, `cam_1_color_frame`, and stamps it with the optical frame
-id, so the bridge publishes it to the private handoff topic
-`/internal/cam_1/points_raw`. `pointcloud_frame_relay.py` then transforms its
-points into `cam_1_depth_frame` before publishing `/cam_1/depth/color/points`.
-Topics under `/internal/` are implementation details: subscribe to the public
-contract topics instead.
+transforms between the frames.
+
+The simulator builds its point cloud the way the physical robot does, not from
+Gazebo's own. `camera_adapter.py`, the twin of physical_rosmaster's
+`sensor_adapter.py`, pairs the color and depth images of each frame by their
+exact stamp, back-projects the depth with the color `camera_info` (Fortress
+renders both from one aperture at `cam_1_color_frame`, as the Astra registers
+its depth to color), attaches the color, transforms the points into
+`cam_1_depth_frame` and packs them: 16 bytes per point, `x`, `y`, `z` and `rgb`
+as `FLOAT32` at offsets 0, 4, 8 and 12. With `cloud_strip_nan` (the default)
+the non-finite points are dropped, leaving an unorganized cloud (`height` 1)
+that is dense. With `cloud_strip_nan:=false` the cloud stays organized, 320x240,
+and `is_dense` is false if any point is non-finite. `cloud_decimation` keeps
+every Nth row and column. The adapter also publishes `/cam_1/depth/image_raw`,
+so the depth image and the cloud always come from the same frame. Gazebo's own
+cloud is no longer bridged, and `/internal/cam_1/points_raw` is gone.
+
+`sensor_profile` sets what the cloud's timing looks like. Under `physical` (the
+default) the adapter delivers a cloud for only about one camera frame in
+three and a half. The gaps between clouds are whole 30 Hz frames drawn
+independently from the distribution measured on the robot (median 2 frames,
+p95 11, longest 34, or 1.1 s), so the rate is about 8 Hz. Each cloud is
+published 50 ms of sim time after the stamp of its frame, and keeps that stamp.
+A cloud that is ready after that goes out at once. Under `ideal` every frame
+becomes a cloud, published as soon as it is built. `sensor_seed` makes the
+gaps repeatable. The profiles and the measurement behind each value are in
+`yahboom_rosmaster_gazebo/config/sensor_profiles.yaml`. The simulator's camera
+frames come 33 ms apart, not the robot's 33.3 ms, so its gaps are 1% shorter.
 
 `/scan` and the five `/cam_1/*` topics above all publish Best Effort, matching
 the physical ROSMASTER X3's `qos_profile_sensor_data`/`SensorDataQoS`
 publishers (`yahboomcar_astra`, `sllidar_ros2`). Neither `ros_gz_bridge` nor
 `ros_gz_image` in this release can publish Best Effort directly, so each of
 these topics is bridged onto a private `/internal/...` name at the ROS 2
-default (Reliable) and a `sensor_qos_relay.py` instance (or, for the point
-cloud, `pointcloud_frame_relay.py`) republishes it under its public name at
-Best Effort. A consumer that subscribes Best Effort -- required for the
+default (Reliable), and a `sensor_qos_relay.py` instance (or, for the depth
+image and the point cloud, `camera_adapter.py`) republishes it under its public
+name at Best Effort. A consumer that subscribes Best Effort -- required for the
 physical robot -- receives no data from a Reliable-only publisher, so this
 keeps one consumer working against both environments without remaps or
 per-environment QoS overrides. `sensor_contract_probe.py` asserts this on
@@ -526,8 +551,8 @@ point. The principal point is the rendered image centre, (159.5, 119.5), 0.8
 and 0.6 px from the physical unit's (158.719, 120.092): Fortress cannot render
 an off-centre one. Everything else about the depth is still nominal and
 idealized, with no measured noise, scale error, 0.6 m minimum range or
-dropouts (#43 step 7). The point cloud keeps Gazebo's organized layout and
-has none of the physical cloud's timing yet (#43 step 6).
+dropouts (#43 step 7). The point cloud is the physical adapter's, in layout and
+timing (#43 step 6, above).
 
 ## Verify the Simulator
 
@@ -574,7 +599,7 @@ timeout --signal=INT 5 ros2 topic hz /scan
 timeout --signal=INT 5 ros2 topic hz /imu/data
 timeout --signal=INT 5 ros2 topic hz /cam_1/color/image_raw
 timeout --signal=INT 5 ros2 topic hz /cam_1/depth/image_raw
-timeout --signal=INT 5 ros2 topic hz /cam_1/depth/color/points
+timeout --signal=INT 5 ros2 topic hz /cam_1/depth/color/points   # about 8 Hz, irregular
 ros2 topic echo /cam_1/color/camera_info --once
 ros2 topic echo /cam_1/depth/camera_info --once
 ```
@@ -589,17 +614,21 @@ ideal-versus-stress motion-profile contract:
 
 ```bash
 colcon test --packages-select yahboom_rosmaster_gazebo \
-  --ctest-args -R '^(sensor_contract_(probe_contract|empty|cafe)|depth_geometry|ground_truth_contract|motion_profile_.*|lidar_geometry|imu_motion|base_feedback|wheel_odometry_resilience)$' \
+  --ctest-args -R '^(sensor_contract_(probe_contract|empty|cafe)|cloud_timing_(physical|ideal)|depth_geometry|ground_truth_contract|motion_profile_.*|lidar_geometry|imu_motion|base_feedback|wheel_odometry_resilience)$' \
   --output-on-failure
 colcon test-result --verbose
 ```
 
 Hosted CI runs `sensor_contract_ci` instead of those strict sensor-performance
-targets. It checks topic delivery, payloads, frames, increasing timestamps, and
-timestamped TF connectivity with three recent samples, but deliberately does
-not grade software-rendering throughput or first-arrival latency on a shared
-runner. Run `sensor_contract_empty` and `sensor_contract_cafe` locally before
-review whenever a change can affect sensor timing.
+targets. It checks topic delivery, payloads, frames, the cloud's layout,
+increasing timestamps, and timestamped TF connectivity with three recent
+samples, but deliberately does not grade software-rendering throughput or
+first-arrival latency on a shared runner. It also grades 15 sim seconds of the
+cloud's timing against `sensor_profiles.yaml`, on sim time so that software
+rendering does not matter. Run `sensor_contract_empty` and
+`sensor_contract_cafe` locally before review whenever a change can affect
+sensor timing, and `cloud_timing_physical` (60 sim seconds of the cloud's gaps
+and latency) and `cloud_timing_ideal` whenever a change can affect the cloud.
 
 The twelve maze/practice worlds are covered separately by the lighter
 `world_smoke_*` tests (spawn validity, initial collisions, a forward-motion
@@ -752,8 +781,25 @@ adapts on its own. Anything that hard-coded the old resolution, intrinsics,
 rate or image frame must be updated. The `rgbd_camera` xacro macro changed
 too: `focal_length:=` in pixels replaces `horizontal_fov:=`, which xacro now
 rejects, and the defaults are `image_width:=320` and `update_rate:=30`. The
-point cloud stays in `cam_1_depth_frame` with the same layout, now at up to
-30 Hz.
+point cloud stays in `cam_1_depth_frame`, and changed again in step 6, below.
+
+⚠️ **The point cloud changed in #43 step 6, which breaks code built against the
+old one.** The simulator builds the cloud the way the physical robot does, and
+by default (`sensor_profile:=physical`) delivers it the way the robot does:
+
+| | Before | Now |
+|---|---|---|
+| Layout | 24-byte points, organized 320x240, Gazebo's | 16-byte points, non-finite points stripped, unorganized (`height` 1, `width` the point count), `is_dense` true; `rgb` moved from offset 16 to 12 |
+| Rate | up to 30 Hz | about 8 Hz, with gaps of whole 30 Hz frames up to about 1.1 s |
+| Latency | about 30-45 ms | 50 ms of sim time from the frame's stamp, which the cloud keeps |
+| `/internal/cam_1/points_raw` | Gazebo's cloud | removed |
+
+Code that indexed the cloud by pixel (`row * width + column`) must use
+`cloud_strip_nan:=false`, or read the points as an unorganized cloud, as it must
+on the robot. Code that assumed a cloud every frame must tolerate the gaps.
+`sensor_profile:=ideal` delivers a cloud for every camera frame as soon as it
+is built. Gaps come from `sensor_seed`, so a fixed seed repeats them, and the
+depth image is not affected: every frame is still published.
 
 Work to match the remaining sensors to the physical robot is tracked in #43.
 `yahboom_rosmaster_gazebo/config/real_robot_contract.yaml` records the physical

@@ -137,7 +137,8 @@ copying them. Only the install layout differs, so a failure that shows up with
 one build mode and not the other points at a path that depends on symlinks.
 
 The script runs the description contract; the motion-profile, practice-world,
-launch-shutdown, sensor-probe, and real-robot ledger unit contracts; the
+launch-shutdown, sensor-probe, sensor-profile, point-cloud timing and camera
+adapter, and real-robot ledger unit contracts; the
 empty-world sensor-correctness, base-feedback, ground-truth, ideal-motion, and
 wheel-odometry-resilience launch contracts. It also selects the ideal-yaw
 contract when that target is present, plus the ament `flake8`, `pep257`,
@@ -145,16 +146,19 @@ contract when that target is present, plus the ament `flake8`, `pep257`,
 seconds. Tests run sequentially, return a failing status to CI, and always
 print the complete `colcon test-result --verbose --all` report.
 
-The CI sensor target checks messages, payloads, frames, increasing timestamps,
-and timestamped-TF connectivity. It intentionally leaves software-rendering
+The CI sensor target checks messages, payloads, frames, the point cloud's
+layout, increasing timestamps, and timestamped-TF connectivity. It also grades
+15 sim seconds of the cloud's gaps and latency against the sensor profile, on
+sim time, in the simulator it already launches. It intentionally leaves software-rendering
 rates and first-arrival latency to the strict local `sensor_contract_empty` and
 `sensor_contract_cafe` targets, so shared-runner load cannot masquerade as a
 sensor regression.
 
 This gate is deliberately representative so that every pull request stays
 within a reasonable runtime. It does not replace the full development checks:
-the second sensor world, stress profile, depth/LiDAR geometry and IMU-motion
-contracts, all eight practice-world smoke tests, and the lint/test suites of the
+the second sensor world, stress profile, the 60-second point cloud timing
+(`cloud_timing_physical`) and every-frame (`cloud_timing_ideal`) launch
+contracts, depth/LiDAR geometry and IMU-motion contracts, all eight practice-world smoke tests, and the lint/test suites of the
 other packages remain local/manual checks before review. Run the full suite as
 documented in [Development Checks](README.md#development-checks) when your
 change can affect those paths.

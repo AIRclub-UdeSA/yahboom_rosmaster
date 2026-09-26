@@ -158,8 +158,8 @@ in `config/real_robot_contract.yaml`.
   `cam_1_depth_frame`, which would now be 25 mm and 0.34 degrees wrong. The
   relay instead transforms every finite point with the static
   `cam_1_depth_frame` <- `cam_1_color_frame` transform, as physical_rosmaster's
-  `sensor_adapter.py` does, and keeps Gazebo's organized 24-byte layout for
-  step 6 to replace. It costs 1.6 ms per cloud. Back to back on the host GPU,
+  `sensor_adapter.py` does, and keeps Gazebo's organized 24-byte layout. Step 6
+  replaced it with the camera adapter (below). It costs 1.6 ms per cloud. Back to back on the host GPU,
   the cloud reached 25.2 Hz on the probe against 27.1 Hz with the
   relabel-only relay (26.7 Hz in the final measurement). Keep its arithmetic
   element-wise: a numpy matrix product
@@ -181,6 +181,99 @@ but wall-clock rates read low: 11.7 Hz for the images, and the cloud misses
 more than half its frames (13.0 Hz on stamps). The CI contract gate grades no
 rates and ran in about 125 s locally under those conditions. Lowering the
 camera for CI would stop CI testing the camera that ships (#43 decision D1).
+
+## Point cloud pipeline (implemented)
+
+The point cloud follows the physical Astra's adapter in layout and, by default,
+in timing (#43 step 6). The numbers are in `config/sensor_profiles.yaml` and the
+parity ledger.
+
+- **The node.** `camera_adapter.py` replaces `pointcloud_frame_relay.py` and the
+  depth image's QoS relay, and Gazebo's cloud is no longer bridged. It pairs
+  the bridged color and depth images by exact stamp, back-projects the depth
+  with the color `camera_info`, attaches the color, transforms the points into
+  `cam_1_depth_frame` and packs 16-byte `x, y, z, rgb` points, with
+  `cloud_strip_nan` and `cloud_decimation` meaning what they mean on the robot.
+  Against Gazebo's native cloud, transformed as the relay did, on 150 frames
+  with a red, green and blue box in view, the largest point error was 1.1e-6 m,
+  the finite points were the same set and the `rgb` bytes were identical,
+  including the byte order: a red pixel is 0, 0, 255, 0.
+- **Timing.** Under `sensor_profile:=physical` each frame is one tick of the 30 Hz
+  frame clock, and the gap to the next cloud is drawn from the robot's measured
+  table (988 gaps, whole frames, no autocorrelation, so independent draws).
+  Only the frames that become clouds are built. A cloud is published at its
+  frame's stamp plus 50 ms of sim time, measured from the stamp and not from
+  when the images arrived, which is 7-8 ms on the host GPU and 35 ms on
+  llvmpipe with 4 CPUs. None of 339 clouds on the GPU and 445 on llvmpipe was
+  ready late; one that is publishes at once and is logged. Every depth image is
+  published either way, and passes with the cloud through one
+  `condition_depth()` that does nothing yet, which step 7 fills in.
+- **Frame clock.** The simulated camera's frames come 32, 33 or 34 ms apart
+  (30.3 Hz), and wander up to 2 ms from a 33 ms grid over many frames, so the
+  tests grade a gap as a whole number of frames to within 3 ms. Gazebo's camera
+  also emits a burst of catch-up frames, a millisecond or so apart, when it
+  starts, so a frame stamped less than half a period after the last one counted
+  makes no cloud.
+- **Verification.** Three 40 s runs of physical_rosmaster's
+  `sensor_capability_probe.py` (from #44, with its receipt clock moved to sim
+  time) on the host GPU gave 1,024 gaps: median 2 frames, p95 10 (the table's is
+  11; 1,024 draws give 10 about one time in five), longest 32, mean 3.52
+  against the table's 3.62, per-run rates 9.57, 7.81 and 8.39 Hz against the
+  robot's 7.3-9.2 (a 40 s run holds only about 340 clouds), and a 50.0 ms median
+  latency. No gap length differed from the table by more than 1.2 percentage
+  points.
+- **Tests.** Unit tests cover the arithmetic, layout, stripping, padding, malformed
+  input, the seeded sampler, the scheduler, the profile file, and the probe's
+  grading. `cloud_timing_physical` grades 60 sim seconds and `cloud_timing_ideal`
+  every frame, locally. `sensor_contract_ci` grades 15 sim seconds inside the
+  simulator it already launches, adding about 28 s to the CI gate under
+  llvmpipe. `depth_geometry` runs under `ideal` with the organized cloud, and
+  checks the cloud's red points against the target's known front face, which
+  no longer depends on the depth image the cloud came from.
+
+### Cost
+
+The adapter costs more CPU than the two relays it replaces. Measured over 30 s
+on the host GPU (Ryzen 5 3600, Radeon RX 5600/5700; percent of one core):
+
+| | `main` | `physical` | `ideal` |
+|---|---|---|---|
+| Real-time factor | 0.994 | 0.997 | 0.997 |
+| Gazebo server | 225 | 219 | 215 |
+| Adapter / cloud relay | 19 | 53 | 55 |
+| QoS relays | 13 | 8 | 7 |
+| Bridges | 26 | 20 | 19 |
+
+and on llvmpipe pinned to 4 CPUs (real-time factor about 0.5):
+
+| | `main` | `physical` | `ideal` |
+|---|---|---|---|
+| Real-time factor | 0.494 | 0.499 | 0.502 |
+| Gazebo server | 189 | 190 | 189 |
+| Adapter / cloud relay | 7 | 19 | 22 |
+| QoS relays | 5 | 3 | 3 |
+| Bridges | 11 | 9 | 10 |
+
+Neither changes the real-time factor. The adapter's arithmetic is not what
+costs: a paired 320x240 frame builds a cloud in 2-5 ms, and with its sim-time
+subscription switched off the adapter used 11.5% of a core. The other 40 points
+are rclpy's executor waking for every tick of the 1 kHz `/clock`, in Python. If
+that ever matters, subscribe the adapter to a `topic_tools throttle` of
+`/clock` at a few hundred Hz and schedule from the nearest tick, or move the
+delay into a small C++ node. Giving the adapter the color image and both
+`camera_info` topics as well saved 1-2 points of about 300 and left the
+real-time factor alone, so those relays stay.
+
+Gazebo computes its own cloud whether or not anything subscribes to it: the
+server's CPU was 201% with a subscriber on the internal cloud topic and 202%
+without. Removing the bridge entry and the relay saves the relay, the bridge's
+conversion of 1.8 MB messages (about 5 points) and the transport.
+
+A Best Effort 600 kB cloud is sometimes lost between processes. About 1% were
+between two quiet processes, and up to a third when a probe shares four
+saturated CPUs with software rendering, so the local launch tests grade the
+gaps with tolerances derived from the sample size, and the ideal grade allows
+3% of clouds lost. The robot's own Best Effort cloud has the same exposure.
 
 ## Legacy mesh removal
 

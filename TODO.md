@@ -18,7 +18,8 @@ these items.
 - [x] Compare the physical camera's actual rate and latency with the simulator's
   current 5 Hz RGB-D output. The simulator now runs the physical 30 Hz. Its
   intrinsic image latency, 20-21 ms of sim time on a GPU, already exceeds the
-  physical 2-6 ms, so none is added (#43 step 5). The cloud's timing is step 6.
+  physical 2-6 ms, so none is added (#43 step 5). The cloud's timing is modelled
+  separately (#43 step 6, below).
 - [x] Decide whether to retain the website assembly's 10 mm rearward camera
   visual adjustment after measuring the physical robot. Dropped: without it the
   housing front sits 40.3 mm behind the chassis front, against the tape's 40 mm
@@ -28,6 +29,17 @@ these items.
   #43 step 5: no robot pixels, the bottom row sees the floor 0.245 m away,
   `depth_geometry` checks the new render origin by parallax, and the cloud is
   transformed into `cam_1_depth_frame`. Repeat for later camera changes.
+
+- [x] Match the physical point cloud: its 16-byte NaN-stripped layout, its
+  gaps of whole 30 Hz frames and its 50 ms latency, under
+  `sensor_profile:=physical` (#43 step 6). `depth_geometry` and the ledger
+  record how; the depth noise, scale and dropouts are step 7.
+- [ ] Cut the camera adapter's CPU. About 40 of its 53 points of a core on the
+  host GPU are the executor waking for every tick of the 1 kHz `/clock`; see
+  "Point cloud pipeline" in the deferred changes for the options. The
+  real-time factor is unaffected today.
+- [ ] Re-pin `physical.provenance.commit` in the parity ledger to the merge
+  commit of physical_rosmaster#45. It pins that PR's head until then.
 
 ## CAD model validation and cleanup
 
