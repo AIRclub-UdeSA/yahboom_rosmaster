@@ -470,8 +470,16 @@ simulator:
           puts the rendered principal point at (159.5, 119.5) whatever the SDF
           gives (see camera.cx).
       - step: 6
-        commit: 8db272aff7c5638696b98feea0e81655b08de9e4
+        commit: 2423989b02c1a65d39b57ee5535edd9a2b936e2c
         measured_on: "2026-09-26"
+        note: >
+          First measured at 8db272aff7c5638696b98feea0e81655b08de9e4. The depth
+          image was decoupled from the cloud's pairing after that, so it was
+          measured again at this commit, the last to change the adapter. The
+          layout, the 50.0 ms latency, the whole-frame gaps, the p95 period and
+          the worst gap came out as before. The rate (8.61 to 8.69 Hz) and the
+          mean gap (3.52 to 3.49 frames) moved by less than the 0.12 frames that
+          1,000 draws from the table spread by.
         keys:
           - topics./cam_1/depth/color/points.rate_hz
           - topics./cam_1/depth/color/points.period_p95_ms
@@ -489,7 +497,7 @@ simulator:
           A copy of physical_rosmaster's tools/sensor_capability_probe.py from
           #44 (feat/probe-cloud-timing, 8f7468b), run as --group camera
           --duration 40 --camera-frame-rate 30.30303 three times in one launch,
-          on empty.world, headless, host GPU (real-time factor 0.997),
+          on empty.world, headless, host GPU (real-time factor 0.998),
           sensor_profile:=physical with a random seed. The one change to the
           copy: it stamps receipt with the ROS clock on sim time, as the step-2
           baseline says a simulator run needs, so latency_ms is sim time at
@@ -695,16 +703,16 @@ simulator:
         # few clouds. The 9-gap mean rate falls under 2.8 Hz once in 10,000
         # windows, so a correct simulator is not failed for a run of long gaps.
         contract: [2.5, 33.0]
-        measured: 8.61
+        measured: 8.69
         tolerance: 0.2
         matches_physical: true
         note: >
           #43 step 6; was 30 Hz. The mean of the measured gap table, 3.62
-          frames of 33 ms. Three 40 s probe runs on the host GPU gave 9.57,
-          7.81 and 8.39 Hz, 8.61 pooled, against the robot's 7.3-9.2 Hz settled
+          frames of 33 ms. Three 40 s probe runs on the host GPU gave 8.95,
+          8.45 and 8.49 Hz, 8.69 pooled, against the robot's 7.3-9.2 Hz settled
           runs: a 40 s run holds only about 340 clouds, so runs of either spread
-          about a hertz. sensor_profile:=ideal delivers every frame, at
-          30.3 Hz.
+          about a hertz (the first measurement's were 9.57, 7.81 and 8.39).
+          sensor_profile:=ideal delivers every frame, at 30.3 Hz.
       period_p95_ms:
         nominal: 363
         measured: 330
@@ -713,7 +721,7 @@ simulator:
         note: >
           #43 step 6; was 66 ms. 11 frames of 33 ms. The robot's 11 frames are
           33.3 ms each: 367 ms. The pooled sample's p95 was 10 frames, 330 ms,
-          which 1,024 draws from the table give about one time in five.
+          which 1,006 draws from the table give about one time in five.
       latency_ms:
         nominal: 50
         measured: {host_gpu: 50, llvmpipe_4cpu: 50}
@@ -723,18 +731,18 @@ simulator:
           #43 step 6; was 31 and 46 ms. The cloud leaves 50 ms of sim time after
           the stamp of its frame, which the images reach the adapter well
           before: 7-8 ms on the host GPU and 35 ms on llvmpipe with 4 CPUs.
-          None of 339 clouds on the GPU or 445 on llvmpipe was ready late. The
+          None of 1,294 clouds on the GPU or 502 on llvmpipe was ready late. The
           tolerance covers the robot's 43-53 ms run medians.
       gap_frames:
         nominal: {median: 2, p95: 11, longest: 34, mean: 3.625}
-        measured: {median: 2, p95: 10, longest: 32, mean: 3.52}
+        measured: {median: 2, p95: 10, longest: 32, mean: 3.49}
         tolerance: 0.01
         matches_physical: true
         note: >
           #43 step 6. Drawn from the robot's measured table (988 gaps, whole
-          frames only). Measured over 1,024 gaps from three 40 s runs on the
-          host GPU: 32.7% of gaps were one frame against the table's 33.1%, and
-          no gap length differed from the table by more than 1.2 percentage
+          frames only). Measured over 1,006 gaps from three 40 s runs on the
+          host GPU: 32.1% of gaps were one frame against the table's 33.1%, and
+          no gap length differed from the table by more than 1.3 percentage
           points.
       worst_gap_s:
         nominal: 1.122

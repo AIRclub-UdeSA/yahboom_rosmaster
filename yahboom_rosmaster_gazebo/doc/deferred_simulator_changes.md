@@ -204,7 +204,7 @@ parity ledger.
   Only the frames that become clouds are built. A cloud is published at its
   frame's stamp plus 50 ms of sim time, measured from the stamp and not from
   when the images arrived, which is 7-8 ms on the host GPU and 35 ms on
-  llvmpipe with 4 CPUs. None of 339 clouds on the GPU and 445 on llvmpipe was
+  llvmpipe with 4 CPUs. None of 1,294 clouds on the GPU and 502 on llvmpipe was
   ready late; one that is publishes at once and is logged. Every depth image is
   published either way, and it is published the moment it arrives, as on `main`
   and in physical_rosmaster's `sensor_adapter.py`: a lost or late color image,
@@ -222,11 +222,11 @@ parity ledger.
   makes no cloud.
 - **Verification.** Three 40 s runs of physical_rosmaster's
   `sensor_capability_probe.py` (from #44, with its receipt clock moved to sim
-  time) on the host GPU gave 1,024 gaps: median 2 frames, p95 10 (the table's is
-  11; 1,024 draws give 10 about one time in five), longest 32, mean 3.52
-  against the table's 3.62, per-run rates 9.57, 7.81 and 8.39 Hz against the
+  time) on the host GPU gave 1,006 gaps: median 2 frames, p95 10 (the table's is
+  11; 1,006 draws give 10 about one time in five), longest 32, mean 3.49
+  against the table's 3.62, per-run rates 8.95, 8.45 and 8.49 Hz against the
   robot's 7.3-9.2 (a 40 s run holds only about 340 clouds), and a 50.0 ms median
-  latency. No gap length differed from the table by more than 1.2 percentage
+  latency. No gap length differed from the table by more than 1.3 percentage
   points.
 - **Tests.** Unit tests cover the arithmetic, layout, stripping, padding, malformed
   input, the seeded sampler, the scheduler, the profile file, and the probe's
@@ -260,15 +260,18 @@ and on llvmpipe pinned to 4 CPUs (real-time factor about 0.5):
 | QoS relays | 5 | 3 | 3 |
 | Bridges | 11 | 9 | 10 |
 
-Neither changes the real-time factor. The adapter's arithmetic is not what
-costs: a paired 320x240 frame builds a cloud in 2-5 ms, and with its sim-time
-subscription switched off the adapter used 11.5% of a core. The other 40 points
-are rclpy's executor waking for every tick of the 1 kHz `/clock`, in Python. If
-that ever matters, subscribe the adapter to a `topic_tools throttle` of
-`/clock` at a few hundred Hz and schedule from the nearest tick, or move the
-delay into a small C++ node. Giving the adapter the color image and both
-`camera_info` topics as well saved 1-2 points of about 300 and left the
-real-time factor alone, so those relays stay.
+Neither changes the real-time factor. Measured again for `physical` after the
+depth image was decoupled from the pairing, the adapter used 51% of a core and
+the real-time factor was 0.998 on the GPU, and 19% and 0.496 on llvmpipe: no
+change. The adapter's arithmetic is not what costs: a paired 320x240 frame
+builds a cloud in 2-5 ms, and with its sim-time subscription switched off the
+adapter used 11.5% of a core. The other 40 points are rclpy's executor waking
+for every tick of the 1 kHz `/clock`, in Python. If that ever matters, subscribe
+the adapter to a `topic_tools throttle` of `/clock` at a few hundred Hz and
+schedule from the nearest tick, or move the delay into a small C++ node.
+Giving the adapter the color image and both `camera_info` topics as well saved
+1-2 points of about 300 and left the real-time factor alone, so those relays
+stay.
 
 Gazebo computes its own cloud whether or not anything subscribes to it: the
 server's CPU was 201% with a subscriber on the internal cloud topic and 202%
