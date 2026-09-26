@@ -5,9 +5,12 @@ Simulator twin of the physical X3's Astra sensor adapter.
 Gazebo's RGB-D camera renders color and depth from one aperture, at
 ``cam_1_color_frame``. The physical Astra registers its depth to color, so
 the same is true there: pixel (u, v) of the depth image and of the color image
-is one ray. This adapter back-projects each depth frame with the intrinsics in
-``camera_info``, attaches the color, transforms the points into
-``cam_1_depth_frame`` and packs them into the layout that yahboomcar_astra's
+is one ray. Each depth image is conditioned and published on its own, as
+yahboomcar_astra's ``sensor_adapter.py`` republishes it, whether or not its
+color partner or a ``camera_info`` ever arrives. The adapter also pairs it with
+the color image of the same stamp, back-projects that same conditioned depth
+with the intrinsics in ``camera_info``, attaches the color, transforms the
+points into ``cam_1_depth_frame`` and packs them into the layout that
 ``sensor_adapter.py`` publishes: 16-byte x, y, z and rgb points, with the
 non-finite ones stripped (``cloud_strip_nan``) and every ``cloud_decimation``-th
 row and column kept.
@@ -17,7 +20,6 @@ unit tested on their own. ``CameraAdapter``, at the end, wires them to topics.
 """
 
 from collections import OrderedDict
-from dataclasses import dataclass
 import math
 import os
 
@@ -118,9 +120,10 @@ def condition_depth(depth):
     Return the depth image that the sensor profile publishes and builds clouds from.
 
     Step 7 of #43 fills this in with the physical camera's scale error, noise
-    and NaN below its minimum range. It runs on every frame, before the public
-    depth image and the cloud are built from its result, so that the two
-    always come from the same degraded frame. It does nothing for now.
+    and NaN below its minimum range. It runs once on every depth image as it
+    arrives, needing neither its color partner nor ``camera_info``, and the
+    public depth image and the cloud are both built from its result, so that
+    the two always come from the same degraded frame. It does nothing for now.
     """
     return depth
 
@@ -296,12 +299,13 @@ def stamp_seconds(stamp):
 
 class StampPairer:
     """
-    Match color and depth images that carry exactly the same stamp.
+    Match color and depth frames that carry exactly the same stamp.
 
-    Gazebo renders both from one camera in one step, so a frame's two images
-    share a stamp but reach ROS as separate messages. An image is held until
+    Gazebo renders both images from one camera in one step, so a frame's two
+    images share a stamp but reach ROS as separate messages. Each is held until
     its partner arrives. Once a pair completes, anything older that is still
-    waiting can never pair, and is discarded and counted.
+    waiting can never pair, and is discarded and counted. What is held is
+    anything with a ``header``: the color ``Image`` and the ``ConditionedDepth``.
     """
 
     def __init__(self, capacity=8):
@@ -310,16 +314,16 @@ class StampPairer:
         self.discarded = 0
 
     @staticmethod
-    def _key(message):
-        return (message.header.stamp.sec, message.header.stamp.nanosec)
+    def _key(item):
+        return (item.header.stamp.sec, item.header.stamp.nanosec)
 
-    def add(self, kind, message):
-        """Hold one image, and return (color, depth) once both have arrived."""
-        key = self._key(message)
+    def add(self, kind, item):
+        """Hold a color or depth frame, and return (color, depth) once both have arrived."""
+        key = self._key(item)
         other = "depth" if kind == "color" else "color"
         partner = self._pending[other].pop(key, None)
         if partner is None:
-            self._pending[kind][key] = message
+            self._pending[kind][key] = item
             while len(self._pending[kind]) > self._capacity:
                 self._pending[kind].popitem(last=False)
                 self.discarded += 1
@@ -328,24 +332,25 @@ class StampPairer:
             for stale in [held for held in waiting if held < key]:
                 del waiting[stale]
                 self.discarded += 1
-        return (message, partner) if kind == "color" else (partner, message)
+        return (item, partner) if kind == "color" else (partner, item)
 
 
-@dataclass
-class FrameResult:
-    """What one paired frame produced: its depth, and a cloud if it was delivered."""
+class ConditionedDepth:
+    """A depth image after conditioning: its header, and its (height, width) metres."""
 
-    depth: np.ndarray
-    cloud: PointCloud2 = None
+    def __init__(self, header, pixels):
+        self.header = header
+        self.pixels = pixels
 
 
 class FramePipeline:
     """
-    Everything the adapter does to one paired frame, apart from talking to ROS.
+    Everything the adapter does to depth images and clouds, apart from talking to ROS.
 
-    The gate says which frames become clouds. The depth conditioning runs on
-    every frame regardless, so every depth image is published while a cloud is
-    built only for the frames the gate delivers.
+    ``condition`` takes each depth image on its own, so every depth image can
+    be published. ``build_cloud`` takes a color image and the conditioned depth
+    it paired with, and the gate says which of those become clouds, so a cloud
+    is built only for the frames that are delivered.
     """
 
     def __init__(
@@ -375,33 +380,43 @@ class FramePipeline:
             self._rotation = None
             raise ValueError("invalid transform translation")
 
-    def process(self, color, depth, info):
+    def condition(self, depth):
         """
-        Return the FrameResult of one paired color and depth frame.
+        Return the ConditionedDepth of one depth image message.
 
-        Raises ValueError if either image is malformed or does not match
-        ``camera_info``. The caller drops the frame.
+        It reads the image alone, needing no ``camera_info``. Raises ValueError
+        if the image is malformed. The caller drops it.
+        """
+        return ConditionedDepth(depth.header, self._condition(depth_array(depth)))
+
+    def build_cloud(self, color, depth, info):
+        """
+        Return the cloud of a color image and its conditioned depth, or None.
+
+        The cloud is built from ``depth.pixels``, the array the depth image was
+        published from. None means the gate does not deliver this frame, or the
+        depth-frame transform has not been set. Raises ValueError if the color
+        image is malformed or the frame does not match ``camera_info``. The
+        caller drops the cloud, and a frame like that does not count for the
+        gate, so a cloud the gate owes is not lost to it.
         """
         color_pixels = color_array(color)
-        depth_pixels = depth_array(depth)
-        if color_pixels.shape[:2] != depth_pixels.shape:
+        if color_pixels.shape[:2] != depth.pixels.shape:
             raise ValueError("color and depth images differ in size")
         self._rays = CameraRays.for_info(info, self._rays)
-        if depth_pixels.shape != (self._rays.height, self._rays.width):
+        if depth.pixels.shape != (self._rays.height, self._rays.width):
             raise ValueError("images do not match camera_info's size")
 
-        conditioned = self._condition(depth_pixels)
         stamp = depth.header.stamp
         if not self.has_transform or not self._gate.deliver(stamp_seconds(stamp)):
-            return FrameResult(conditioned)
+            return None
 
-        points = back_project(conditioned, self._rays, self._decimation)
+        points = back_project(depth.pixels, self._rays, self._decimation)
         colour = pack_colour(color_pixels, self._decimation)
-        kept = conditioned[::self._decimation, ::self._decimation].shape
-        cloud = pack_cloud(
+        kept = depth.pixels[::self._decimation, ::self._decimation].shape
+        return pack_cloud(
             points, colour, self._rotation, self._translation, self._target_frame,
             stamp, kept[0], kept[1], self._strip_nan)
-        return FrameResult(conditioned, cloud)
 
 
 class AdapterCore:
@@ -411,7 +426,13 @@ class AdapterCore:
     ``publish_depth`` and ``publish_cloud`` take a finished message, and
     ``warn`` takes a line for a throttled log. The node supplies them, and the
     unit tests supply recorders, so none of this needs a running ROS graph.
-    A frame that cannot be processed is dropped whole, and warned about.
+
+    A depth image is conditioned and published the moment it arrives, before
+    and whether or not its color partner or a ``camera_info`` comes, as on the
+    robot. The conditioned array is then kept for its partner, and the cloud is
+    built from that same array. A depth image that is malformed is dropped
+    whole. Anything wrong with a frame's color or its size against
+    ``camera_info`` drops only that frame's cloud, and warns.
     """
 
     def __init__(self, pipeline, publish_depth, publish_cloud, warn, pairer=None):
@@ -423,20 +444,31 @@ class AdapterCore:
         self._reported_discards = 0
         self._info = None
 
+    @property
+    def discarded(self):
+        """How many images never found a partner with their stamp."""
+        return self._pairer.discarded
+
     def on_camera_info(self, info):
         """Keep the latest camera intrinsics."""
         self._info = info
 
     def on_color(self, message):
         """Take a color image."""
-        self._on_image("color", message)
+        self._pair("color", message)
 
     def on_depth(self, message):
-        """Take a depth image."""
-        self._on_image("depth", message)
+        """Condition a depth image, publish it, and take it for pairing."""
+        try:
+            depth = self._pipeline.condition(message)
+        except ValueError as error:
+            self._warn(f"Dropping invalid depth image: {error}")
+            return
+        self._publish_depth(depth_image_message(depth.header, depth.pixels))
+        self._pair("depth", depth)
 
-    def _on_image(self, kind, message):
-        pair = self._pairer.add(kind, message)
+    def _pair(self, kind, held):
+        pair = self._pairer.add(kind, held)
         if self._pairer.discarded != self._reported_discards:
             self._reported_discards = self._pairer.discarded
             self._warn(
@@ -445,17 +477,16 @@ class AdapterCore:
         if pair is None:
             return
         if self._info is None:
-            self._warn("Dropping a frame: no camera_info has arrived yet")
+            self._warn("No cloud for a frame: no camera_info has arrived yet")
             return
         color, depth = pair
         try:
-            result = self._pipeline.process(color, depth, self._info)
+            cloud = self._pipeline.build_cloud(color, depth, self._info)
         except ValueError as error:
-            self._warn(f"Dropping invalid frame: {error}")
+            self._warn(f"Dropping the cloud of an invalid frame: {error}")
             return
-        self._publish_depth(depth_image_message(depth.header, result.depth))
-        if result.cloud is not None:
-            self._publish_cloud(result.cloud)
+        if cloud is not None:
+            self._publish_cloud(cloud)
 
 
 STATS_PERIOD_S = 30.0
@@ -604,7 +635,9 @@ class CameraAdapter(Node):
                 f", {self.late_clouds} of them ready after stamp + "
                 f"{self.latency_s * 1000:.0f} ms ({100.0 * self.late_clouds / self.clouds:.1f}%) "
                 "and published at once")
-        return f"{self.frames} frames and {self.clouds} clouds published so far{late}"
+        return (
+            f"{self.frames} frames and {self.clouds} clouds published so far{late}; "
+            f"{self.core.discarded} images never found a partner with their stamp")
 
     def log_summary(self):
         """Log the summary."""

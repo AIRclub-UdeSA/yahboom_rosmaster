@@ -503,8 +503,10 @@ the non-finite points are dropped, leaving an unorganized cloud (`height` 1)
 that is dense. With `cloud_strip_nan:=false` the cloud stays organized, 320x240,
 and `is_dense` is false if any point is non-finite. `cloud_decimation` keeps
 every Nth row and column. The adapter also publishes `/cam_1/depth/image_raw`,
-so the depth image and the cloud always come from the same frame. Gazebo's own
-cloud is no longer bridged, and `/internal/cam_1/points_raw` is gone.
+each depth image the moment it arrives, as on the robot, whether or not its color
+image or a `camera_info` has come; a cloud is built from that same depth image,
+so the two always come from the same frame. Gazebo's own cloud is no longer
+bridged, and `/internal/cam_1/points_raw` is gone.
 
 `sensor_profile` sets what the cloud's timing looks like. Under `physical` (the
 default) the adapter delivers a cloud for only about one camera frame in

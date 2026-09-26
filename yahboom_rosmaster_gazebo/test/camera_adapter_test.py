@@ -128,6 +128,12 @@ def pipeline(**arguments):
     return result
 
 
+def cloud_of(color, depth, info, **arguments):
+    """Return the cloud a pipeline builds from a color and a depth image message."""
+    target = pipeline(**arguments)
+    return target.build_cloud(color, target.condition(depth), info)
+
+
 class TestBackProjection(unittest.TestCase):
     """A pixel at depth z lies at ((u - cx) / fx * z, (v - cy) / fy * z, z)."""
 
@@ -174,8 +180,8 @@ class TestLayout(unittest.TestCase):
 
     def setUp(self):
         depth, rgb = sample_frame()
-        self.cloud = pipeline(strip_nan=False).process(
-            color_image(rgb), depth_image(depth), camera_info(4, 3)).cloud
+        self.cloud = cloud_of(
+            color_image(rgb), depth_image(depth), camera_info(4, 3), strip_nan=False)
 
     def test_the_fields_are_float32_at_the_physical_offsets(self):
         fields = [(f.name, f.offset, f.datatype, f.count) for f in self.cloud.fields]
@@ -209,9 +215,9 @@ class TestLayout(unittest.TestCase):
     def test_a_bgr_image_gives_the_same_colors(self):
         depth, rgb = sample_frame()
         reference = decode(self.cloud)
-        cloud = pipeline(strip_nan=False).process(
+        cloud = cloud_of(
             color_image(rgb, encoding="bgr8"), depth_image(depth),
-            camera_info(4, 3)).cloud
+            camera_info(4, 3), strip_nan=False)
         np.testing.assert_array_equal(decode(cloud)["rgb"], reference["rgb"])
 
     def test_the_pixels_come_out_row_by_row(self):
@@ -233,14 +239,14 @@ class TestStripping(unittest.TestCase):
         return color_image(rgb), depth_image(depth), camera_info(3, 2)
 
     def test_stripping_keeps_only_finite_points_in_an_unorganized_dense_cloud(self):
-        cloud = pipeline(strip_nan=True).process(*self.frame()).cloud
+        cloud = cloud_of(*self.frame(), strip_nan=True)
         self.assertEqual((cloud.height, cloud.width), (1, 3))
         self.assertTrue(cloud.is_dense)
         self.assertEqual(cloud.row_step, 16 * 3)
         self.assertTrue(np.isfinite(decode(cloud)[["x", "y", "z"]].tolist()).all())
 
     def test_stripping_keeps_the_colors_of_the_finite_pixels(self):
-        cloud = pipeline(strip_nan=True).process(*self.frame()).cloud
+        cloud = cloud_of(*self.frame(), strip_nan=True)
         rgb = np.arange(18, dtype=np.uint8).reshape(2, 3, 3)
         kept = [rgb[0, 0], rgb[0, 2], rgb[1, 1]]
         self.assertEqual(
@@ -248,7 +254,7 @@ class TestStripping(unittest.TestCase):
             [[int(b), int(g), int(r), 0] for r, g, b in kept])
 
     def test_without_stripping_the_cloud_is_organized_and_not_dense(self):
-        cloud = pipeline(strip_nan=False).process(*self.frame()).cloud
+        cloud = cloud_of(*self.frame(), strip_nan=False)
         self.assertEqual((cloud.height, cloud.width), (2, 3))
         self.assertFalse(cloud.is_dense)
         finite = np.isfinite(decode(cloud)[["x", "y", "z"]].tolist()).all(axis=1)
@@ -258,23 +264,25 @@ class TestStripping(unittest.TestCase):
         depth, rgb = sample_frame()
         for strip_nan in (True, False):
             with self.subTest(strip_nan=strip_nan):
-                cloud = pipeline(strip_nan=strip_nan).process(
-                    color_image(rgb), depth_image(depth), camera_info(4, 3)).cloud
+                cloud = cloud_of(
+                    color_image(rgb), depth_image(depth), camera_info(4, 3),
+                    strip_nan=strip_nan)
                 self.assertTrue(cloud.is_dense)
                 self.assertEqual(cloud.width * cloud.height, 12)
 
     def test_a_frame_with_nothing_finite_gives_an_empty_cloud(self):
         depth = np.full((2, 3), np.nan)
-        cloud = pipeline(strip_nan=True).process(
-            color_image(np.zeros((2, 3, 3))), depth_image(depth), camera_info(3, 2)
-        ).cloud
+        cloud = cloud_of(
+            color_image(np.zeros((2, 3, 3))), depth_image(depth), camera_info(3, 2),
+            strip_nan=True)
         self.assertEqual((cloud.height, cloud.width, len(cloud.data)), (1, 0, 0))
         self.assertTrue(cloud.is_dense)
 
     def test_decimation_shrinks_the_organized_grid(self):
         depth, rgb = sample_frame()
-        cloud = pipeline(strip_nan=False, decimation=2).process(
-            color_image(rgb), depth_image(depth), camera_info(4, 3)).cloud
+        cloud = cloud_of(
+            color_image(rgb), depth_image(depth), camera_info(4, 3),
+            strip_nan=False, decimation=2)
         self.assertEqual((cloud.height, cloud.width), (2, 2))
         self.assertEqual(
             [list(colour) for colour in decode(cloud)["rgb"]],
@@ -313,8 +321,7 @@ class TestTransform(unittest.TestCase):
 
     def test_the_pipeline_back_projects_then_transforms_every_pixel(self):
         depth, rgb = sample_frame()
-        cloud = pipeline().process(
-            color_image(rgb), depth_image(depth), camera_info(4, 3)).cloud
+        cloud = cloud_of(color_image(rgb), depth_image(depth), camera_info(4, 3))
         decoded = decode(cloud)
         for index, (v, u) in enumerate((v, u) for v in range(3) for u in range(4)):
             z = depth[v, u]
@@ -416,11 +423,10 @@ class TestPaddedRows(unittest.TestCase):
 
     def test_padding_does_not_change_the_cloud(self):
         depth, rgb = sample_frame()
-        packed = pipeline().process(
-            color_image(rgb), depth_image(depth), camera_info(4, 3)).cloud
-        padded = pipeline().process(
+        packed = cloud_of(color_image(rgb), depth_image(depth), camera_info(4, 3))
+        padded = cloud_of(
             color_image(rgb, padding=5), depth_image(depth, padding=6),
-            camera_info(4, 3)).cloud
+            camera_info(4, 3))
         self.assertEqual(bytes(packed.data), bytes(padded.data))
 
     def test_the_padding_is_left_out_of_the_published_depth(self):
@@ -456,7 +462,7 @@ class TestMalformedInput(unittest.TestCase):
         self.info = camera_info(4, 3)
 
     def process(self, color, depth, info=None):
-        return pipeline().process(color, depth, info or self.info)
+        return cloud_of(color, depth, info or self.info)
 
     def test_a_wrong_encoding_is_rejected(self):
         depth = depth_image(self.depth)
@@ -490,6 +496,29 @@ class TestMalformedInput(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "camera_info"):
             self.process(color_image(self.rgb), depth_image(self.depth), camera_info(4, 4))
 
+    def test_a_malformed_depth_image_is_rejected_on_its_own_without_camera_info(self):
+        target = pipeline()
+        for name, edit in (
+                ("encoding", lambda depth: setattr(depth, "encoding", "16UC1")),
+                ("short buffer", lambda depth: setattr(depth, "data", depth.data[:-1])),
+                ("no pixels", lambda depth: setattr(depth, "width", 0)),
+                ("short row", lambda depth: setattr(depth, "step", depth.step - 1))):
+            with self.subTest(name=name):
+                depth = depth_image(self.depth)
+                edit(depth)
+                with self.assertRaises(ValueError):
+                    target.condition(depth)
+
+    def test_a_size_that_disagrees_with_camera_info_is_rejected_only_for_the_cloud(self):
+        target = pipeline()
+        conditioned = target.condition(depth_image(self.depth))
+        self.assertEqual(conditioned.pixels.shape, (3, 4))
+        with self.assertRaisesRegex(ValueError, "camera_info"):
+            target.build_cloud(color_image(self.rgb), conditioned, camera_info(5, 3))
+        # The conditioned depth is intact, and still builds a cloud.
+        self.assertIsNotNone(
+            target.build_cloud(color_image(self.rgb), conditioned, self.info))
+
     def test_color_and_depth_of_different_sizes_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "differ in size"):
             self.process(
@@ -510,13 +539,13 @@ class TestMalformedInput(unittest.TestCase):
 
 
 class TestDepthConditioning(unittest.TestCase):
-    """The step-7 seam runs on every frame, ahead of both outputs."""
+    """The step-7 seam runs once on every depth image, and feeds both outputs."""
 
     def test_it_does_nothing_for_now(self):
         depth = np.ones((2, 2))
         self.assertIs(condition_depth(depth), depth)
 
-    def test_it_runs_on_every_frame_but_a_cloud_is_built_only_for_delivered_ones(self):
+    def test_it_runs_on_every_depth_image_but_a_cloud_is_built_only_for_delivered_ones(self):
         calls = []
 
         def condition(depth):
@@ -526,21 +555,19 @@ class TestDepthConditioning(unittest.TestCase):
         depth, rgb = sample_frame()
         gate = FrameGate(GapSampler({3: 1.0}, 1), FRAME_PERIOD)
         target = pipeline(gate=gate, condition=condition, strip_nan=False)
-        clouds, published = [], []
+        clouds, conditioned = [], []
         for frame in range(7):
-            result = target.process(
-                color_image(rgb, seconds=1.0 + frame * FRAME_PERIOD),
-                depth_image(depth, seconds=1.0 + frame * FRAME_PERIOD),
-                camera_info(4, 3))
-            published.append(result.depth)
-            clouds.append(result.cloud)
+            seconds = 1.0 + frame * FRAME_PERIOD
+            frame_depth = target.condition(depth_image(depth, seconds=seconds))
+            conditioned.append(frame_depth.pixels)
+            clouds.append(target.build_cloud(
+                color_image(rgb, seconds=seconds), frame_depth, camera_info(4, 3)))
         self.assertEqual(len(calls), 7)
         self.assertEqual(
             [cloud is not None for cloud in clouds],
             [True, False, False, True, False, False, True])
-        # The image published and the cloud built both come from the conditioned
-        # frame: twice the rendered depth.
-        for frame_depth in published:
+        # The cloud is built from the conditioned frame: twice the rendered depth.
+        for frame_depth in conditioned:
             np.testing.assert_array_equal(frame_depth, depth * 2.0)
         # Under the +90 degree z turn the depth (optical z) stays the z axis.
         np.testing.assert_allclose(
@@ -587,7 +614,7 @@ class TestStampPairer(unittest.TestCase):
 
 
 class TestAdapterCore(unittest.TestCase):
-    """The core publishes each depth frame, and a cloud only when it is delivered."""
+    """The core publishes each depth image as it arrives, and a cloud when it is delivered."""
 
     def setUp(self):
         self.depths, self.clouds, self.warnings = [], [], []
@@ -603,6 +630,9 @@ class TestAdapterCore(unittest.TestCase):
             self.core.on_color(color_image(self.rgb, seconds=seconds))
         if depth:
             self.core.on_depth(depth_image(self.depth, seconds=seconds))
+
+    def outputs(self):
+        return len(self.depths), len(self.clouds)
 
     def test_every_depth_image_is_published_and_every_other_frame_has_a_cloud(self):
         self.core.on_camera_info(camera_info(4, 3))
@@ -629,38 +659,132 @@ class TestAdapterCore(unittest.TestCase):
             [cloud.header.stamp.nanosec for cloud in self.clouds],
             [stamp(1.0 + 2 * FRAME_PERIOD).nanosec])
 
-    def test_an_invalid_frame_is_dropped_whole_with_a_warning(self):
+    def test_a_depth_image_is_published_with_no_color_partner(self):
+        self.core.on_camera_info(camera_info(4, 3))
+        for index in range(4):
+            self.frame(index, color=False)
+            self.assertEqual(self.outputs(), (index + 1, 0))
+        np.testing.assert_array_equal(depth_array(self.depths[0]), self.depth)
+        self.assertEqual(self.warnings, [])
+
+    def test_a_depth_image_is_published_before_the_first_camera_info(self):
+        self.frame(0, color=False)
+        self.assertEqual(self.outputs(), (1, 0))
+        self.assertEqual(self.warnings, [])
+        # Its color partner arrives, and still no camera_info: there is no cloud
+        # to build, so the frame says so, and the depth is not published again.
+        self.frame(0, depth=False)
+        self.assertEqual(self.outputs(), (1, 0))
+        self.assertIn("camera_info", self.warnings[0])
+        # With camera_info the next frame builds its cloud. A frame that had no
+        # camera_info did not use up the gate's first delivery.
+        self.core.on_camera_info(camera_info(4, 3))
+        self.frame(1)
+        self.assertEqual(self.outputs(), (2, 1))
+
+    def test_the_depth_is_published_when_it_arrives_whichever_image_comes_first(self):
+        self.core.on_camera_info(camera_info(4, 3))
+        self.frame(0, depth=False)
+        self.assertEqual(self.outputs(), (0, 0))
+        self.frame(0, color=False)
+        self.assertEqual(self.outputs(), (1, 1))
+        self.frame(1, color=False)
+        self.assertEqual(self.outputs(), (2, 1))
+        self.frame(1, depth=False)
+        self.assertEqual(self.outputs(), (2, 1))
+
+    def test_the_cloud_is_built_from_the_array_that_was_published(self):
+        noise = np.random.default_rng(3)
+        calls = []
+
+        def condition(depth):
+            calls.append(depth)
+            return depth + noise.normal(0.0, 0.01, depth.shape)
+
+        target = FramePipeline(AlwaysDeliver(), strip_nan=False, condition=condition)
+        # An identity transform leaves each cloud z the very value of its pixel.
+        target.set_transform((0.0, 0.0, 0.0), IDENTITY)
+        core = AdapterCore(
+            target, self.depths.append, self.clouds.append, self.warnings.append)
+        core.on_camera_info(camera_info(4, 3))
+        for index in range(3):
+            seconds = 1.0 + index * FRAME_PERIOD
+            core.on_color(color_image(self.rgb, seconds=seconds))
+            core.on_depth(depth_image(self.depth, seconds=seconds))
+        # Conditioned once per depth image, not once per output: a second run
+        # would draw different noise for the cloud than for the image.
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(self.outputs(), (3, 3))
+        for depth_message, cloud in zip(self.depths, self.clouds):
+            published = depth_array(depth_message)
+            self.assertFalse(np.array_equal(published, self.depth))
+            np.testing.assert_array_equal(decode(cloud)["z"], published.ravel())
+        self.assertFalse(np.array_equal(
+            depth_array(self.depths[0]), depth_array(self.depths[1])))
+
+    def test_a_camera_info_size_mismatch_drops_the_cloud_but_not_the_depth(self):
+        self.core.on_camera_info(camera_info(5, 3))
+        self.frame(0)
+        self.assertEqual(self.outputs(), (1, 0))
+        np.testing.assert_array_equal(depth_array(self.depths[0]), self.depth)
+        self.assertEqual(len(self.warnings), 1)
+        self.assertIn("camera_info", self.warnings[0])
+        # The mismatched frame did not use up the gate's first delivery.
+        self.core.on_camera_info(camera_info(4, 3))
+        self.frame(1)
+        self.assertEqual(self.outputs(), (2, 1))
+
+    def test_a_malformed_color_image_drops_the_cloud_but_not_the_depth(self):
+        self.core.on_camera_info(camera_info(4, 3))
+        bad = color_image(self.rgb)
+        bad.encoding = "mono8"
+        self.core.on_color(bad)
+        self.core.on_depth(depth_image(self.depth))
+        self.assertEqual(self.outputs(), (1, 0))
+        self.assertEqual(len(self.warnings), 1)
+        self.assertIn("Dropping the cloud", self.warnings[0])
+        self.frame(1)
+        self.assertEqual(self.outputs(), (2, 1))
+
+    def test_an_invalid_depth_image_is_dropped_whole_with_a_warning(self):
         self.core.on_camera_info(camera_info(4, 3))
         bad = depth_image(self.depth)
         bad.data = bad.data[:-4]
         self.core.on_color(color_image(self.rgb))
         self.core.on_depth(bad)
-        self.assertEqual((len(self.depths), len(self.clouds)), (0, 0))
+        self.assertEqual(self.outputs(), (0, 0))
         self.assertEqual(len(self.warnings), 1)
-        self.assertIn("Dropping invalid frame", self.warnings[0])
+        self.assertIn("Dropping invalid depth image", self.warnings[0])
         # The next frame is fine and goes through.
         self.frame(1)
-        self.assertEqual(len(self.depths), 1)
+        self.assertEqual(self.outputs(), (1, 1))
 
-    def test_frames_wait_for_camera_info(self):
-        self.frame(0)
-        self.assertEqual((len(self.depths), len(self.clouds)), (0, 0))
-        self.assertIn("camera_info", self.warnings[0])
-        self.core.on_camera_info(camera_info(4, 3))
-        self.frame(1)
-        self.assertEqual(len(self.depths), 1)
-
-    def test_an_image_without_a_partner_is_never_published(self):
+    def test_a_color_image_without_a_partner_makes_nothing(self):
         self.core.on_camera_info(camera_info(4, 3))
         self.frame(0, depth=False)
-        self.assertEqual(len(self.depths), 0)
+        self.assertEqual(self.outputs(), (0, 0))
 
-    def test_stragglers_are_reported(self):
+    def test_stragglers_are_reported_and_counted(self):
         self.core.on_camera_info(camera_info(4, 3))
         self.frame(0, depth=False)
         self.frame(1)
         self.assertEqual(len(self.depths), 1)
         self.assertTrue(any("never found" in text for text in self.warnings))
+        self.assertEqual(self.core.discarded, 1)
+
+    def test_it_conditions_a_depth_image_that_never_finds_a_partner(self):
+        calls = []
+
+        def condition(depth):
+            calls.append(depth)
+            return depth * 2.0
+
+        core = AdapterCore(
+            pipeline(condition=condition), self.depths.append, self.clouds.append,
+            self.warnings.append)
+        core.on_depth(depth_image(self.depth))
+        self.assertEqual(len(calls), 1)
+        np.testing.assert_array_equal(depth_array(self.depths[0]), self.depth * 2.0)
 
 
 if __name__ == "__main__":
