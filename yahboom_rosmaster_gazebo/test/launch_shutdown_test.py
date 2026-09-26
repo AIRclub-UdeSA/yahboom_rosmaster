@@ -74,7 +74,7 @@ class TestLaunchShutdown(unittest.TestCase):
         self.assertEqual(render_sensors.func.id, "LaunchConfiguration")
         self.assertEqual(ast.literal_eval(render_sensors.args[0]), "render_sensors")
 
-        for action_name in ("ros_gz_image_bridge", "pointcloud_frame_relay"):
+        for action_name in ("ros_gz_image_bridge", "camera_adapter"):
             with self.subTest(action=action_name):
                 action = assignments[action_name]
                 conditions = [

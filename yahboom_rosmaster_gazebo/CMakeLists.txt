@@ -17,6 +17,8 @@ install(
 install(
   PROGRAMS
     scripts/base_feedback_probe.py
+    scripts/camera_adapter.py
+    scripts/cloud_timing_probe.py
     scripts/depth_geometry_probe.py
     scripts/ground_truth_contract_probe.py
     scripts/ground_truth_display_probe.py
@@ -31,15 +33,16 @@ install(
     scripts/wheel_state_odometry.py
     scripts/calculated_odometry.py
     scripts/ground_truth_tf.py
-    scripts/pointcloud_frame_relay.py
     scripts/sensor_qos_relay.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
 install(
   FILES
+    scripts/cloud_timing.py
     scripts/ground_truth_alignment.py
     scripts/real_robot_contract.py
+    scripts/sensor_profiles.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -76,6 +79,22 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/sensor_contract_probe_test.py
   )
   add_test(
+    NAME sensor_profiles_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/sensor_profiles_test.py
+  )
+  add_test(
+    NAME cloud_timing_probe_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/cloud_timing_probe_test.py
+  )
+  add_test(
+    NAME cloud_timing_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/cloud_timing_test.py
+  )
+  add_test(
+    NAME camera_adapter_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/camera_adapter_test.py
+  )
+  add_test(
     NAME real_robot_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/real_robot_contract_test.py
   )
@@ -97,8 +116,26 @@ if(BUILD_TESTING)
   add_launch_test(
     test/sensor_contract.launch.py
     TARGET sensor_contract_ci
+    TIMEOUT 150
+    ARGS
+      "world:=empty.world"
+      "samples:=3"
+      "performance_checks:=false"
+      "cloud_timing_seconds:=15"
+  )
+  # The cloud's gap distribution and latency, graded on sim time over a long
+  # window. The CI gate grades a shorter one inside sensor_contract_ci.
+  add_launch_test(
+    test/cloud_timing.launch.py
+    TARGET cloud_timing_physical
+    TIMEOUT 200
+    ARGS "sensor_profile:=physical" "duration:=60"
+  )
+  add_launch_test(
+    test/cloud_timing.launch.py
+    TARGET cloud_timing_ideal
     TIMEOUT 90
-    ARGS "world:=empty.world" "samples:=3" "performance_checks:=false"
+    ARGS "sensor_profile:=ideal" "duration:=10" "cloud_decimation:=4"
   )
   add_launch_test(
     test/base_feedback.launch.py

@@ -48,8 +48,13 @@ version: 2
 physical:
   provenance:
     repository: https://github.com/AIRclub-UdeSA/physical_rosmaster
-    commit: b144d3149d6b7a0aab5d3e247d3db432fd29c4af
-    read_on: "2026-09-24"
+    commit: bff09c77c937285c2592ab6af75d3a299cb3e46c
+    read_on: "2026-09-26"
+    # physical_rosmaster#45 (docs: re-measure point cloud timing on the shipped
+    # pipeline) is still open, so this pins its head, docs/cloud-timing-2026-09-24.
+    # It adds only the 2026-09-24 point cloud measurement to b144d31, which is
+    # main and the commit every other physical value below was read at. Re-pin to
+    # #45's merge commit once it merges; the files it names do not change.
     robot: x3-c (host yahboom), Astra serial ACRC64300ET, pinned Orbbec driver f7e71d9
     deployed_commit_during_measurements: 01e1a60
     sources:
@@ -61,6 +66,9 @@ physical:
       - robot_artifacts/x3c_sensor_capability_2026-09-17/cloud_paired.json
       - robot_artifacts/x3c_sensor_capability_2026-09-17/sensors_stationary.json
       - robot_artifacts/x3c_sensor_capability_2026-09-17/post_deploy_tf.json
+      - robot_artifacts/x3c_sensor_capability_2026-09-24/camera_settled_1.json
+      - robot_artifacts/x3c_sensor_capability_2026-09-24/camera_settled_2.json
+      - robot_artifacts/x3c_sensor_capability_2026-09-24/camera_settled_3.json
       - yahboomcar_description/urdf/yahboomcar_X3.urdf.xacro
       - yahboomcar_bringup/param/x3_driver.yaml
       - yahboomcar_bringup/param/x3_odometry.yaml
@@ -129,7 +137,9 @@ physical:
     source: >
       docs/sensor_capabilities.md "Rates and latency";
       camera_public.json and sensors_stationary.json (2026-09-17,
-      stationary, one probe subscriber).
+      stationary, one probe subscriber). The point cloud is the exception: it
+      is the 2026-09-24 re-measurement of the shipped pipeline, docs/
+      sensor_capabilities.md "Point cloud" and camera_settled_1..3.json.
     note: >
       rate_hz and period_p95_ms are wall clock. latency_ms is receive time
       minus header.stamp, measured on the robot. reliability is read from the
@@ -169,16 +179,28 @@ physical:
     /cam_1/depth/color/points:
       type: sensor_msgs/msg/PointCloud2
       frame_id: cam_1_depth_frame
-      # Provisional (#43 decision D4). These describe the 2026-09-17 pipeline
-      # (32-byte organized points) across four windows. After 16-byte packing
-      # it ran 9.6-15.9 Hz (2026-09-18, rate only), and 1.15 Hz at the
-      # 2026-09-18 boot. The shipped cloud_strip_nan pipeline has not been
-      # measured: AIRclub-UdeSA/physical_rosmaster#43 re-measures it.
-      provisional: true
-      rate_hz: [2.83, 10.93]
-      period_p95_ms: [237, 1013]
-      worst_gap_s: 1.6
-      latency_ms: [40.7, 45.4]
+      # Measured 2026-09-24 on x3-c on the shipped pipeline (16-byte points,
+      # cloud_strip_nan true, cloud_decimation 1), robot stationary, one probe
+      # subscriber, three settled 40 s runs pooled: 988 stamp gaps. It replaces
+      # the provisional 2026-09-17 figures (32-byte organized points, four
+      # windows), which the pipeline has since outgrown.
+      # The compared values are scalars. The rate is the mean, 30.0 Hz over the
+      # mean gap of 3.63 frames: 8.3 Hz with 27.6% of camera frames delivered.
+      rate_hz: 8.26
+      period_p95_ms: 367
+      latency_ms: 50
+      # Every gap was a whole number of 33.3 ms frames (0 of 2747 off the grid)
+      # and consecutive gaps were uncorrelated, so a simulator can draw each
+      # independently from the distribution in sensor_profiles.yaml.
+      gap_frames: {median: 2, p95: 11, longest: 34, mean: 3.63}
+      worst_gap_s: 1.13
+      # Descriptive: how the settled runs spread, which no simulator value is
+      # compared with. Five settled runs gave 7.3-9.2 Hz with nothing changed
+      # between them, and run medians of 43-53 ms with a per-run standard
+      # deviation of 1-3 ms. The boot capture, 25 s after the platform came up,
+      # ran at 9.56 Hz, not slower than the settled runs.
+      rate_hz_settled_range: [7.3, 9.2]
+      latency_ms_run_medians: [43, 53]
       reliability: best_effort
     /scan:
       type: sensor_msgs/msg/LaserScan
@@ -248,15 +270,22 @@ physical:
       of the frame never returns the floor.
 
   point_cloud:
-    confidence: inferred
-    source: yahboomcar_astra/yahboomcar_astra/sensor_adapter.py transform_cloud() at the commit above
+    confidence: measured
+    source: >
+      camera_settled_1.json to camera_settled_3.json, 2026-09-24 (the content
+      of each run's cloud samples), and yahboomcar_astra/yahboomcar_astra/
+      sensor_adapter.py transform_cloud() at physical_rosmaster b144d31
     note: >
       The layout of the shipped adapter (physical_rosmaster PR #41), with
-      cloud_strip_nan true and cloud_decimation 1, the launch defaults. No
-      artifact has measured it yet; physical_rosmaster#43 will.
+      cloud_strip_nan true and cloud_decimation 1, the launch defaults. About
+      33,700 points, 538-542 KB per message, in the scene the robot faced. The
+      artifacts record the field names, offsets and datatypes but not how the
+      four rgb bytes are packed.
     fields: [x, y, z, rgb]
     point_step: 16
     rgb_offset: 12
+    rgb_datatype: FLOAT32
+    is_bigendian: false
     organized: false
     is_dense: true
     non_finite_points: stripped
@@ -381,8 +410,11 @@ simulator:
     # value not listed here comes from the step-2 baseline above.
     step_measurements:
       - step: 4
-        commit: d7b19796457a9a4fb29b3494bba51b37a251fe7c
+        commit: ce142d779b9d623704afec341255894a3eff4dc1
         measured_on: "2026-09-24"
+        note: >
+          Measured at d7b19796457a9a4fb29b3494bba51b37a251fe7c. Rebasing before
+          the merge rewrote it as this commit, with an identical patch.
         keys:
           - frames.mounts.cam_1_link
           - frames.mounts.cam_1_depth_frame
@@ -394,8 +426,12 @@ simulator:
           the bottom image row reads the floor at 0.20368 m, as a camera
           108.95 mm above it predicts.
       - step: 5
-        commit: 556263d79d7f7d1be03f953b9227e22a6fcb8c99
+        commit: 3e2f5095767c66d8e74880a1f2b9d7fab69c1d47
         measured_on: "2026-09-24"
+        note: >
+          Measured at 556263d79d7f7d1be03f953b9227e22a6fcb8c99. Rebasing before
+          the merge rewrote it as this commit. The model is identical; only a
+          comment in test/depth_geometry.launch.py differs.
         keys:
           - topics./cam_1/color/image_raw.frame_id
           - topics./cam_1/color/image_raw.rate_hz
@@ -433,6 +469,44 @@ simulator:
           sizes and intrinsics are its content samples. Gazebo's native cloud
           puts the rendered principal point at (159.5, 119.5) whatever the SDF
           gives (see camera.cx).
+      - step: 6
+        commit: 2423989b02c1a65d39b57ee5535edd9a2b936e2c
+        measured_on: "2026-09-26"
+        note: >
+          First measured at 8db272aff7c5638696b98feea0e81655b08de9e4. The depth
+          image was decoupled from the cloud's pairing after that, so it was
+          measured again at this commit, the last to change the adapter. The
+          layout, the 50.0 ms latency, the whole-frame gaps, the p95 period and
+          the worst gap came out as before. The rate (8.61 to 8.69 Hz) and the
+          mean gap (3.52 to 3.49 frames) moved by less than the 0.12 frames that
+          1,000 draws from the table spread by.
+        keys:
+          - topics./cam_1/depth/color/points.rate_hz
+          - topics./cam_1/depth/color/points.period_p95_ms
+          - topics./cam_1/depth/color/points.latency_ms
+          - topics./cam_1/depth/color/points.gap_frames
+          - topics./cam_1/depth/color/points.worst_gap_s
+          - point_cloud.point_step
+          - point_cloud.rgb_offset
+          - point_cloud.rgb_datatype
+          - point_cloud.is_bigendian
+          - point_cloud.organized
+          - point_cloud.is_dense
+          - point_cloud.non_finite_points
+        method: >
+          A copy of physical_rosmaster's tools/sensor_capability_probe.py from
+          #44 (feat/probe-cloud-timing, 8f7468b), run as --group camera
+          --duration 40 --camera-frame-rate 30.30303 three times in one launch,
+          on empty.world, headless, host GPU (real-time factor 0.998),
+          sensor_profile:=physical with a random seed. The one change to the
+          copy: it stamps receipt with the ROS clock on sim time, as the step-2
+          baseline says a simulator run needs, so latency_ms is sim time at
+          receipt minus header.stamp. The gap and latency figures are sim time,
+          so they hold on llvmpipe (real-time factor 0.50 with 4 CPUs), where
+          the 60 s cloud_timing_physical launch test also passed with a 50 ms
+          median latency. The layout is the probe's content sample: 16-byte
+          points, x, y, z and rgb at 0, 4, 8 and 12, all FLOAT32, height 1,
+          dense.
 
   frames:
     base_footprint_to_base_link_z_m:
@@ -615,29 +689,69 @@ simulator:
         measured: cam_1_depth_frame
         matches_physical: true
         note: >
-          Since #43 step 5 Gazebo's cloud is in cam_1_color_frame, and
-          pointcloud_frame_relay.py transforms it into cam_1_depth_frame as
-          the physical sensor_adapter.py does.
+          Gazebo's cloud is in cam_1_color_frame. Since #43 step 6 the camera
+          adapter builds the cloud from the images and transforms it into
+          cam_1_depth_frame with the static TF, as the physical
+          sensor_adapter.py does.
+      # The timing entries follow config/sensor_profiles.yaml under the default
+      # sensor_profile:=physical; real_robot_contract_test.py derives them from
+      # it. The frame period there is the simulated camera's 33 ms, not the
+      # robot's 33.3 ms, which the tolerances absorb.
       rate_hz:
-        nominal: 30.0
-        contract: [27.0, 33.0]
-        measured: 26.66
-        matches_physical: false
-        closes_in_step: 6
+        nominal: 8.36
+        # What sensor_contract_probe grades: the mean rate over its window of a
+        # few clouds. The 9-gap mean rate falls under 2.8 Hz once in 10,000
+        # windows, so a correct simulator is not failed for a run of long gaps.
+        contract: [2.5, 33.0]
+        measured: 8.69
+        tolerance: 0.2
+        matches_physical: true
         note: >
-          #43 step 5; was 5 Hz. Gazebo computes a cloud with every camera
-          frame, but the bridge and the Python relay drop some: 26.9 Hz on
-          stamps on the host GPU, 13.0 Hz on llvmpipe with 4 CPUs. The probe
-          grades the median stamp period, which stays at 33 ms on the host
-          GPU (65 ms on llvmpipe, where the CI target does not grade rates).
+          #43 step 6; was 30 Hz. The mean of the measured gap table, 3.62
+          frames of 33 ms. Three 40 s probe runs on the host GPU gave 8.95,
+          8.45 and 8.49 Hz, 8.69 pooled, against the robot's 7.3-9.2 Hz settled
+          runs: a 40 s run holds only about 340 clouds, so runs of either spread
+          about a hertz (the first measurement's were 9.57, 7.81 and 8.39).
+          sensor_profile:=ideal delivers every frame, at 30.3 Hz.
       period_p95_ms:
-        measured: 66.4
-        matches_physical: false
-        closes_in_step: 6
+        nominal: 363
+        measured: 330
+        tolerance: 5
+        matches_physical: true
+        note: >
+          #43 step 6; was 66 ms. 11 frames of 33 ms. The robot's 11 frames are
+          33.3 ms each: 367 ms. The pooled sample's p95 was 10 frames, 330 ms,
+          which 1,006 draws from the table give about one time in five.
       latency_ms:
-        measured: {host_gpu: 31, llvmpipe_4cpu: 46}
-        matches_physical: false
-        closes_in_step: 6
+        nominal: 50
+        measured: {host_gpu: 50, llvmpipe_4cpu: 50}
+        tolerance: 5
+        matches_physical: true
+        note: >
+          #43 step 6; was 31 and 46 ms. The cloud leaves 50 ms of sim time after
+          the stamp of its frame, which the images reach the adapter well
+          before: 7-8 ms on the host GPU and 35 ms on llvmpipe with 4 CPUs.
+          None of 1,294 clouds on the GPU or 502 on llvmpipe was ready late. The
+          tolerance covers the robot's 43-53 ms run medians.
+      gap_frames:
+        nominal: {median: 2, p95: 11, longest: 34, mean: 3.625}
+        measured: {median: 2, p95: 10, longest: 32, mean: 3.49}
+        tolerance: 0.01
+        matches_physical: true
+        note: >
+          #43 step 6. Drawn from the robot's measured table (988 gaps, whole
+          frames only). Measured over 1,006 gaps from three 40 s runs on the
+          host GPU: 32.1% of gaps were one frame against the table's 33.1%, and
+          no gap length differed from the table by more than 1.3 percentage
+          points.
+      worst_gap_s:
+        nominal: 1.122
+        measured: 1.056
+        tolerance: 0.02
+        matches_physical: true
+        note: >
+          #43 step 6. The longest gap in the table, 34 frames of 33 ms. The
+          pooled sample's was 32 frames, 1.056 s.
       reliability:
         nominal: best_effort
         matches_physical: true
@@ -796,28 +910,45 @@ simulator:
       measured: [x, y, z, rgb]
       matches_physical: true
     point_step:
-      measured: 24
-      matches_physical: false
-      closes_in_step: 6
-    rgb_offset:
+      nominal: 16
       measured: 16
-      matches_physical: false
-      closes_in_step: 6
-    organized:
-      measured: true
-      matches_physical: false
-      closes_in_step: 6
-      note: 320x240, the image dimensions.
-    is_dense:
-      measured: true
+      matches_physical: true
+      note: '#43 step 6; was 24.'
+    rgb_offset:
+      nominal: 12
+      measured: 12
+      matches_physical: true
+      note: '#43 step 6; was 16.'
+    rgb_datatype:
+      nominal: FLOAT32
+      measured: FLOAT32
       matches_physical: true
       note: >
-        True in both, but only the physical one strips its non-finite points;
-        see non_finite_points.
+        The four bytes are the little-endian float32 of the 0x00RRGGBB integer
+        of the ROS and PCL convention, which is also Gazebo's own packing: a
+        red pixel is the bytes 0, 0, 255, 0. The physical artifacts record the
+        datatype and offset but not the packing.
+    is_bigendian:
+      nominal: false
+      measured: false
+      matches_physical: true
+    organized:
+      nominal: false
+      measured: false
+      matches_physical: true
+      note: >
+        #43 step 6; was organized 320x240. cloud_strip_nan:=false keeps the
+        organized cloud, as on the robot.
+    is_dense:
+      nominal: true
+      measured: true
+      matches_physical: true
+      note: '#43 step 6. True because the non-finite points are stripped.'
     non_finite_points:
-      measured: inf beyond the far clip
-      matches_physical: false
-      closes_in_step: 6
+      nominal: stripped
+      measured: stripped
+      matches_physical: true
+      note: '#43 step 6; was inf beyond the far clip, left in place.'
 
   lidar:
     ray_count:

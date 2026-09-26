@@ -10,6 +10,7 @@ import platform
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 import xml.etree.ElementTree as ElementTree
@@ -169,6 +170,56 @@ def _launch_robot(context, xacro_path, profile_config, after_spawn):
         # to robot_description, preventing stale transient-local double spawns.
         TimerAction(period=3.0, actions=[spawn]),
     ]
+
+
+def _camera_adapter(context, pkg_gz):
+    """Start the camera adapter with the selected sensor profile and cloud options."""
+    # The loader lives with the scripts, so that its unit tests can import it.
+    # It is imported here, once the launch is running, rather than at load.
+    sys.path.insert(0, os.path.join(pkg_gz, "scripts"))
+    from sensor_profiles import load_sensor_profile, point_cloud_parameters
+
+    profile_config = os.path.join(pkg_gz, "config", "sensor_profiles.yaml")
+    profile_name = LaunchConfiguration("sensor_profile").perform(context)
+    profile = load_sensor_profile(profile_config, "point_cloud", profile_name)
+
+    decimation = LaunchConfiguration("cloud_decimation").perform(context)
+    seed = LaunchConfiguration("sensor_seed").perform(context)
+    try:
+        decimation, seed = int(decimation), int(seed)
+    except ValueError as exception:
+        raise RuntimeError(
+            f"cloud_decimation ({decimation!r}) and sensor_seed ({seed!r}) "
+            "must be integers") from exception
+    if decimation < 1:
+        raise RuntimeError(f"cloud_decimation must be at least 1, got {decimation}")
+
+    get_logger("rosmaster_gazebo_sensor_profile").info(
+        f"Using '{profile_name}' sensor profile from {profile_config}")
+
+    render_sensors = LaunchConfiguration("render_sensors")
+    use_sim_time = LaunchConfiguration("use_sim_time").perform(context)
+    camera_adapter = Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="camera_adapter.py",
+        name="camera_adapter",
+        output="screen",
+        parameters=[{
+            "use_sim_time": use_sim_time.lower() in ("true", "1", "yes"),
+            "cloud_decimation": decimation,
+            "cloud_strip_nan": LaunchConfiguration("cloud_strip_nan").perform(
+                context).lower() in ("true", "1", "yes"),
+            "seed": seed,
+            **point_cloud_parameters(profile),
+        }],
+        # The adapter does its arithmetic element-wise. Should any call reach
+        # BLAS, its spinning threads would take cores from the Gazebo server:
+        # in #49 a multithreaded product took 8.5 cores and cut the real-time
+        # factor to 0.77.
+        additional_env={"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"},
+        condition=IfCondition(render_sensors),
+    )
+    return [camera_adapter]
 
 
 def _rviz_config_for_platform(default_rviz):
@@ -521,6 +572,37 @@ def generate_launch_description():
             "Wheel-contact profile: stress is deterministic and uncalibrated; "
             "ideal preserves the zero-slip baseline"),
     )
+    declare_sensor_profile = DeclareLaunchArgument(
+        "sensor_profile",
+        default_value="physical",
+        choices=["ideal", "physical"],
+        description=(
+            "Sensor quality and timing profile: physical delivers the point "
+            "cloud with the physical X3's gaps and latency; ideal delivers "
+            "every frame as soon as it is built"),
+    )
+    declare_sensor_seed = DeclareLaunchArgument(
+        "sensor_seed",
+        default_value="-1",
+        description=(
+            "Seed for the sensor profiles' random draws. -1 picks a random "
+            "one per launch, which the camera adapter logs; tests pass a "
+            "fixed one"),
+    )
+    declare_cloud_strip_nan = DeclareLaunchArgument(
+        "cloud_strip_nan",
+        default_value="true",
+        choices=["true", "false"],
+        description=(
+            "Drop non-finite points from the point cloud, as the physical "
+            "adapter does by default, leaving an unorganized dense cloud; "
+            "false keeps the organized cloud"),
+    )
+    declare_cloud_decimation = DeclareLaunchArgument(
+        "cloud_decimation",
+        default_value="1",
+        description="Keep every Nth row and column of the point cloud",
+    )
     declare_ground_truth_frame = DeclareLaunchArgument(
         "ground_truth_frame",
         default_value="auto",
@@ -567,8 +649,9 @@ def generate_launch_description():
 
     # Optimized image bridge for the native Fortress RGB-D camera outputs.
     # image_bridge cannot publish Best Effort, so it lands on private
-    # /internal/ names; sensor_qos_relay nodes below republish them under the
-    # public contract topics at Best Effort to match the physical robot.
+    # /internal/ names. The camera adapter builds the public depth image and
+    # point cloud from them, and sensor_qos_relay nodes below republish the
+    # color image and camera_info at Best Effort to match the physical robot.
     ros_gz_image_bridge = Node(
         package="ros_gz_image",
         executable="image_bridge",
@@ -577,19 +660,6 @@ def generate_launch_description():
             ("/cam_1/image", "/internal/cam_1/color/image_raw"),
             ("/cam_1/depth_image", "/internal/cam_1/depth/image_raw"),
         ],
-        output="screen",
-        condition=IfCondition(render_sensors),
-    )
-
-    # Fortress 6.18 labels the RGB-D cloud with the optical frame even though
-    # its XYZ data is +X-forward in the camera's regular frame, which is
-    # cam_1_color_frame. Transform the points into cam_1_depth_frame, where the
-    # physical robot publishes its cloud, and label them so. Also fixes the
-    # cloud's QoS to Best Effort; see the module docstring.
-    pointcloud_frame_relay = Node(
-        package="yahboom_rosmaster_gazebo",
-        executable="pointcloud_frame_relay.py",
-        name="pointcloud_frame_relay",
         output="screen",
         condition=IfCondition(render_sensors),
     )
@@ -614,10 +684,6 @@ def generate_launch_description():
     color_image_qos_relay = _sensor_qos_relay(
         "color_image_qos_relay", "Image",
         "/internal/cam_1/color/image_raw", "/cam_1/color/image_raw",
-        condition=IfCondition(render_sensors))
-    depth_image_qos_relay = _sensor_qos_relay(
-        "depth_image_qos_relay", "Image",
-        "/internal/cam_1/depth/image_raw", "/cam_1/depth/image_raw",
         condition=IfCondition(render_sensors))
     color_camera_info_qos_relay = _sensor_qos_relay(
         "color_camera_info_qos_relay", "CameraInfo",
@@ -743,6 +809,10 @@ def generate_launch_description():
         declare_use_ros2_control,
         declare_motion_bias,
         declare_motion_profile,
+        declare_sensor_profile,
+        declare_sensor_seed,
+        declare_cloud_strip_nan,
+        declare_cloud_decimation,
         declare_ground_truth_frame,
         # Force X11/XWayland for Gazebo GUI — prevents white window on Wayland + AMD GPU.
         # macOS has no xcb platform plugin; setting it there breaks every Qt app,
@@ -771,9 +841,8 @@ def generate_launch_description():
         TimerAction(period=BRIDGE_START_DELAY, actions=[
             ros_gz_bridge,
             ros_gz_image_bridge,
-            pointcloud_frame_relay,
+            OpaqueFunction(function=_camera_adapter, args=[pkg_gz]),
             color_image_qos_relay,
-            depth_image_qos_relay,
             color_camera_info_qos_relay,
             depth_camera_info_qos_relay,
             scan_qos_relay,
