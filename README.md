@@ -517,6 +517,9 @@ becomes a cloud, published as soon as it is built. `sensor_seed` makes the
 gaps repeatable. The profiles and the measurement behind each value are in
 `yahboom_rosmaster_gazebo/config/sensor_profiles.yaml`. The simulator's camera
 frames come 33 ms apart, not the robot's 33.3 ms, so its gaps are 1% shorter.
+A subscriber on a loaded machine also loses some of the roughly 600 kB Best
+Effort clouds on top of the modeled gaps, about 1% on a quiet host and up to a
+third on saturated CPUs, and the robot's cloud has the same exposure.
 
 `/scan` and the five `/cam_1/*` topics above all publish Best Effort, matching
 the physical ROSMASTER X3's `qos_profile_sensor_data`/`SensorDataQoS`
