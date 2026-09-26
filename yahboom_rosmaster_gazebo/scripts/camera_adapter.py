@@ -12,15 +12,40 @@ is one ray. This adapter back-projects each depth frame with the intrinsics in
 non-finite ones stripped (``cloud_strip_nan``) and every ``cloud_decimation``-th
 row and column kept.
 
-The arithmetic and the frame handling here need no running ROS graph.
+The arithmetic and the frame handling need no running ROS graph, so they are
+unit tested on their own. ``CameraAdapter``, at the end, wires them to topics.
 """
 
 from collections import OrderedDict
 from dataclasses import dataclass
 import math
+import os
 
-import numpy as np
-from sensor_msgs.msg import Image, PointCloud2, PointField
+# One thread, set before numpy loads. Should any call reach BLAS, its spinning
+# threads would take cores from the Gazebo server (see _rotate_translate).
+for _name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS"):
+    os.environ.setdefault(_name, "1")
+
+import numpy as np  # noqa: E402
+import rclpy  # noqa: E402
+from rclpy.node import Node  # noqa: E402
+from rclpy.qos import (  # noqa: E402
+    DurabilityPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+    qos_profile_sensor_data,
+)
+from rclpy.time import Time  # noqa: E402
+from sensor_msgs.msg import CameraInfo, Image, PointCloud2, PointField  # noqa: E402
+from tf2_msgs.msg import TFMessage  # noqa: E402
+from tf2_ros import Buffer, TransformException  # noqa: E402
+
+from cloud_timing import (  # noqa: E402
+    FrameGate,
+    GapSampler,
+    publish_delay,
+    resolve_seed,
+)
 
 
 DEPTH_ENCODING = "32FC1"
@@ -431,3 +456,181 @@ class AdapterCore:
         self._publish_depth(depth_image_message(depth.header, result.depth))
         if result.cloud is not None:
             self._publish_cloud(result.cloud)
+
+
+STATS_PERIOD_S = 30.0
+
+
+class CameraAdapter(Node):
+    """Publish the public depth image and point cloud from the bridged images."""
+
+    def __init__(self):
+        super().__init__("camera_adapter")
+        self.declare_parameter("cloud_decimation", 1)
+        self.declare_parameter("cloud_strip_nan", True)
+        self.declare_parameter("target_cloud_frame", "cam_1_depth_frame")
+        # The timing model. The defaults are the ideal profile; the launch file
+        # passes the selected profile from config/sensor_profiles.yaml.
+        self.declare_parameter("latency_s", 0.0)
+        self.declare_parameter("frame_period_s", 0.033)
+        self.declare_parameter("gap_frames", [1])
+        self.declare_parameter("gap_probabilities", [1.0])
+        self.declare_parameter("seed", -1)
+
+        def parameter(name):
+            return self.get_parameter(name).value
+
+        gap_frames = list(parameter("gap_frames"))
+        gap_probabilities = list(parameter("gap_probabilities"))
+        if len(gap_frames) != len(gap_probabilities):
+            raise ValueError("gap_frames and gap_probabilities differ in length")
+        self.latency_s = float(parameter("latency_s"))
+        if not math.isfinite(self.latency_s) or self.latency_s < 0.0:
+            raise ValueError("latency_s must be zero or positive")
+        seed = resolve_seed(parameter("seed"))
+        self.get_logger().info(
+            f"Point cloud gaps drawn from seed {seed}, latency {self.latency_s:.3f} s")
+        gate = FrameGate(
+            GapSampler(dict(zip(gap_frames, gap_probabilities)), seed),
+            float(parameter("frame_period_s")))
+        self.target_frame = str(parameter("target_cloud_frame"))
+        self.pipeline = FramePipeline(
+            gate,
+            decimation=int(parameter("cloud_decimation")),
+            strip_nan=bool(parameter("cloud_strip_nan")),
+            target_frame=self.target_frame)
+        self.core = AdapterCore(
+            self.pipeline,
+            self._publish_depth,
+            self._schedule_cloud,
+            lambda text: self.get_logger().warning(text, throttle_duration_sec=5.0))
+
+        self.depth_publisher = self.create_publisher(
+            Image, "/cam_1/depth/image_raw", qos_profile_sensor_data)
+        self.cloud_publisher = self.create_publisher(
+            PointCloud2, "/cam_1/depth/color/points", qos_profile_sensor_data)
+
+        # Both frames hang off cam_1_link on fixed joints, so the transform is
+        # static. Feed a buffer from /tf_static only rather than a full
+        # listener that would also decode every /tf message.
+        self.tf_buffer = Buffer()
+        self.create_subscription(
+            TFMessage, "/tf_static", self._store_static_transforms,
+            QoSProfile(
+                depth=100,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                reliability=ReliabilityPolicy.RELIABLE,
+            ))
+
+        # ros_gz_image cannot publish Best Effort, so the images arrive
+        # Reliable on private /internal/ names.
+        reliable = QoSProfile(
+            depth=10, durability=DurabilityPolicy.VOLATILE,
+            reliability=ReliabilityPolicy.RELIABLE)
+        self.create_subscription(
+            CameraInfo, "/internal/cam_1/color/camera_info",
+            self.core.on_camera_info, reliable)
+        self.create_subscription(
+            Image, "/internal/cam_1/color/image_raw", self.core.on_color, reliable)
+        self.create_subscription(
+            Image, "/internal/cam_1/depth/image_raw", self._on_depth, reliable)
+
+        self.frames = 0
+        self.clouds = 0
+        self.late_clouds = 0
+        self.create_timer(STATS_PERIOD_S, self.log_summary)
+        self.get_logger().info(
+            f"Building {self.target_frame} clouds from the color and depth images")
+
+    def _store_static_transforms(self, message):
+        for transform in message.transforms:
+            self.tf_buffer.set_transform_static(transform, "tf_static")
+
+    def _resolve_transform(self, image_frame):
+        """Cache the static target <- image frame transform once TF has it."""
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                self.target_frame, image_frame, Time()).transform
+        except TransformException as exception:
+            self.get_logger().warning(
+                f"No cloud until {self.target_frame} <- {image_frame} is on "
+                f"/tf_static: {exception}", throttle_duration_sec=5.0)
+            return
+        self.pipeline.set_transform(
+            (transform.translation.x, transform.translation.y, transform.translation.z),
+            (transform.rotation.x, transform.rotation.y, transform.rotation.z,
+             transform.rotation.w))
+        self.get_logger().info(
+            f"{self.target_frame} <- {image_frame}: translation "
+            f"({transform.translation.x:.6f}, {transform.translation.y:.6f}, "
+            f"{transform.translation.z:.6f})")
+
+    def _on_depth(self, message):
+        if not self.pipeline.has_transform:
+            self._resolve_transform(message.header.frame_id)
+        self.core.on_depth(message)
+
+    def _publish_depth(self, message):
+        self.frames += 1
+        self.depth_publisher.publish(message)
+
+    def _schedule_cloud(self, cloud):
+        """Publish a cloud at its capture stamp plus the latency, or now if late."""
+        now = self.get_clock().now().nanoseconds * 1e-9
+        delay, late = publish_delay(
+            stamp_seconds(cloud.header.stamp), now, self.latency_s)
+        self.clouds += 1
+        self.late_clouds += late
+        if delay <= 0.0:
+            self.cloud_publisher.publish(cloud)
+            return
+        timers = []
+
+        def publish():
+            timer = timers.pop()
+            timer.cancel()
+            self.destroy_timer(timer)
+            self.cloud_publisher.publish(cloud)
+
+        timers.append(self.create_timer(delay, publish))
+
+    def summary(self):
+        """Return how many frames and clouds were published, and how many clouds were late."""
+        if not self.frames:
+            return None
+        late = ""
+        if self.latency_s > 0.0 and self.clouds:
+            late = (
+                f", {self.late_clouds} of them ready after stamp + "
+                f"{self.latency_s * 1000:.0f} ms ({100.0 * self.late_clouds / self.clouds:.1f}%) "
+                "and published at once")
+        return f"{self.frames} frames and {self.clouds} clouds published so far{late}"
+
+    def log_summary(self):
+        """Log the summary."""
+        text = self.summary()
+        if text:
+            self.get_logger().info(text)
+
+
+def main(args=None):
+    """Run the adapter."""
+    rclpy.init(args=args)
+    node = CameraAdapter()
+    try:
+        rclpy.spin(node)
+    except (KeyboardInterrupt, SystemExit):
+        pass
+    finally:
+        # Plain text: the signal that ended the spin has already shut the ROS
+        # context down, so the logger could not publish it.
+        text = node.summary()
+        if text:
+            print(f"[camera_adapter] {text}", flush=True)
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
