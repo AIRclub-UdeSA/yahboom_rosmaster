@@ -61,6 +61,21 @@ def generate_launch_description():
             "Ground-truth display frame: auto, odom, map, or another "
             "localization frame")
     )
+    spawn_x_arg = DeclareLaunchArgument(
+        "spawn_x",
+        default_value="0.0",
+        description="Robot start x in the Gazebo world frame, in meters"
+    )
+    spawn_y_arg = DeclareLaunchArgument(
+        "spawn_y",
+        default_value="0.0",
+        description="Robot start y in the Gazebo world frame, in meters"
+    )
+    spawn_yaw_arg = DeclareLaunchArgument(
+        "spawn_yaw",
+        default_value="0.0",
+        description="Robot start heading in the Gazebo world frame, in radians"
+    )
 
     include_sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(fortress_launch),
@@ -85,5 +100,8 @@ def generate_launch_description():
         motion_bias_arg,
         use_sim_time_arg,
         ground_truth_frame_arg,
+        spawn_x_arg,
+        spawn_y_arg,
+        spawn_yaw_arg,
         include_sim,
     ])
