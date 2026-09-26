@@ -43,6 +43,17 @@ CLOUD_POINT_TOLERANCE = 0.005
 # projection from the image frame. Seen from the depth aperture instead, it
 # would sit about 9 px away at 0.745 m.
 TARGET_CENTROID_TOLERANCE = 2.0
+# The independent check of the cloud against the target's known front face. A
+# red point is on the face if it lies within FACE_CANDIDATE_DEPTH of its plane;
+# an edge pixel can take the color of the box and the depth of what is behind
+# it, so nearly all of them, not every one, must be.
+FACE_CANDIDATE_DEPTH = 0.02
+FACE_ON_PLANE_FRACTION = 0.99
+FACE_MEDIAN_TOLERANCE = 0.001
+FACE_SPREAD_TOLERANCE = 0.002
+# One and a half pixels at the target's 0.74 m, where a pixel is 2.7 mm.
+FACE_EDGE_TOLERANCE = 0.004
+FACE_MINIMUM_POINTS = 500
 
 
 def pose_matrix(xyz, rpy):
@@ -95,6 +106,8 @@ class DepthGeometryProbe(Node):
         # frame's optical axis, and the face's centre on base_link.
         self.declare_parameter("expected_depth", 0.745)
         self.declare_parameter("target_face_center", [0.8, 0.0, 0.0374])
+        # The face's extent along base_link's y and z axes, in metres.
+        self.declare_parameter("target_face_size", [0.4, 0.2])
         self.declare_parameter("depth_tolerance", 0.03)
         self.declare_parameter("target_red_pixels", 500)
         self.declare_parameter("minimum_valid_fraction", 0.02)
@@ -105,6 +118,8 @@ class DepthGeometryProbe(Node):
             self.get_parameter("expected_depth").value)
         self.target_face_center = np.array(
             self.get_parameter("target_face_center").value, dtype=float)
+        self.target_face_size = np.array(
+            self.get_parameter("target_face_size").value, dtype=float)
         self.depth_tolerance = float(
             self.get_parameter("depth_tolerance").value)
         self.target_red_pixels = int(
@@ -134,6 +149,14 @@ class DepthGeometryProbe(Node):
             self.camera_poses[frame] = pose
             self.camera_poses[f"cam_1_{sensor}_optical_frame"] = pose @ optical
 
+        # The known front face in the cloud's own frame. Its normal is the
+        # frame's +X axis, which this check assumes: cam_1_depth_frame is
+        # axis-aligned with base_link, where the target was placed.
+        cloud_from_base = np.linalg.inv(self.camera_poses[self.expected_cloud_frame])
+        self.face_axes_aligned = bool(np.allclose(cloud_from_base[:3, :3], np.eye(3)))
+        self.face_center = (
+            cloud_from_base @ np.append(self.target_face_center, 1.0))[:3]
+
         self.observations = {
             COLOR_TOPIC: [],
             DEPTH_TOPIC: [],
@@ -143,6 +166,7 @@ class DepthGeometryProbe(Node):
         }
         self.capture_errors = []
         self.parallax_report = "target parallax not checked"
+        self.face_report = "target face not checked"
         self._subscription_handles = []
 
         sensor_qos = QoSProfile(
@@ -312,6 +336,7 @@ class DepthGeometryProbe(Node):
             center_xyz = None
             off_axis_xyz = None
             center_rgb = None
+            face = None
             valid_fraction = 0.0
             if all(
                     name in fields
@@ -364,6 +389,8 @@ class DepthGeometryProbe(Node):
                     (packed >> 8) & 0xFF,
                     packed & 0xFF,
                 )
+                if center_xyz is not None:
+                    face = self.face_statistics(packed_rgb, coordinates, valid)
             self.append(POINTS_TOPIC, {
                 "stamp": self.stamp_ns(message),
                 "frame": message.header.frame_id,
@@ -377,9 +404,34 @@ class DepthGeometryProbe(Node):
                 "off_axis_xyz": off_axis_xyz,
                 "center_rgb": center_rgb,
                 "valid_fraction": valid_fraction,
+                "face": face,
             })
         except Exception as exception:  # ROS callbacks must remain alive.
             self.record_error(POINTS_TOPIC, exception)
+
+    def face_statistics(self, packed_rgb, coordinates, valid):
+        """Summarize where the red points lie against the target's known front face."""
+        red = (packed_rgb >> 16) & 0xFF
+        green = (packed_rgb >> 8) & 0xFF
+        blue = packed_rgb & 0xFF
+        mask = valid & (red > 150) & (green < 80) & (blue < 80)
+        count = int(np.count_nonzero(mask))
+        if count < FACE_MINIMUM_POINTS:
+            return {"count": count}
+        x, y, z = (array[mask].astype(np.float64) for array in coordinates)
+        depth_error = x - self.face_center[0]
+        on_plane = np.abs(depth_error) <= FACE_CANDIDATE_DEPTH
+        if not on_plane.any():
+            return {"count": count, "on_plane_fraction": 0.0}
+        depth_error, y, z = depth_error[on_plane], y[on_plane], z[on_plane]
+        return {
+            "count": count,
+            "on_plane_fraction": float(np.count_nonzero(on_plane)) / count,
+            "median_error": float(np.median(depth_error)),
+            "spread": float(np.percentile(np.abs(depth_error), 99)),
+            "y_range": (float(y.min()), float(y.max())),
+            "z_range": (float(z.min()), float(z.max())),
+        }
 
     def depth_matches_target(self, observation):
         depth = observation["center_depth"]
@@ -630,6 +682,69 @@ class DepthGeometryProbe(Node):
                     f"{self.expected_cloud_frame} (+X forward, +Y left, +Z "
                     f"up); first cloud/expected XYZ was {first_mismatch}")
 
+    def validate_target_face(self, coherent_stamps, errors):
+        """
+        Require the red points to lie on the target's known front face.
+
+        The target is a box of known size at a known place, so where its front
+        face is does not depend on any of the depth image, K or the transform
+        that made the cloud: a cloud built wrongly from a perfectly good
+        depth image still fails here.
+        """
+        if not self.face_axes_aligned:
+            errors.append(
+                f"target face: {self.expected_cloud_frame} is not axis-aligned "
+                "with base_link, which this check assumes")
+            return
+        clouds = {
+            item["stamp"]: item for item in self.observations[POINTS_TOPIC]}
+        half = self.target_face_size / 2.0
+        low = (self.face_center[1] - half[0], self.face_center[2] - half[1])
+        high = (self.face_center[1] + half[0], self.face_center[2] + half[1])
+        for stamp in coherent_stamps[-self.samples:]:
+            face = clouds[stamp]["face"]
+            if face is not None and face["count"] >= FACE_MINIMUM_POINTS:
+                self.face_report = (
+                    f"target face {face['count']} red points, median "
+                    f"{face['median_error'] * 1000:.2f} mm and 99% within "
+                    f"{face['spread'] * 1000:.2f} mm of x = {self.face_center[0]:.4f}, "
+                    f"y {face['y_range'][0]:.4f}..{face['y_range'][1]:.4f} "
+                    f"(face {low[0]:.4f}..{high[0]:.4f}), z {face['z_range'][0]:.4f}.."
+                    f"{face['z_range'][1]:.4f} (face {low[1]:.4f}..{high[1]:.4f})")
+            if face is None or face["count"] < FACE_MINIMUM_POINTS:
+                errors.append(
+                    f"target face: only {0 if face is None else face['count']} red "
+                    f"points, fewer than {FACE_MINIMUM_POINTS}")
+                return
+            if face["on_plane_fraction"] < FACE_ON_PLANE_FRACTION:
+                errors.append(
+                    f"target face: {face['on_plane_fraction']:.1%} of the red points "
+                    f"lie within {FACE_CANDIDATE_DEPTH * 1000:.0f} mm of the face's "
+                    f"plane x = {self.face_center[0]:.4f} m in "
+                    f"{self.expected_cloud_frame}, expected {FACE_ON_PLANE_FRACTION:.0%}")
+                return
+            if abs(face["median_error"]) > FACE_MEDIAN_TOLERANCE:
+                errors.append(
+                    f"target face: the red points are a median {face['median_error'] * 1000:.1f} "
+                    f"mm off the face's plane, more than {FACE_MEDIAN_TOLERANCE * 1000:.0f} mm")
+                return
+            if face["spread"] > FACE_SPREAD_TOLERANCE:
+                errors.append(
+                    f"target face: 99% of the red points are within {face['spread'] * 1000:.1f} "
+                    f"mm of the plane, more than {FACE_SPREAD_TOLERANCE * 1000:.0f} mm")
+                return
+            for axis, (lower, upper), (expected_low, expected_high) in (
+                    ("y", face["y_range"], (low[0], high[0])),
+                    ("z", face["z_range"], (low[1], high[1]))):
+                if (
+                        abs(lower - expected_low) > FACE_EDGE_TOLERANCE
+                        or abs(upper - expected_high) > FACE_EDGE_TOLERANCE):
+                    errors.append(
+                        f"target face: the red points span {axis} = {lower:.4f} to "
+                        f"{upper:.4f} m; the face spans {expected_low:.4f} to "
+                        f"{expected_high:.4f} m, to within {FACE_EDGE_TOLERANCE * 1000:.0f} mm")
+                    return
+
     def validate(self):
         errors = list(self.capture_errors)
         for topic, observations in self.observations.items():
@@ -780,6 +895,7 @@ class DepthGeometryProbe(Node):
             self.validate_registered_frame_contract(coherent_stamps, errors)
             self.validate_target_parallax(coherent_stamps, errors)
             self.validate_cloud_geometry(coherent_stamps, errors)
+            self.validate_target_face(coherent_stamps, errors)
 
         return errors
 
@@ -789,7 +905,8 @@ class DepthGeometryProbe(Node):
             for topic, items in self.observations.items())
         return (
             f"{counts}, coherent_target_cycles="
-            f"{len(self.coherent_target_stamps())}, {self.parallax_report}")
+            f"{len(self.coherent_target_stamps())}, {self.parallax_report}, "
+            f"{self.face_report}")
 
 
 def main():

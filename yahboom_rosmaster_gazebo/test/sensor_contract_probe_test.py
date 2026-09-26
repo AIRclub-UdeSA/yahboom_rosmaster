@@ -69,6 +69,52 @@ class TestSensorContractBuffering(unittest.TestCase):
         self.assertEqual(PROBE_MODULE.validated_sample_count(10), 10)
 
 
+class TestRateGrading(unittest.TestCase):
+    """The cloud's rate is its mean over the window; the others' is the median."""
+
+    CLOUD = "/cam_1/depth/color/points"
+
+    @staticmethod
+    def probe(topic, stamps):
+        """Return the state validate_rate reads, with messages stamped ``stamps``."""
+        messages = [
+            SimpleNamespace(header=SimpleNamespace(
+                stamp=SimpleNamespace(sec=int(stamp), nanosec=round((stamp % 1) * 1e9))))
+            for stamp in stamps
+        ]
+        return SimpleNamespace(
+            messages={topic: messages},
+            stamp_seconds=PROBE_MODULE.SensorContractProbe.stamp_seconds)
+
+    def grade(self, topic, stamps, minimum, maximum):
+        errors = []
+        PROBE_MODULE.SensorContractProbe.validate_rate(
+            self.probe(topic, stamps), topic, minimum, maximum, errors)
+        return errors
+
+    def test_a_window_of_uneven_gaps_is_graded_by_its_mean_rate(self):
+        # Eight one-frame gaps and one ten-frame gap: the median period is one
+        # frame, 30 Hz, but 18 frames pass in nine clouds, a mean of 15.2 Hz.
+        frames = [0, 1, 2, 3, 4, 5, 6, 7, 8, 18]
+        stamps = [10.0 + 0.033 * frame for frame in frames]
+        self.assertEqual(self.grade(self.CLOUD, stamps, 14.0, 16.0), [])
+        self.assertTrue(self.grade(self.CLOUD, stamps, 28.0, 33.0))
+
+    def test_a_long_gap_pulls_the_cloud_rate_down(self):
+        frames = [0, 1, 2, 3, 4, 5, 6, 7, 8, 40]
+        stamps = [10.0 + 0.033 * frame for frame in frames]
+        self.assertTrue(self.grade(self.CLOUD, stamps, 15.0, 33.0))
+
+    def test_other_topics_keep_the_median_period(self):
+        # One long gap among steady 33 ms periods leaves the median at 30 Hz.
+        frames = [0, 1, 2, 3, 4, 5, 6, 7, 8, 40]
+        stamps = [10.0 + 0.033 * frame for frame in frames]
+        self.assertEqual(self.grade("/cam_1/color/image_raw", stamps, 27.0, 33.0), [])
+
+    def test_the_cloud_is_the_only_mean_graded_topic(self):
+        self.assertEqual(PROBE_MODULE.MEAN_RATE_TOPICS, (self.CLOUD,))
+
+
 class TestSensorContractLedger(unittest.TestCase):
     """The probe grades rates from the ledger and pins what it hard-codes."""
 

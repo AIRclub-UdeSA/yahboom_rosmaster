@@ -18,6 +18,7 @@ install(
   PROGRAMS
     scripts/base_feedback_probe.py
     scripts/camera_adapter.py
+    scripts/cloud_timing_probe.py
     scripts/depth_geometry_probe.py
     scripts/ground_truth_contract_probe.py
     scripts/ground_truth_display_probe.py
@@ -82,6 +83,10 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/sensor_profiles_test.py
   )
   add_test(
+    NAME cloud_timing_probe_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/cloud_timing_probe_test.py
+  )
+  add_test(
     NAME cloud_timing_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/cloud_timing_test.py
   )
@@ -111,8 +116,26 @@ if(BUILD_TESTING)
   add_launch_test(
     test/sensor_contract.launch.py
     TARGET sensor_contract_ci
+    TIMEOUT 150
+    ARGS
+      "world:=empty.world"
+      "samples:=3"
+      "performance_checks:=false"
+      "cloud_timing_seconds:=15"
+  )
+  # The cloud's gap distribution and latency, graded on sim time over a long
+  # window. The CI gate grades a shorter one inside sensor_contract_ci.
+  add_launch_test(
+    test/cloud_timing.launch.py
+    TARGET cloud_timing_physical
+    TIMEOUT 200
+    ARGS "sensor_profile:=physical" "duration:=60"
+  )
+  add_launch_test(
+    test/cloud_timing.launch.py
+    TARGET cloud_timing_ideal
     TIMEOUT 90
-    ARGS "world:=empty.world" "samples:=3" "performance_checks:=false"
+    ARGS "sensor_profile:=ideal" "duration:=10" "cloud_decimation:=4"
   )
   add_launch_test(
     test/base_feedback.launch.py

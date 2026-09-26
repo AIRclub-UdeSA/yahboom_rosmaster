@@ -17,6 +17,7 @@ from sensor_msgs.msg import CameraInfo, Image, Imu, JointState, LaserScan, Point
 from tf2_msgs.msg import TFMessage
 from tf2_ros import Buffer, TransformListener
 
+from cloud_timing_probe import layout_errors
 from real_robot_contract import RealRobotContract
 
 
@@ -41,6 +42,10 @@ RATE_GRADED_TOPICS = (
     "/joint_states",
     "/odom",
 )
+# The cloud arrives in whole-frame gaps, so its median period is one, two or
+# three frames depending on which few clouds a window catches. The mean rate
+# over the window is what the ledger's contract bounds.
+MEAN_RATE_TOPICS = ("/cam_1/depth/color/points",)
 # camera_info must reproduce the ledger's intrinsics to this many pixels.
 INTRINSICS_TOLERANCE = 1e-3
 REQUIRED_DYNAMIC_TF_EDGE = ("odom", "base_footprint")
@@ -277,9 +282,12 @@ class SensorContractProbe(Node):
         ]
         if not periods or any(period <= 0.0 for period in periods):
             return
-        sorted_periods = sorted(periods)
-        median_period = sorted_periods[len(sorted_periods) // 2]
-        rate = 1.0 / median_period
+        if topic in MEAN_RATE_TOPICS:
+            rate = len(periods) / sum(periods)
+        else:
+            sorted_periods = sorted(periods)
+            median_period = sorted_periods[len(sorted_periods) // 2]
+            rate = 1.0 / median_period
         if not minimum <= rate <= maximum:
             errors.append(
                 f"{topic}: measured {rate:.3f} Hz outside "
@@ -431,9 +439,7 @@ class SensorContractProbe(Node):
             errors.append(
                 f"point cloud: expected x-forward {cloud_frame}, got "
                 f"{points.header.frame_id}")
-        point_fields = {field.name for field in points.fields}
-        if not {"x", "y", "z", "rgb"}.issubset(point_fields):
-            errors.append(f"point cloud: missing XYZRGB fields: {point_fields}")
+        errors.extend(f"point cloud: {problem}" for problem in layout_errors(points))
         if points.width == 0 or points.height == 0 or not points.data:
             errors.append("point cloud: dimensions or data are empty")
         if len(points.data) != points.row_step * points.height:
