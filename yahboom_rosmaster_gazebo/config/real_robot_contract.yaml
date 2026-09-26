@@ -381,8 +381,11 @@ simulator:
     # value not listed here comes from the step-2 baseline above.
     step_measurements:
       - step: 4
-        commit: d7b19796457a9a4fb29b3494bba51b37a251fe7c
+        commit: ce142d779b9d623704afec341255894a3eff4dc1
         measured_on: "2026-09-24"
+        note: >
+          Measured at d7b19796457a9a4fb29b3494bba51b37a251fe7c. Rebasing before
+          the merge rewrote it as this commit, with an identical patch.
         keys:
           - frames.mounts.cam_1_link
           - frames.mounts.cam_1_depth_frame
@@ -394,8 +397,12 @@ simulator:
           the bottom image row reads the floor at 0.20368 m, as a camera
           108.95 mm above it predicts.
       - step: 5
-        commit: 556263d79d7f7d1be03f953b9227e22a6fcb8c99
+        commit: 3e2f5095767c66d8e74880a1f2b9d7fab69c1d47
         measured_on: "2026-09-24"
+        note: >
+          Measured at 556263d79d7f7d1be03f953b9227e22a6fcb8c99. Rebasing before
+          the merge rewrote it as this commit. The model is identical; only a
+          comment in test/depth_geometry.launch.py differs.
         keys:
           - topics./cam_1/color/image_raw.frame_id
           - topics./cam_1/color/image_raw.rate_hz
