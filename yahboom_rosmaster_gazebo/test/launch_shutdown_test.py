@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import patch
 
 import shutdown_asserts
+import sim_timing
 
 
 LAUNCH_FILE = (
@@ -382,6 +383,40 @@ class TestLaunchShutdown(unittest.TestCase):
             in message
             for message in logger.warning_messages
         ))
+
+
+class TestSpawnStartup(unittest.TestCase):
+    """Pin how the nodes that need the robot follow its spawn."""
+
+    def test_actions_launch_after_a_successful_spawn(self):
+        actions = [object(), object()]
+
+        with patch.object(LAUNCH_MODULE, "get_logger") as get_logger:
+            launched = LAUNCH_MODULE._after_spawn_actions(
+                SimpleNamespace(returncode=0), actions)
+
+        self.assertIs(launched, actions)
+        get_logger.assert_not_called()
+
+    def test_failed_spawn_warns_but_still_launches_the_actions(self):
+        logger = RecordingLogger()
+        actions = [object()]
+
+        with patch.object(LAUNCH_MODULE, "get_logger", return_value=logger):
+            launched = LAUNCH_MODULE._after_spawn_actions(
+                SimpleNamespace(returncode=1), actions)
+
+        self.assertIs(launched, actions)
+        self.assertEqual(len(logger.warning_messages), 1)
+        self.assertIn("code 1", logger.warning_messages[0])
+
+    def test_probes_start_after_the_bridges(self):
+        # The probe start times are margins over the launch's own start times,
+        # so they must move with them.
+        self.assertGreater(
+            sim_timing.PROBE_START_DELAY, LAUNCH_MODULE.BRIDGE_START_DELAY)
+        self.assertGreater(
+            sim_timing.PERFORMANCE_PROBE_START_DELAY, sim_timing.PROBE_START_DELAY)
 
 
 class FakeExitedProcess:

@@ -18,6 +18,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from shutdown_asserts import assert_clean_shutdown  # noqa: E402
+from sim_timing import PROBE_START_DELAY  # noqa: E402
 
 
 @pytest.mark.launch_test
@@ -45,7 +46,7 @@ def generate_test_description():
             "IGN_PARTITION", f"yahboom_base_feedback_{os.getpid()}"),
         SetEnvironmentVariable("ROS_DOMAIN_ID", str(10 + os.getpid() % 211)),
         simulator,
-        TimerAction(period=15.0, actions=[probe]),
+        TimerAction(period=PROBE_START_DELAY, actions=[probe]),
         launch_testing.actions.ReadyToTest(),
     ]), {"probe": probe}
 
