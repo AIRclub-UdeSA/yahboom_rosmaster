@@ -1,0 +1,86 @@
+# Sensor quality and timing profiles for the Gazebo Fortress simulator.
+#
+# Selected with the `sensor_profile` launch argument (yahboom_rosmaster#43,
+# decision D1): `physical` is the default and models what the physical X3
+# delivers; `ideal` keeps every frame, undelayed and undegraded, for geometry
+# and determinism tests. A profile changes quality and timing, never the
+# interface: topics, frames and layouts are the same under both.
+#
+# The file is organized by sensor. Steps 7 and 8 of #43 add `depth`, `lidar`
+# and `imu`. Every value is a mapping with the value and the source of its
+# measurement, so a number can be traced back to the capture behind it.
+# scripts/sensor_profiles.py loads and validates it; test/sensor_profiles_test.py
+# checks the values against the physical measurement.
+
+version: 1
+
+point_cloud:
+  physical:
+    frame_period_s:
+      value: 0.033
+      source: >
+        The simulated camera's own frame clock, not a physical measurement:
+        update_rate 30 with the 1 ms physics step fires every 33 ms of sim
+        time, so the image stamps run at 30.3 Hz (config/real_robot_contract.yaml,
+        #43 step 5). The physical robot's frames are 33.3 ms apart. The gap
+        counts below are whole frames, so they convert to time with this period.
+    latency_s:
+      value: 0.050
+      source: >
+        physical_rosmaster#45, docs/sensor_capabilities.md "Point cloud",
+        measured 2026-09-24 on x3-c at physical_rosmaster b144d31: about 50 ms,
+        run medians 43-53 ms, per-run standard deviation 1-3 ms, treated as
+        constant. A cloud leaves this long after the stamp of its frame, which
+        it keeps.
+    gap_frames:
+      value:
+        1: 0.3310
+        2: 0.1852
+        3: 0.1538
+        4: 0.0901
+        5: 0.0526
+        6: 0.0466
+        7: 0.0283
+        8: 0.0223
+        9: 0.0202
+        10: 0.0132
+        11: 0.0132
+        12: 0.0061
+        13: 0.0091
+        14: 0.0051
+        15: 0.0040
+        16: 0.0010
+        17: 0.0040
+        18: 0.0040
+        19: 0.0020
+        20: 0.0020
+        23: 0.0010
+        24: 0.0010
+        25: 0.0010
+        28: 0.0010
+        32: 0.0010
+        34: 0.0010
+      source: >
+        physical_rosmaster#45, "Frames from one cloud to the next": 988 stamp
+        gaps pooled from three settled 40 s runs on the public topic, measured
+        2026-09-24 on x3-c at physical_rosmaster b144d31. Every gap was a whole
+        number of 33.3 ms camera frames, and consecutive gaps were uncorrelated
+        (lag-1 autocorrelation 0.01-0.06), so each gap is drawn independently.
+        The probabilities are the published four-decimal values, which sum to
+        0.9998; the sampler normalizes them. The median is 2 frames, the p95 is
+        11, the longest 34 and the mean 3.63.
+
+  ideal:
+    frame_period_s:
+      value: 0.033
+      source: The same simulated camera frame clock as the physical profile.
+    latency_s:
+      value: 0.0
+      source: >
+        By definition (#43 decision D1): every cloud is published as soon as it
+        is built.
+    gap_frames:
+      value:
+        1: 1.0
+      source: >
+        By definition (#43 decision D1): every camera frame becomes a cloud.
