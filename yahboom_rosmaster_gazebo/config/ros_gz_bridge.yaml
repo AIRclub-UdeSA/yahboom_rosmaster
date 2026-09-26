@@ -9,8 +9,11 @@
 
 # RGBD Camera topics. Neither parameter_bridge nor image_bridge in this
 # ros_gz release can publish Best Effort, so these land on private /internal/
-# names; sensor_qos_relay.py republishes them under the public contract
-# topic at Best Effort to match the physical robot's qos_profile_sensor_data.
+# names; sensor_qos_relay.py republishes the camera_info topics under the public
+# contract topics at Best Effort to match the physical robot's
+# qos_profile_sensor_data. Gazebo's own point cloud is not bridged at all:
+# camera_adapter.py builds the public cloud from the images and camera_info,
+# as the physical robot's adapter does. It reads the color camera_info below.
 - ros_topic_name: "/internal/cam_1/color/camera_info"
   gz_topic_name: "/cam_1/camera_info"
   ros_type_name: "sensor_msgs/msg/CameraInfo"
@@ -26,17 +29,6 @@
   gz_type_name: "gz.msgs.CameraInfo"
   direction: GZ_TO_ROS
   lazy: false
-
-# Fortress stamps the cloud with the optical frame id even though its XYZ
-# data is +X-forward coordinates in cam_1_color_frame. Bridge it to a private
-# internal handoff topic; pointcloud_frame_relay transforms it into
-# cam_1_depth_frame and publishes the public cam_1/depth/color/points contract.
-- ros_topic_name: "/internal/cam_1/points_raw"
-  gz_topic_name: "/cam_1/points"
-  ros_type_name: "sensor_msgs/msg/PointCloud2"
-  gz_type_name: "gz.msgs.PointCloudPacked"
-  direction: GZ_TO_ROS
-  lazy: true
 
 # LIDAR configuration. Bridged privately for the same Best Effort reason as
 # the camera topics above; sensor_qos_relay.py republishes the public /scan.
