@@ -132,11 +132,15 @@ def grade_timing(
         cloud_stamps_ns = [cloud_stamps_ns[index] for index in keep]
         cloud_latencies_s = [cloud_latencies_s[index] for index in keep]
     stats = {"clouds": len(cloud_stamps_ns), "startup_burst_clouds_skipped": skipped}
-    unmatched = sum(1 for stamp in cloud_stamps_ns if stamp not in frames_seen)
+    # A cloud from before the first frame's stamp arrived can not be matched:
+    # the probe's subscriptions do not all connect at the same moment.
+    comparable = [stamp for stamp in cloud_stamps_ns if ordered and stamp >= ordered[0]]
+    unmatched = sum(1 for stamp in comparable if stamp not in frames_seen)
     stats["stamps_matching_no_frame"] = unmatched
-    if unmatched > UNMATCHED_STAMP_FRACTION * len(cloud_stamps_ns):
+    stats["clouds_before_first_frame"] = len(cloud_stamps_ns) - len(comparable)
+    if unmatched > UNMATCHED_STAMP_FRACTION * len(comparable):
         errors.append(
-            f"{unmatched} of {len(cloud_stamps_ns)} cloud stamps match no camera frame "
+            f"{unmatched} of {len(comparable)} cloud stamps match no camera frame "
             "received, but a cloud keeps the stamp of the frame it was built from")
     images = sorted(set(image_stamps_ns))
     if len(images) < 3 or len(cloud_stamps_ns) < 2:

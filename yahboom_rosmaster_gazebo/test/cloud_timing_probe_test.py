@@ -106,6 +106,14 @@ class TestPhysicalGrading(unittest.TestCase):
         self.assertEqual(stats["stamps_matching_no_frame"], len(stamps))
         self.assertTrue(any("match no camera frame" in error for error in errors), errors)
 
+    def test_clouds_from_before_the_first_frame_arrived_are_not_compared(self):
+        # The probe's subscriptions connect at different moments, so its first
+        # clouds can predate the first camera_info it received.
+        stamps, latencies, images = physical_run()
+        late_start = [stamp for stamp in images if stamp >= stamps[8]]
+        errors, stats = grade(stamps, latencies, late_start)
+        self.assertEqual(stats["stamps_matching_no_frame"], 0, errors)
+
     def test_a_cloud_may_match_a_frame_only_the_depth_stream_saw(self):
         stamps, latencies, images = physical_run()
         color_only = [stamp for stamp in images if stamp not in set(stamps[:20])]
