@@ -48,8 +48,13 @@ version: 2
 physical:
   provenance:
     repository: https://github.com/AIRclub-UdeSA/physical_rosmaster
-    commit: b144d3149d6b7a0aab5d3e247d3db432fd29c4af
-    read_on: "2026-09-24"
+    commit: bff09c77c937285c2592ab6af75d3a299cb3e46c
+    read_on: "2026-09-26"
+    # physical_rosmaster#45 (docs: re-measure point cloud timing on the shipped
+    # pipeline) is still open, so this pins its head, docs/cloud-timing-2026-09-24.
+    # It adds only the 2026-09-24 point cloud measurement to b144d31, which is
+    # main and the commit every other physical value below was read at. Re-pin to
+    # #45's merge commit once it merges; the files it names do not change.
     robot: x3-c (host yahboom), Astra serial ACRC64300ET, pinned Orbbec driver f7e71d9
     deployed_commit_during_measurements: 01e1a60
     sources:
@@ -61,6 +66,9 @@ physical:
       - robot_artifacts/x3c_sensor_capability_2026-09-17/cloud_paired.json
       - robot_artifacts/x3c_sensor_capability_2026-09-17/sensors_stationary.json
       - robot_artifacts/x3c_sensor_capability_2026-09-17/post_deploy_tf.json
+      - robot_artifacts/x3c_sensor_capability_2026-09-24/camera_settled_1.json
+      - robot_artifacts/x3c_sensor_capability_2026-09-24/camera_settled_2.json
+      - robot_artifacts/x3c_sensor_capability_2026-09-24/camera_settled_3.json
       - yahboomcar_description/urdf/yahboomcar_X3.urdf.xacro
       - yahboomcar_bringup/param/x3_driver.yaml
       - yahboomcar_bringup/param/x3_odometry.yaml
@@ -129,7 +137,9 @@ physical:
     source: >
       docs/sensor_capabilities.md "Rates and latency";
       camera_public.json and sensors_stationary.json (2026-09-17,
-      stationary, one probe subscriber).
+      stationary, one probe subscriber). The point cloud is the exception: it
+      is the 2026-09-24 re-measurement of the shipped pipeline, docs/
+      sensor_capabilities.md "Point cloud" and camera_settled_1..3.json.
     note: >
       rate_hz and period_p95_ms are wall clock. latency_ms is receive time
       minus header.stamp, measured on the robot. reliability is read from the
@@ -169,16 +179,28 @@ physical:
     /cam_1/depth/color/points:
       type: sensor_msgs/msg/PointCloud2
       frame_id: cam_1_depth_frame
-      # Provisional (#43 decision D4). These describe the 2026-09-17 pipeline
-      # (32-byte organized points) across four windows. After 16-byte packing
-      # it ran 9.6-15.9 Hz (2026-09-18, rate only), and 1.15 Hz at the
-      # 2026-09-18 boot. The shipped cloud_strip_nan pipeline has not been
-      # measured: AIRclub-UdeSA/physical_rosmaster#43 re-measures it.
-      provisional: true
-      rate_hz: [2.83, 10.93]
-      period_p95_ms: [237, 1013]
-      worst_gap_s: 1.6
-      latency_ms: [40.7, 45.4]
+      # Measured 2026-09-24 on x3-c on the shipped pipeline (16-byte points,
+      # cloud_strip_nan true, cloud_decimation 1), robot stationary, one probe
+      # subscriber, three settled 40 s runs pooled: 988 stamp gaps. It replaces
+      # the provisional 2026-09-17 figures (32-byte organized points, four
+      # windows), which the pipeline has since outgrown.
+      # The compared values are scalars. The rate is the mean, 30.0 Hz over the
+      # mean gap of 3.63 frames: 8.3 Hz with 27.6% of camera frames delivered.
+      rate_hz: 8.26
+      period_p95_ms: 367
+      latency_ms: 50
+      # Every gap was a whole number of 33.3 ms frames (0 of 2747 off the grid)
+      # and consecutive gaps were uncorrelated, so a simulator can draw each
+      # independently from the distribution in sensor_profiles.yaml.
+      gap_frames: {median: 2, p95: 11, longest: 34, mean: 3.63}
+      worst_gap_s: 1.13
+      # Descriptive: how the settled runs spread, which no simulator value is
+      # compared with. Five settled runs gave 7.3-9.2 Hz with nothing changed
+      # between them, and run medians of 43-53 ms with a per-run standard
+      # deviation of 1-3 ms. The boot capture, 25 s after the platform came up,
+      # ran at 9.56 Hz, not slower than the settled runs.
+      rate_hz_settled_range: [7.3, 9.2]
+      latency_ms_run_medians: [43, 53]
       reliability: best_effort
     /scan:
       type: sensor_msgs/msg/LaserScan
@@ -248,15 +270,22 @@ physical:
       of the frame never returns the floor.
 
   point_cloud:
-    confidence: inferred
-    source: yahboomcar_astra/yahboomcar_astra/sensor_adapter.py transform_cloud() at the commit above
+    confidence: measured
+    source: >
+      camera_settled_1.json to camera_settled_3.json, 2026-09-24 (the content
+      of each run's cloud samples), and yahboomcar_astra/yahboomcar_astra/
+      sensor_adapter.py transform_cloud() at physical_rosmaster b144d31
     note: >
       The layout of the shipped adapter (physical_rosmaster PR #41), with
-      cloud_strip_nan true and cloud_decimation 1, the launch defaults. No
-      artifact has measured it yet; physical_rosmaster#43 will.
+      cloud_strip_nan true and cloud_decimation 1, the launch defaults. About
+      33,700 points, 538-542 KB per message, in the scene the robot faced. The
+      artifacts record the field names, offsets and datatypes but not how the
+      four rgb bytes are packed.
     fields: [x, y, z, rgb]
     point_step: 16
     rgb_offset: 12
+    rgb_datatype: FLOAT32
+    is_bigendian: false
     organized: false
     is_dense: true
     non_finite_points: stripped
