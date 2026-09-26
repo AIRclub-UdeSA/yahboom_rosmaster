@@ -5,6 +5,7 @@ Launch Gazebo Fortress simulation for ROSMASTER X3 with physics-based mecanum dr
 Uses the native Gazebo MecanumDrive system for wheel velocity commands, with
 gz_ros2_control kept read-only for joint states and wheel-link TF.
 """
+import math
 import os
 import platform
 import shutil
@@ -91,6 +92,24 @@ def _load_motion_profile(config_path, profile_name):
     return values
 
 
+def _spawn_pose_arguments(context):
+    """Return ros_gz_sim create flags for the requested world-frame start pose."""
+    flags = []
+    for argument, flag in (
+            ("spawn_x", "-x"), ("spawn_y", "-y"), ("spawn_yaw", "-Y")):
+        raw = LaunchConfiguration(argument).perform(context)
+        try:
+            value = float(raw)
+        except ValueError as error:
+            raise ValueError(
+                f"{argument} must be a number (meters, or radians for "
+                f"spawn_yaw), got {raw!r}") from error
+        if not math.isfinite(value):
+            raise ValueError(f"{argument} must be finite, got {raw!r}")
+        flags.extend([flag, repr(value)])
+    return flags
+
+
 def _launch_robot(context, xacro_path, profile_config):
     """Expand the selected motion profile once for RSP and Gazebo spawn."""
     profile_name = LaunchConfiguration("motion_profile").perform(context)
@@ -131,7 +150,8 @@ def _launch_robot(context, xacro_path, profile_config):
             "-string", robot_description,
             "-name", "rosmaster_x3",
             # base_footprint is on the floor, so the default z=0 spawn rests
-            # the wheels on the ground.
+            # the wheels on the ground. Only the planar pose is configurable.
+            *_spawn_pose_arguments(context),
         ],
         output="screen",
     )
@@ -494,6 +514,23 @@ def generate_launch_description():
             "Wheel-contact profile: stress is deterministic and uncalibrated; "
             "ideal preserves the zero-slip baseline"),
     )
+    declare_spawn_x = DeclareLaunchArgument(
+        "spawn_x",
+        default_value="0.0",
+        description="Robot start x in the Gazebo world frame, in meters",
+    )
+    declare_spawn_y = DeclareLaunchArgument(
+        "spawn_y",
+        default_value="0.0",
+        description="Robot start y in the Gazebo world frame, in meters",
+    )
+    declare_spawn_yaw = DeclareLaunchArgument(
+        "spawn_yaw",
+        default_value="0.0",
+        description=(
+            "Robot start heading in the Gazebo world frame, in radians "
+            "(counterclockwise from +x). /odom still starts at zero"),
+    )
     declare_ground_truth_frame = DeclareLaunchArgument(
         "ground_truth_frame",
         default_value="auto",
@@ -707,6 +744,9 @@ def generate_launch_description():
         declare_use_ros2_control,
         declare_motion_bias,
         declare_motion_profile,
+        declare_spawn_x,
+        declare_spawn_y,
+        declare_spawn_yaw,
         declare_ground_truth_frame,
         # Force X11/XWayland for Gazebo GUI — prevents white window on Wayland + AMD GPU.
         # macOS has no xcb platform plugin; setting it there breaks every Qt app,

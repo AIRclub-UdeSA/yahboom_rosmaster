@@ -25,6 +25,7 @@ install(
     scripts/motion_profile_divergence_probe.py
     scripts/real_robot_bag_analyzer.py
     scripts/sensor_contract_probe.py
+    scripts/spawn_pose_contract_probe.py
     scripts/wheel_odometry_resilience_probe.py
     scripts/world_smoke_probe.py
     scripts/cmd_vel_watchdog.py
@@ -129,6 +130,11 @@ if(BUILD_TESTING)
     test/ground_truth_map_mode.launch.py
     TARGET ground_truth_map_mode
     TIMEOUT 30
+  )
+  add_launch_test(
+    test/spawn_pose_contract.launch.py
+    TARGET spawn_pose_contract
+    TIMEOUT 90
   )
   add_launch_test(
     test/motion_profile_divergence.launch.py

@@ -366,6 +366,18 @@ migration assets, not supported practice worlds.
 | `use_sim_time` | `true` | Use the Gazebo simulation clock; keep enabled for the supported workflow |
 | `motion_profile` | `stress` | Wheel contact model: uncalibrated `stress` or zero-slip `ideal` |
 | `motion_bias` | `false` | Add randomized command drift when enabled |
+| `spawn_x` | `0.0` | Robot start x in the Gazebo world frame, in meters |
+| `spawn_y` | `0.0` | Robot start y in the Gazebo world frame, in meters |
+| `spawn_yaw` | `0.0` | Robot start heading in the Gazebo world frame, in radians (counterclockwise from +x) |
+
+The defaults reproduce the previous fixed start at the world origin facing +x.
+`/odom` still starts at zero whatever the spawn pose, as on the physical robot;
+`/ground_truth/odom` reports the real pose in the world frame. The launch does
+not check that the pose is free: a start inside a wall or an obstacle is the
+caller's responsibility. Whether `spawn_x`/`spawn_y` equal `map` coordinates was
+only verified for `laberinto_simple`; check the other worlds before relying on
+it. The Gazebo Classic backend on macOS takes the same three arguments, but they
+are not validated there yet (tracked in #53).
 | `ground_truth_frame` | `auto` | Ground-truth display frame: `auto`, `odom`, `map`, or another localization frame |
 
 ## Controlling the Robot
