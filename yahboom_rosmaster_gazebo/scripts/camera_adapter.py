@@ -424,22 +424,27 @@ class AdapterCore:
     What the adapter does with each message, with its outputs passed in.
 
     ``publish_depth`` and ``publish_cloud`` take a finished message, and
-    ``warn`` takes a line for a throttled log. The node supplies them, and the
-    unit tests supply recorders, so none of this needs a running ROS graph.
+    ``warn`` and ``error`` each take a line for a throttled log. The node
+    supplies them, and the unit tests supply recorders, so none of this needs
+    a running ROS graph.
 
     A depth image is conditioned and published the moment it arrives, before
     and whether or not its color partner or a ``camera_info`` comes, as on the
     robot. The conditioned array is then kept for its partner, and the cloud is
     built from that same array. A depth image that is malformed is dropped
-    whole. Anything wrong with a frame's color or its size against
-    ``camera_info`` drops only that frame's cloud, and warns.
+    whole. Anything wrong with a frame's color, its cloud, or its size against
+    ``camera_info`` drops only that frame's cloud. Both are logged at ERROR, as
+    physical_rosmaster's sensor_adapter logs its own conversion errors; a frame
+    that never finds a pairing partner is a timing condition, not bad data, and
+    stays at WARNING.
     """
 
-    def __init__(self, pipeline, publish_depth, publish_cloud, warn, pairer=None):
+    def __init__(self, pipeline, publish_depth, publish_cloud, warn, error, pairer=None):
         self._pipeline = pipeline
         self._publish_depth = publish_depth
         self._publish_cloud = publish_cloud
         self._warn = warn
+        self._error = error
         self._pairer = pairer or StampPairer()
         self._reported_discards = 0
         self._info = None
@@ -462,7 +467,7 @@ class AdapterCore:
         try:
             depth = self._pipeline.condition(message)
         except ValueError as error:
-            self._warn(f"Dropping invalid depth image: {error}")
+            self._error(f"Dropping invalid depth image: {error}")
             return
         self._publish_depth(depth_image_message(depth.header, depth.pixels))
         self._pair("depth", depth)
@@ -483,7 +488,7 @@ class AdapterCore:
         try:
             cloud = self._pipeline.build_cloud(color, depth, self._info)
         except ValueError as error:
-            self._warn(f"Dropping the cloud of an invalid frame: {error}")
+            self._error(f"Dropping the cloud of an invalid frame: {error}")
             return
         if cloud is not None:
             self._publish_cloud(cloud)
@@ -534,7 +539,8 @@ class CameraAdapter(Node):
             self.pipeline,
             self._publish_depth,
             self._schedule_cloud,
-            lambda text: self.get_logger().warning(text, throttle_duration_sec=5.0))
+            lambda text: self.get_logger().warning(text, throttle_duration_sec=5.0),
+            lambda text: self.get_logger().error(text, throttle_duration_sec=5.0))
 
         self.depth_publisher = self.create_publisher(
             Image, "/cam_1/depth/image_raw", qos_profile_sensor_data)
@@ -587,10 +593,18 @@ class CameraAdapter(Node):
                 f"No cloud until {self.target_frame} <- {image_frame} is on "
                 f"/tf_static: {exception}", throttle_duration_sec=5.0)
             return
-        self.pipeline.set_transform(
-            (transform.translation.x, transform.translation.y, transform.translation.z),
-            (transform.rotation.x, transform.rotation.y, transform.rotation.z,
-             transform.rotation.w))
+        try:
+            self.pipeline.set_transform(
+                (transform.translation.x, transform.translation.y, transform.translation.z),
+                (transform.rotation.x, transform.rotation.y, transform.rotation.z,
+                 transform.rotation.w))
+        except ValueError as error:
+            # Depth images keep publishing either way; only the cloud waits.
+            # has_transform stays false, so the next depth image retries.
+            self.get_logger().error(
+                f"Ignoring a degenerate {self.target_frame} <- {image_frame} transform "
+                f"on /tf_static: {error}", throttle_duration_sec=5.0)
+            return
         self.get_logger().info(
             f"{self.target_frame} <- {image_frame}: translation "
             f"({transform.translation.x:.6f}, {transform.translation.y:.6f}, "
