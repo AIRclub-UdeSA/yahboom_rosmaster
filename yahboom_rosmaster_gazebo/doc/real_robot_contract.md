@@ -64,15 +64,19 @@ shared loader.
 
 | Reader | Keys |
 |---|---|
-| `scripts/sensor_contract_probe.py` | `topics.<topic>.rate_hz.contract` (only with `performance_checks:=true`), `topics.<topic>.frame_id`, `topics./odom.child_frame_id`, and the `camera` size, intrinsics, distortion and `horizontal_fov_rad` that `camera_info` must carry |
+| `scripts/sensor_contract_probe.py` | `topics.<topic>.rate_hz.contract` (only with `performance_checks:=true`; the cloud's is graded on its mean rate over the window, since its gaps make the median period meaningless), `topics.<topic>.frame_id`, `topics./odom.child_frame_id`, and the `camera` size, intrinsics, distortion and `horizontal_fov_rad` that `camera_info` must carry. The cloud's layout is graded in every run against the physical adapter's |
 | `scripts/depth_geometry_probe.py` | `camera.width`, `camera.height`, the depth image and cloud `frame_id`, `depth.min_range_m`, `depth.max_range_m` (the clip range), and the depth and color `frames.mounts`: the color frames' calibrated offset in TF, where the color aperture sees the target, and where each cloud point must land in `cam_1_depth_frame` |
 | `test/depth_geometry.launch.py` | `frames.mounts.cam_1_color_frame`, `frames.mounts.cam_1_depth_frame` and `frames.base_footprint_to_base_link_z_m`, to put the target at a known depth along the color optical axis, centred on the depth aperture |
 | `yahboom_rosmaster_description/test/robot_description_contract_test.py` | `frames.*` mounts and camera frames, `wheels.*`, the camera, LiDAR and IMU settings the xacro must produce, and the physical `frames.tape_check` camera setback that `camera.obj` must reproduce |
 | `test/sensor_contract_probe_test.py` | Every rate the probe grades has a contract; the probe's Best Effort topics and wheel joint names match the ledger |
-| `test/real_robot_contract_test.py` | Every parity flag (a `true` one must be verifiable), the provenance commits and `step_measurements` records, the legacy `superseded_by` references, and the `/joint_states` rate in `config/ros2_control.yaml` |
+| `test/real_robot_contract_test.py` | Every parity flag (a `true` one must be verifiable), the provenance commits and `step_measurements` records, the legacy `superseded_by` references, the `/joint_states` rate in `config/ros2_control.yaml`, and that the cloud's timing entries (`rate_hz`, `period_p95_ms`, `latency_ms`, `gap_frames`, `worst_gap_s`) are what `config/sensor_profiles.yaml`'s physical profile implies |
 
 `sensor_contract_ci` still runs with `performance_checks:=false`, so it reads
-the frames and field of view but never grades the rate contracts.
+the frames and field of view and the cloud's layout but never grades the rate
+contracts. It also grades 15 sim seconds of the cloud's timing against
+`config/sensor_profiles.yaml` (`scripts/cloud_timing_probe.py`), which is where
+the timing entries above come from, not from the ledger: the ledger records
+that the profile matches the robot, and the profile is what the simulator runs.
 
 ## Closing a gap
 
@@ -109,7 +113,7 @@ git -C ../physical_rosmaster show origin/main:docs/sensor_capabilities.md
 | `topics` | `docs/sensor_capabilities.md` "Rates and latency"; `robot_artifacts/<capture>/camera_public.json` and `sensors_stationary.json`. QoS: `yahboomcar_astra/yahboomcar_astra/sensor_adapter.py` and `sllidar_ros2/src/sllidar_node.cpp` |
 | `camera` | `docs/sensor_capabilities.md` "Camera"; `camera_public.json`; `yahboomcar_astra/launch/astra_platform.launch.py` |
 | `depth` | `docs/depth_camera_calibration.md` |
-| `point_cloud` | `sensor_adapter.py` `transform_cloud()` with the launch defaults `cloud_strip_nan` and `cloud_decimation` |
+| `point_cloud` | `sensor_adapter.py` `transform_cloud()` with the launch defaults `cloud_strip_nan` and `cloud_decimation`; the field offsets and datatypes from `robot_artifacts/<capture>/camera_settled_*.json`. The cloud's timing entries under `topics` come from `docs/sensor_capabilities.md` "Point cloud", and its gap table is copied into `config/sensor_profiles.yaml` |
 | `lidar` | `sensors_stationary.json`; `docs/sensor_capabilities.md` "LiDAR" |
 | `imu` | `sensors_stationary.json`; `yahboomcar_bringup/param/imu_filter_param.yaml` |
 | `odometry`, `command` | `x3_odometry.yaml`, `x3_driver.yaml` |
@@ -126,13 +130,23 @@ After copying:
 4. Run `real_robot_contract_test.py`. Every flag the new physical values
    invalidate fails there. Fix the flags, not the physical numbers.
 
-**The point-cloud timing is provisional** (#43 decision D4). The physical
-figures describe the 2026-09-17 pipeline, which used 32-byte organized points.
-The shipped pipeline strips NaN returns and packs 16-byte points, and nobody
-has measured its timing yet.
-[physical_rosmaster#43](https://github.com/AIRclub-UdeSA/physical_rosmaster/issues/43)
-re-measures it. Refresh `physical.topics./cam_1/depth/color/points` and
-`physical.point_cloud` from that result before step 6 fits its timing model.
+**The point-cloud timing is the 2026-09-24 re-measurement** (#43 decision D4).
+The physical figures come from
+[physical_rosmaster#45](https://github.com/AIRclub-UdeSA/physical_rosmaster/pull/45)
+(`docs/sensor_capabilities.md` "Point cloud" and `robot_artifacts/
+x3c_sensor_capability_2026-09-24/`), which measured the shipped pipeline:
+16-byte points, `cloud_strip_nan` true. While #45 is open,
+`physical.provenance.commit` pins its head. **Re-pin it to #45's merge commit
+once it merges**; nothing else in the physical section changes. The compared
+timing values are scalars, so `values_agree` needs no range support: the mean
+rate (8.26 Hz), the p95 period (367 ms) and the latency (50 ms). The 7.3-9.2 Hz
+settled range and the 43-53 ms run medians are kept as descriptive fields that
+nothing is compared with.
+
+The simulator's frame period is not the robot's. With the 1 ms physics step the
+camera's stamps come 33 ms apart (30.3 Hz), against the robot's 33.3 ms, so the
+gap table's frames convert to 33 ms in the simulator: a p95 of 363 ms against
+367. The `tolerance` on each entry absorbs the 1% difference.
 
 ## The simulator baseline and its caveats
 

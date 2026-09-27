@@ -11,6 +11,7 @@ import yaml
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_DIR / "scripts"))
 
+from cloud_timing import gap_statistics  # noqa: E402
 from real_robot_contract import (  # noqa: E402
     OPEN_STEPS,
     RealRobotContract,
@@ -18,6 +19,8 @@ from real_robot_contract import (  # noqa: E402
     default_path,
     values_agree,
 )
+from sensor_profiles import SOURCE_PATH as PROFILES_PATH  # noqa: E402
+from sensor_profiles import load_sensor_profile  # noqa: E402
 
 CONTRACT = RealRobotContract.load(SOURCE_PATH)
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
@@ -133,6 +136,37 @@ class TestRealRobotContract(unittest.TestCase):
                 minimum, maximum = entry["contract"]
                 self.assertLess(minimum, entry["nominal"])
                 self.assertLess(entry["nominal"], maximum)
+
+    def test_cloud_timing_follows_the_default_sensor_profile(self):
+        """The ledger's simulator cloud timing is what the physical profile implies."""
+        profile = load_sensor_profile(PROFILES_PATH, "point_cloud", "physical")
+        statistics = gap_statistics(profile["gap_frames"])
+        period = profile["frame_period_s"]
+        topic = "topics./cam_1/depth/color/points"
+        self.assertAlmostEqual(
+            CONTRACT.nominal(f"{topic}.rate_hz"),
+            1.0 / (statistics["mean"] * period), delta=0.01)
+        self.assertAlmostEqual(
+            CONTRACT.nominal(f"{topic}.period_p95_ms"),
+            statistics["p95"] * period * 1000.0, delta=0.5)
+        self.assertAlmostEqual(
+            CONTRACT.nominal(f"{topic}.latency_ms"), profile["latency_s"] * 1000.0)
+        self.assertAlmostEqual(
+            CONTRACT.nominal(f"{topic}.worst_gap_s"),
+            statistics["longest"] * period, delta=0.001)
+        nominal = CONTRACT.nominal(f"{topic}.gap_frames")
+        self.assertEqual(
+            {key: nominal[key] for key in ("median", "p95", "longest")},
+            {key: statistics[key] for key in ("median", "p95", "longest")})
+        self.assertAlmostEqual(nominal["mean"], statistics["mean"], delta=0.001)
+
+    def test_the_cloud_rate_contract_leaves_room_for_a_short_window(self):
+        """A mean rate over a few clouds must not fail a correct simulator."""
+        minimum, maximum = CONTRACT.rate_bounds("/cam_1/depth/color/points")
+        profile = load_sensor_profile(PROFILES_PATH, "point_cloud", "physical")
+        # 9 gaps: the mean rate falls under 2.8 Hz once in 10,000 windows.
+        self.assertLessEqual(minimum, 2.8)
+        self.assertGreaterEqual(maximum, 1.0 / profile["frame_period_s"])
 
     def test_registered_camera_labels_every_topic_alike(self):
         for section, lookup in (
