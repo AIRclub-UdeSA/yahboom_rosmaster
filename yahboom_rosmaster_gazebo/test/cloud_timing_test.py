@@ -13,8 +13,10 @@ sys.path.insert(0, str(PACKAGE_DIR / "scripts"))
 from cloud_timing import (  # noqa: E402
     FrameGate,
     GapSampler,
+    convolved,
     cumulative_within,
     gap_statistics,
+    mean_rate_floor,
     normalized,
     quantile,
     quantile_interval,
@@ -159,6 +161,38 @@ class TestQuantileInterval(unittest.TestCase):
                 misses += not low <= observed <= high
         # 4 standard deviations is a miss probability of about 6e-5 a quantile.
         self.assertEqual(misses, 0)
+
+
+class TestMeanRateFloor(unittest.TestCase):
+    """The rate contract's lower bound is tied to the sample count and the table."""
+
+    def test_a_single_draw_is_the_table_itself(self):
+        self.assertEqual(convolved({1: 1.0}, 1), {1: 1.0})
+        self.assertEqual(convolved({1: 0.5, 3: 0.5}, 1), {1: 0.5, 3: 0.5})
+
+    def test_two_draws_convolve_to_every_pairwise_sum(self):
+        pmf = convolved({1: 0.5, 2: 0.5}, 2)
+        self.assertAlmostEqual(pmf[2], 0.25)
+        self.assertAlmostEqual(pmf[3], 0.5)
+        self.assertAlmostEqual(pmf[4], 0.25)
+        self.assertAlmostEqual(sum(pmf.values()), 1.0)
+
+    def test_the_floor_reproduces_the_ledgers_hand_derived_figure(self):
+        # config/real_robot_contract.yaml and real_robot_contract_test.py both
+        # derived their cloud rate figures by hand from the physical table and
+        # samples:=10 (test/sensor_contract.launch.py): "9 gaps: the mean rate
+        # falls under 2.8 Hz once in 10,000 windows".
+        floor = mean_rate_floor(PHYSICAL["gap_frames"], FRAME_PERIOD, samples=10)
+        self.assertAlmostEqual(floor, 2.783, places=3)
+
+    def test_a_longer_window_raises_the_floor(self):
+        short = mean_rate_floor(PHYSICAL["gap_frames"], FRAME_PERIOD, samples=10)
+        long = mean_rate_floor(PHYSICAL["gap_frames"], FRAME_PERIOD, samples=100)
+        self.assertLess(short, long)
+
+    def test_too_few_samples_to_span_a_gap_is_rejected(self):
+        with self.assertRaises(ValueError):
+            mean_rate_floor(PHYSICAL["gap_frames"], FRAME_PERIOD, samples=1)
 
 
 class TestFrameGate(unittest.TestCase):
