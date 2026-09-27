@@ -194,6 +194,17 @@ class TestMeanRateFloor(unittest.TestCase):
         with self.assertRaises(ValueError):
             mean_rate_floor(PHYSICAL["gap_frames"], FRAME_PERIOD, samples=1)
 
+    def test_a_large_window_does_not_underflow_to_a_zero_probability_entry(self):
+        # Past count ~108, some path through the physical table's rarest gaps
+        # compounds to a probability that underflows to exactly 0.0 in
+        # float64. Such an entry must not survive into the returned pmf, or
+        # normalized() rejects it downstream for a reason unrelated to the
+        # quantile actually being asked for.
+        pmf = convolved(PHYSICAL["gap_frames"], 199)
+        self.assertTrue(all(probability > 0.0 for probability in pmf.values()))
+        self.assertAlmostEqual(sum(pmf.values()), 1.0, places=6)
+        mean_rate_floor(PHYSICAL["gap_frames"], FRAME_PERIOD, samples=200)
+
 
 class TestFrameGate(unittest.TestCase):
     """The gate delivers a drawn number of frames after the last delivery."""

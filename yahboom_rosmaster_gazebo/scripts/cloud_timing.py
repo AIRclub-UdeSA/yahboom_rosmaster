@@ -107,7 +107,14 @@ def convolved(distribution, count):
         for gap, probability in pmf.items():
             for step, step_probability in base.items():
                 total = gap + step
-                next_pmf[total] = next_pmf.get(total, 0.0) + probability * step_probability
+                combined = next_pmf.get(total, 0.0) + probability * step_probability
+                # A path through enough rare gaps underflows to exactly zero in
+                # float64 well before the tail probability this is used for. Such
+                # an entry carries no probability mass, so dropping it changes no
+                # statistic drawn from the result, and keeps it out of
+                # normalized()'s "every listed gap is possible" check downstream.
+                if combined > 0.0:
+                    next_pmf[total] = combined
         pmf = next_pmf
     return pmf
 
