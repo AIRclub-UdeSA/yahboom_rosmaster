@@ -93,6 +93,15 @@ def generate_launch_description():
     declare_motion_bias = DeclareLaunchArgument(
         "motion_bias", default_value="true",
         description="Add the per-direction drift of an uncalibrated mecanum base")
+    declare_spawn_x = DeclareLaunchArgument(
+        "spawn_x", default_value="0.0",
+        description="Robot start x in the Gazebo world frame, in meters")
+    declare_spawn_y = DeclareLaunchArgument(
+        "spawn_y", default_value="0.0",
+        description="Robot start y in the Gazebo world frame, in meters")
+    declare_spawn_yaw = DeclareLaunchArgument(
+        "spawn_yaw", default_value="0.0",
+        description="Robot start heading in the Gazebo world frame, in radians")
 
     # Same drift model the Fortress backend uses. planar_move has no command
     # timeout either, so the watchdog's zero-on-silence also stops the robot
@@ -139,7 +148,12 @@ def generate_launch_description():
             "-topic", "robot_description",
             "-entity", "rosmaster_x3",
             # base_footprint is on the floor, so the default z=0 spawn rests
-            # the wheels on the ground.
+            # the wheels on the ground. Only the planar pose is configurable;
+            # the values are passed through unvalidated. Untested on a Mac so
+            # far: see the spawn-pose validation issue for this backend.
+            "-x", LaunchConfiguration("spawn_x"),
+            "-y", LaunchConfiguration("spawn_y"),
+            "-Y", LaunchConfiguration("spawn_yaw"),
             # Default is 30 s; a cold conda dyld cache can take longer than that
             # to bring gzserver's /spawn_entity service up.
             "-timeout", "90.0",
@@ -162,6 +176,9 @@ def generate_launch_description():
         declare_gui,
         declare_rviz,
         declare_motion_bias,
+        declare_spawn_x,
+        declare_spawn_y,
+        declare_spawn_yaw,
         gzserver,
         gzclient,
         cmd_vel_watchdog,
