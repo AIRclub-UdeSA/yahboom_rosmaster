@@ -63,6 +63,10 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/motion_profile_contract_test.py
   )
   add_test(
+    NAME launch_argument_consistency
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/launch_argument_consistency_test.py
+  )
+  add_test(
     NAME ground_truth_alignment_math
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/ground_truth_alignment_test.py
   )

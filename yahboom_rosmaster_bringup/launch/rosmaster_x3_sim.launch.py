@@ -42,7 +42,11 @@ def generate_launch_description():
     motion_profile_arg = DeclareLaunchArgument(
         "motion_profile",
         default_value="stress",
-        description="Wheel contact physics profile (ideal, stress)"
+        choices=["ideal", "stress"],
+        description=(
+            "Wheel-contact profile: stress is deterministic and uncalibrated; "
+            "ideal preserves the zero-slip baseline"
+        )
     )
     motion_bias_arg = DeclareLaunchArgument(
         "motion_bias",
@@ -52,20 +56,31 @@ def generate_launch_description():
     sensor_profile_arg = DeclareLaunchArgument(
         "sensor_profile",
         default_value="physical",
+        choices=["ideal", "physical"],
         description=(
-            "Sensor quality and timing profile (ideal, physical): physical "
-            "delivers the point cloud with the physical X3's gaps and latency"
+            "Sensor quality and timing profile: physical delivers the point "
+            "cloud with the physical X3's gaps and latency; ideal delivers "
+            "every frame as soon as it is built"
         )
     )
     sensor_seed_arg = DeclareLaunchArgument(
         "sensor_seed",
         default_value="-1",
-        description="Seed for the sensor profiles' random draws (-1: random)"
+        description=(
+            "Seed for the sensor profiles' random draws. -1 picks a random "
+            "one per launch, which the camera adapter logs; tests pass a "
+            "fixed one"
+        )
     )
     cloud_strip_nan_arg = DeclareLaunchArgument(
         "cloud_strip_nan",
         default_value="true",
-        description="Drop non-finite point cloud points (true/false)"
+        choices=["true", "false"],
+        description=(
+            "Drop non-finite points from the point cloud, as the physical "
+            "adapter does by default, leaving an unorganized dense cloud; "
+            "false keeps the organized cloud"
+        )
     )
     cloud_decimation_arg = DeclareLaunchArgument(
         "cloud_decimation",
