@@ -41,6 +41,7 @@ def generate_test_description():
     world = LaunchConfiguration("world")
     samples = LaunchConfiguration("samples")
     performance_checks = LaunchConfiguration("performance_checks")
+    cloud_timing_seconds = LaunchConfiguration("cloud_timing_seconds")
     # The performance checks need a sim that is already publishing; a run
     # without them waits for readiness itself and can start its probe early.
     probe_delay = PythonExpression([
@@ -55,6 +56,8 @@ def generate_test_description():
             "rviz": "false",
             "use_sim_time": "true",
             "world": PathJoinSubstitution([package_share, "worlds", world]),
+            # A fixed seed makes the cloud's gap sequence the same every launch.
+            "sensor_seed": "1",
         }.items(),
     )
     probe = Node(
@@ -69,19 +72,36 @@ def generate_test_description():
         output="screen",
     )
 
+    # Grades the cloud's timing on sim time, in the sim this test already
+    # launches. It exits at once when cloud_timing_seconds is 0.
+    timing_probe = Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="cloud_timing_probe.py",
+        parameters=[{
+            "use_sim_time": True,
+            "profile": "physical",
+            "duration_s": ParameterValue(cloud_timing_seconds, value_type=float),
+            "timeout": 110.0,
+        }],
+        output="screen",
+    )
+
     return LaunchDescription([
         DeclareLaunchArgument("world", default_value="empty.world"),
         DeclareLaunchArgument("samples", default_value="10"),
         DeclareLaunchArgument("performance_checks", default_value="true"),
+        DeclareLaunchArgument(
+            "cloud_timing_seconds", default_value="0",
+            description="Sim seconds of cloud timing to grade; 0 skips it"),
         SetEnvironmentVariable(
             "IGN_PARTITION", f"yahboom_sensor_contract_{os.getpid()}"),
         # Keep sequential world tests isolated even when their PIDs differ by a
         # round multiple of 100 (a pattern observed under CTest).
         SetEnvironmentVariable("ROS_DOMAIN_ID", str(10 + os.getpid() % 211)),
         simulator,
-        TimerAction(period=probe_delay, actions=[probe]),
+        TimerAction(period=probe_delay, actions=[probe, timing_probe]),
         launch_testing.actions.ReadyToTest(),
-    ]), {"probe": probe}
+    ]), {"probe": probe, "timing_probe": timing_probe}
 
 
 class TestSensorContract(unittest.TestCase):
@@ -91,6 +111,11 @@ class TestSensorContract(unittest.TestCase):
         proc_info.assertWaitForStartup(probe, timeout=30)
         proc_info.assertWaitForShutdown(probe, timeout=55)
         launch_testing.asserts.assertExitCodes(proc_info, process=probe)
+
+    def test_cloud_timing_passes(self, proc_info, timing_probe):
+        proc_info.assertWaitForStartup(timing_probe, timeout=30)
+        proc_info.assertWaitForShutdown(timing_probe, timeout=120)
+        launch_testing.asserts.assertExitCodes(proc_info, process=timing_probe)
 
 
 @launch_testing.post_shutdown_test()

@@ -43,8 +43,10 @@ TARGET_Z = BASE_LINK_Z + COLOR_XYZ[2]
 # 0.1 is half the target's 0.2 m depth (the SDF box's x size), so the front
 # face is at TARGET_X - 0.1. EXPECTED_DEPTH and TARGET_FACE_CENTER both use it.
 EXPECTED_DEPTH = TARGET_X - 0.1 - COLOR_XYZ[0]
-# The front face's centre on base_link.
+# The front face's centre on base_link, and its size along y and z: the SDF
+# box's 0.4 m by 0.2 m.
 TARGET_FACE_CENTER = (TARGET_X - 0.1, TARGET_Y, TARGET_Z - BASE_LINK_Z)
+TARGET_FACE_SIZE = (0.4, 0.2)
 
 TARGET_SDF = """
 <sdf version="1.7">
@@ -83,6 +85,11 @@ def generate_test_description():
             "rviz": "false",
             "use_sim_time": "true",
             "world": os.path.join(package_share, "worlds", "empty.world"),
+            # Every frame, and the organized cloud: the probe compares the
+            # cloud with the depth image pixel by pixel, which the physical
+            # profile's dropped frames and stripped points would not allow.
+            "sensor_profile": "ideal",
+            "cloud_strip_nan": "false",
         }.items(),
     )
     probe = ExecuteProcess(
@@ -95,6 +102,8 @@ def generate_test_description():
             "-p", f"expected_depth:={EXPECTED_DEPTH}",
             "-p", "target_face_center:=[{}]".format(
                 ", ".join(f"{value:.9f}" for value in TARGET_FACE_CENTER)),
+            "-p", "target_face_size:=[{}]".format(
+                ", ".join(str(value) for value in TARGET_FACE_SIZE)),
         ],
         output="screen",
     )
