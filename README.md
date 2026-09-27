@@ -366,11 +366,36 @@ migration assets, not supported practice worlds.
 | `use_sim_time` | `true` | Use the Gazebo simulation clock; keep enabled for the supported workflow |
 | `motion_profile` | `stress` | Wheel contact model: uncalibrated `stress` or zero-slip `ideal` |
 | `motion_bias` | `false` | Add randomized command drift when enabled |
+| `spawn_x` | `0.0` | Robot start x in the Gazebo world frame, in meters |
+| `spawn_y` | `0.0` | Robot start y in the Gazebo world frame, in meters |
+| `spawn_yaw` | `0.0` | Robot start heading in the Gazebo world frame, in radians (counterclockwise from +x) |
 | `ground_truth_frame` | `auto` | Ground-truth display frame: `auto`, `odom`, `map`, or another localization frame |
 | `sensor_profile` | `physical` | Sensor quality and timing: `physical` delivers the point cloud with the physical X3's gaps and latency; `ideal` delivers every frame as soon as it is built. Never changes topics, frames or layouts |
 | `sensor_seed` | `-1` | Seed of the sensor profiles' random draws. `-1` picks a random one per launch, which the camera adapter logs; tests pass a fixed one |
 | `cloud_strip_nan` | `true` | Drop non-finite points from the cloud, leaving an unorganized dense cloud, as the physical robot's adapter does by default. `false` keeps the organized 320x240 cloud |
 | `cloud_decimation` | `1` | Keep every Nth row and column of the cloud, as on the robot |
+
+The `spawn_x`/`spawn_y`/`spawn_yaw` defaults reproduce the previous fixed start
+at the world origin facing +x. On Fortress, `/odom` still starts at zero
+whatever the spawn pose, as on the physical robot; `/ground_truth/odom` reports
+the real pose in the world frame. The launch does not check that the pose is
+free: a start inside a wall or an obstacle is the caller's responsibility.
+Whether `spawn_x`/`spawn_y` equal `map` coordinates was only verified for
+`laberinto_simple`; check the other worlds before relying on it.
+
+The Gazebo Classic backend on macOS takes the same three arguments and was
+validated there (#53): no-argument and non-default spawns land at the right
+pose, `spawn_yaw` turns the robot the same way as on Fortress, and `/scan` is
+unaffected. **`/odom` does not start at zero on Classic** — it reports the
+model's absolute world pose, i.e. the spawn pose, from the first message. This
+is a backend limitation, not a bug in these launch arguments:
+`gazebo_ros_planar_move` sets body velocity directly and copies Gazebo's own
+world pose into `/odom` every update, with no wheel joints to integrate
+encoders from (the wheels are welded so ODE doesn't diverge). Fortress
+integrates simulated wheel encoders instead, so its `/odom` is dead reckoning
+that starts at zero and drifts, matching the physical robot; Classic's is
+ground truth with the `/odom` name. Code that relies on `/odom` starting at
+zero must use the Fortress backend or read `/ground_truth/odom` instead.
 
 ## Controlling the Robot
 
