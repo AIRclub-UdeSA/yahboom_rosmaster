@@ -13,7 +13,11 @@ from launch.actions import (
     TimerAction,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import (
+    LaunchConfiguration,
+    PathJoinSubstitution,
+    PythonExpression,
+)
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 import launch_testing
@@ -25,6 +29,10 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from shutdown_asserts import assert_clean_shutdown  # noqa: E402
+from sim_timing import (  # noqa: E402
+    PERFORMANCE_PROBE_START_DELAY,
+    PROBE_START_DELAY,
+)
 
 
 @pytest.mark.launch_test
@@ -33,6 +41,11 @@ def generate_test_description():
     world = LaunchConfiguration("world")
     samples = LaunchConfiguration("samples")
     performance_checks = LaunchConfiguration("performance_checks")
+    # The performance checks need a sim that is already publishing; a run
+    # without them waits for readiness itself and can start its probe early.
+    probe_delay = PythonExpression([
+        str(PERFORMANCE_PROBE_START_DELAY), " if '", performance_checks,
+        "'.lower() in ('true', '1', 'yes') else ", str(PROBE_START_DELAY)])
     simulator = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(package_share, "launch", "rosmaster_gazebo_fortress.launch.py")
@@ -66,7 +79,7 @@ def generate_test_description():
         # round multiple of 100 (a pattern observed under CTest).
         SetEnvironmentVariable("ROS_DOMAIN_ID", str(10 + os.getpid() % 211)),
         simulator,
-        TimerAction(period=15.0, actions=[probe]),
+        TimerAction(period=probe_delay, actions=[probe]),
         launch_testing.actions.ReadyToTest(),
     ]), {"probe": probe}
 
