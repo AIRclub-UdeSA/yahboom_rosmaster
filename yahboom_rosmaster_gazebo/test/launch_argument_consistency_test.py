@@ -11,6 +11,14 @@ as motion_profile_contract_test.py already does for one of them, rather than
 executing either launch file, and compares every argument name declared in
 both: the intersection, not a fixed list, so a new shared argument (such as
 #54's spawn_x, spawn_y and spawn_yaw) is covered without editing this test.
+
+It also checks that every shared argument is explicitly forwarded as a key of
+the bringup file's IncludeLaunchDescription launch_arguments dict. In this
+launch tree an unforwarded argument still reaches the included file, since
+ros2 launch shares one LaunchConfiguration context rather than scoping it per
+IncludeLaunchDescription, but an explicit entry is what keeps the file
+readable and keeps working if it is ever included itself inside a
+GroupAction with forwarding=False.
 """
 
 import ast
@@ -76,6 +84,38 @@ def declared_arguments(launch_file):
     return arguments
 
 
+def forwarded_arguments(launch_file):
+    """
+    Return the argument names an IncludeLaunchDescription's launch_arguments forwards.
+
+    Looks for a call of the form ``IncludeLaunchDescription(..., launch_arguments=
+    {...}.items())`` (a bare dict, without ``.items()``, is accepted too) and
+    returns its literal string keys.
+    """
+    tree = ast.parse(launch_file.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Name) or node.func.id != "IncludeLaunchDescription":
+            continue
+        for keyword in node.keywords:
+            if keyword.arg != "launch_arguments":
+                continue
+            value = keyword.value
+            if (isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute)
+                    and value.func.attr == "items"):
+                value = value.func.value
+            if not isinstance(value, ast.Dict):
+                raise AssertionError(
+                    f"{launch_file}: launch_arguments is not a literal dict; "
+                    "update forwarded_arguments to parse it")
+            return {
+                key.value for key in value.keys if isinstance(key, ast.Constant)
+            }
+    raise AssertionError(
+        f"{launch_file} has no IncludeLaunchDescription with launch_arguments")
+
+
 class TestSharedLaunchArguments(unittest.TestCase):
     """Every argument both files declare must match, or be a documented exception."""
 
@@ -84,6 +124,7 @@ class TestSharedLaunchArguments(unittest.TestCase):
         cls.gazebo_arguments = declared_arguments(GAZEBO_LAUNCH)
         cls.bringup_arguments = declared_arguments(BRINGUP_LAUNCH)
         cls.shared = sorted(set(cls.gazebo_arguments) & set(cls.bringup_arguments))
+        cls.forwarded = forwarded_arguments(BRINGUP_LAUNCH)
 
     def test_the_parser_still_finds_the_arguments_the_two_files_share(self):
         # A parser regression would make every other test in this file
@@ -112,6 +153,14 @@ class TestSharedLaunchArguments(unittest.TestCase):
             with self.subTest(argument=name):
                 self.assertEqual(
                     self.bringup_arguments[name], self.gazebo_arguments[name])
+
+    def test_every_shared_argument_is_forwarded_to_the_included_file(self):
+        for name in self.shared:
+            with self.subTest(argument=name):
+                self.assertIn(
+                    name, self.forwarded,
+                    f"{name} is declared in both files but missing from the "
+                    "bringup file's IncludeLaunchDescription launch_arguments")
 
 
 if __name__ == "__main__":

@@ -135,6 +135,9 @@ def generate_launch_description():
             "cloud_decimation": LaunchConfiguration("cloud_decimation"),
             "use_sim_time": LaunchConfiguration("use_sim_time"),
             "ground_truth_frame": LaunchConfiguration("ground_truth_frame"),
+            "spawn_x": LaunchConfiguration("spawn_x"),
+            "spawn_y": LaunchConfiguration("spawn_y"),
+            "spawn_yaw": LaunchConfiguration("spawn_yaw"),
         }.items(),
     )
 
