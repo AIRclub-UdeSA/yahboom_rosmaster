@@ -186,6 +186,29 @@ class TestStartupBurst(unittest.TestCase):
         _, stats = grade(*physical_run())
         self.assertEqual(stats["startup_burst_clouds_skipped"], 0)
 
+    def test_a_burst_in_the_middle_of_the_run_is_reported_not_skipped(self):
+        # Gazebo's camera stalling and then catching up mid-run looks just
+        # like the startup burst (a run of short gaps), but well after the
+        # first normal-length one: only a leading burst is startup.
+        stamps, latencies, images = physical_run(seed=5)
+        anchor_index = 100
+        anchor = stamps[anchor_index]
+        burst = [anchor + 1_000_000 * step for step in range(1, 11)]
+        burst_clouds = burst[::3]
+        combined_stamps = (
+            stamps[:anchor_index + 1] + burst_clouds + stamps[anchor_index + 1:])
+        combined_latencies = (
+            latencies[:anchor_index + 1] + [0.05] * len(burst_clouds)
+            + latencies[anchor_index + 1:])
+        combined_images = sorted(set(images) | set(burst))
+        errors, stats = grade(combined_stamps, combined_latencies, combined_images)
+        # The old scan-the-whole-window logic would have swallowed every
+        # cloud up to this mid-run burst as if it were the startup one.
+        self.assertEqual(stats["startup_burst_clouds_skipped"], 0)
+        self.assertEqual(stats["clouds"], len(combined_stamps))
+        # A burst this out of place fails the grading it is no longer hidden from.
+        self.assertTrue(errors)
+
 
 class TestIdealGrading(unittest.TestCase):
     """The ideal profile delivers every frame with no latency of its own."""

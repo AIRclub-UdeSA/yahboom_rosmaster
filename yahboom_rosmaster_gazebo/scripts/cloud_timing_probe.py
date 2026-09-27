@@ -117,16 +117,20 @@ def grade_timing(
     errors = []
     frames_seen = set(image_stamps_ns) | set(depth_stamps_ns)
     ordered = sorted(frames_seen)
+    settled = None
     if len(ordered) >= 3:
         typical = statistics.median(
             later - earlier for earlier, later in zip(ordered, ordered[1:]))
-        burst = [later for earlier, later in zip(ordered, ordered[1:])
-                 if later - earlier < BURST_FRACTION * typical]
-    else:
-        burst = []
+        # Only the leading run of short gaps is the startup burst: stop at the
+        # first normal-length one, so a short-gap burst elsewhere in the
+        # window (Gazebo falling behind and catching back up) is graded
+        # rather than mistaken for startup and its clouds silently dropped.
+        for earlier, later in zip(ordered, ordered[1:]):
+            if later - earlier >= BURST_FRACTION * typical:
+                break
+            settled = later
     skipped = 0
-    if burst:
-        settled = max(burst)
+    if settled is not None:
         keep = [index for index, stamp in enumerate(cloud_stamps_ns) if stamp > settled]
         skipped = len(cloud_stamps_ns) - len(keep)
         cloud_stamps_ns = [cloud_stamps_ns[index] for index in keep]
