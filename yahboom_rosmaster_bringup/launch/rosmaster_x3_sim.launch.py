@@ -27,22 +27,26 @@ def generate_launch_description():
     gui_arg = DeclareLaunchArgument(
         "gui",
         default_value="true",
-        description="Launch Gazebo UI"
+        description="Launch Gazebo GUI client (true/false)"
     )
     headless_arg = DeclareLaunchArgument(
         "headless",
         default_value="false",
-        description="Skip Gazebo UI client (true/false)"
+        description="Skip Gazebo GUI client — server-only for autonomous/CI debugging"
     )
     rviz_arg = DeclareLaunchArgument(
         "rviz",
         default_value="true",
-        description="Launch RViz2 visualization"
+        description="Launch RViz (true/false)"
     )
     motion_profile_arg = DeclareLaunchArgument(
         "motion_profile",
         default_value="stress",
-        description="Wheel contact physics profile (ideal, stress)"
+        choices=["ideal", "stress"],
+        description=(
+            "Wheel-contact profile: stress is deterministic and uncalibrated; "
+            "ideal preserves the zero-slip baseline"
+        )
     )
     motion_bias_arg = DeclareLaunchArgument(
         "motion_bias",
@@ -52,20 +56,31 @@ def generate_launch_description():
     sensor_profile_arg = DeclareLaunchArgument(
         "sensor_profile",
         default_value="physical",
+        choices=["ideal", "physical"],
         description=(
-            "Sensor quality and timing profile (ideal, physical): physical "
-            "delivers the point cloud with the physical X3's gaps and latency"
+            "Sensor quality and timing profile: physical delivers the point "
+            "cloud with the physical X3's gaps and latency; ideal delivers "
+            "every frame as soon as it is built"
         )
     )
     sensor_seed_arg = DeclareLaunchArgument(
         "sensor_seed",
         default_value="-1",
-        description="Seed for the sensor profiles' random draws (-1: random)"
+        description=(
+            "Seed for the sensor profiles' random draws. -1 picks a random "
+            "one per launch, which the camera adapter logs; tests pass a "
+            "fixed one"
+        )
     )
     cloud_strip_nan_arg = DeclareLaunchArgument(
         "cloud_strip_nan",
         default_value="true",
-        description="Drop non-finite point cloud points (true/false)"
+        choices=["true", "false"],
+        description=(
+            "Drop non-finite points from the point cloud, as the physical "
+            "adapter does by default, leaving an unorganized dense cloud; "
+            "false keeps the organized cloud"
+        )
     )
     cloud_decimation_arg = DeclareLaunchArgument(
         "cloud_decimation",
@@ -81,8 +96,10 @@ def generate_launch_description():
         "ground_truth_frame",
         default_value="auto",
         description=(
-            "Ground-truth display frame: auto, odom, map, or another "
-            "localization frame")
+            "Diagnostic ground-truth display frame. 'auto' starts in odom and "
+            "captures a fixed map alignment if map->odom appears; use 'odom' "
+            "to disable the automatic SLAM switch"
+        )
     )
     spawn_x_arg = DeclareLaunchArgument(
         "spawn_x",
@@ -97,7 +114,10 @@ def generate_launch_description():
     spawn_yaw_arg = DeclareLaunchArgument(
         "spawn_yaw",
         default_value="0.0",
-        description="Robot start heading in the Gazebo world frame, in radians"
+        description=(
+            "Robot start heading in the Gazebo world frame, in radians "
+            "(counterclockwise from +x). /odom still starts at zero"
+        )
     )
 
     include_sim = IncludeLaunchDescription(
@@ -115,6 +135,9 @@ def generate_launch_description():
             "cloud_decimation": LaunchConfiguration("cloud_decimation"),
             "use_sim_time": LaunchConfiguration("use_sim_time"),
             "ground_truth_frame": LaunchConfiguration("ground_truth_frame"),
+            "spawn_x": LaunchConfiguration("spawn_x"),
+            "spawn_y": LaunchConfiguration("spawn_y"),
+            "spawn_yaw": LaunchConfiguration("spawn_yaw"),
         }.items(),
     )
 

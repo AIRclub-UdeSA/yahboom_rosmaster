@@ -11,22 +11,30 @@ input to the adapter's image input, are:
 3. a padded ``row_step``, now a padded image ``step``: ``TestPaddedRows``;
 4. a malformed field or short buffer, now a wrong encoding, a short buffer or
    a size that disagrees with camera_info: ``TestMalformedInput``.
+
+``TestResolveTransform`` covers #56's review note 1: a degenerate transform
+must not crash the node, which needs ``CameraAdapter._resolve_transform``
+itself, not just ``FramePipeline.set_transform`` (already covered by
+``TestTransform``).
 """
 
 import math
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 import unittest
 
 import numpy as np
 from builtin_interfaces.msg import Time
 from sensor_msgs.msg import CameraInfo, Image, PointField
+from tf2_ros import TransformException
 
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_DIR / "scripts"))
 
 from camera_adapter import (  # noqa: E402
     AdapterCore,
+    CameraAdapter,
     CameraRays,
     FramePipeline,
     StampPairer,
@@ -342,6 +350,112 @@ class TestTransform(unittest.TestCase):
         self.assertFalse(target.has_transform)
 
 
+class FakeLogger:
+    """Record throttled log calls by level, standing in for Node.get_logger()."""
+
+    def __init__(self):
+        self.info_calls = []
+        self.warning_calls = []
+        self.error_calls = []
+
+    def info(self, text, **kwargs):
+        self.info_calls.append(text)
+
+    def warning(self, text, **kwargs):
+        self.warning_calls.append(text)
+
+    def error(self, text, **kwargs):
+        self.error_calls.append(text)
+
+
+class FakeTfBuffer:
+    """Stand in for tf2_ros.Buffer: returns a canned transform, or raises."""
+
+    def __init__(self):
+        self.transform = None
+
+    def lookup_transform(self, target_frame, source_frame, time):
+        del target_frame, source_frame, time
+        if self.transform is None:
+            raise TransformException("no /tf_static yet")
+        return self.transform
+
+
+def canned_transform(translation, quaternion):
+    """Return an object shaped like a TransformStamped, carrying these values."""
+    x, y, z = translation
+    qx, qy, qz, qw = quaternion
+    return SimpleNamespace(transform=SimpleNamespace(
+        translation=SimpleNamespace(x=x, y=y, z=z),
+        rotation=SimpleNamespace(x=qx, y=qy, z=qz, w=qw)))
+
+
+class TestResolveTransform(unittest.TestCase):
+    """
+    The node catches a degenerate transform instead of crashing on it (case 1).
+
+    FramePipeline.set_transform raising is already exercised directly in
+    TestTransform; what only the node's own ``_resolve_transform`` can be
+    caught doing is surviving that exception, logging it, leaving the
+    transform unset, and still publishing the depth image that arrived with it.
+    Node.__init__ never runs, so this needs no ROS graph: only the attributes
+    ``_resolve_transform`` and ``_on_depth`` themselves read are stubbed.
+    """
+
+    @staticmethod
+    def node():
+        target = CameraAdapter.__new__(CameraAdapter)
+        target.target_frame = CLOUD_FRAME
+        target.pipeline = FramePipeline(AlwaysDeliver())
+        target.tf_buffer = FakeTfBuffer()
+        logger = FakeLogger()
+        target.get_logger = lambda: logger
+        target.depths, target.clouds = [], []
+        target.core = AdapterCore(
+            target.pipeline, target.depths.append, target.clouds.append,
+            lambda text: None, lambda text: None)
+        return target, logger
+
+    def test_a_degenerate_quaternion_is_caught_logged_at_error_and_left_unset(self):
+        target, logger = self.node()
+        target.tf_buffer.transform = canned_transform((1.0, 2.0, 3.0), (0.0, 0.0, 0.0, 0.0))
+        target._on_depth(depth_image(np.ones((3, 4))))
+        self.assertFalse(target.pipeline.has_transform)
+        self.assertEqual(len(logger.error_calls), 1)
+        self.assertIn("degenerate", logger.error_calls[0])
+        self.assertEqual(logger.warning_calls, [])
+        # The depth image is still published even though the transform failed.
+        self.assertEqual(len(target.depths), 1)
+
+    def test_a_non_finite_translation_is_caught_the_same_way(self):
+        target, logger = self.node()
+        target.tf_buffer.transform = canned_transform((math.nan, 0.0, 0.0), IDENTITY)
+        target._on_depth(depth_image(np.ones((3, 4))))
+        self.assertFalse(target.pipeline.has_transform)
+        self.assertEqual(len(logger.error_calls), 1)
+        self.assertEqual(len(target.depths), 1)
+
+    def test_it_retries_on_the_next_frame_and_recovers_once_tf_is_valid(self):
+        target, logger = self.node()
+        target.tf_buffer.transform = canned_transform((0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0))
+        target._on_depth(depth_image(np.ones((3, 4)), seconds=1.0))
+        self.assertFalse(target.pipeline.has_transform)
+        self.assertEqual(len(logger.error_calls), 1)
+        # A later, valid transform on /tf_static fixes it on the next frame.
+        target.tf_buffer.transform = canned_transform((1.0, 2.0, 3.0), IDENTITY)
+        target._on_depth(depth_image(np.ones((3, 4)), seconds=1.033))
+        self.assertTrue(target.pipeline.has_transform)
+        self.assertEqual(len(logger.error_calls), 1)
+        self.assertEqual(len(target.depths), 2)
+
+    def test_no_transform_yet_is_still_a_warning_not_an_error(self):
+        target, logger = self.node()
+        target._on_depth(depth_image(np.ones((3, 4))))
+        self.assertFalse(target.pipeline.has_transform)
+        self.assertEqual(logger.error_calls, [])
+        self.assertEqual(len(logger.warning_calls), 1)
+
+
 class TestNonFinitePoints(unittest.TestCase):
     """Non-finite points are dropped or kept exactly as they came (case 2)."""
 
@@ -617,11 +731,11 @@ class TestAdapterCore(unittest.TestCase):
     """The core publishes each depth image as it arrives, and a cloud when it is delivered."""
 
     def setUp(self):
-        self.depths, self.clouds, self.warnings = [], [], []
+        self.depths, self.clouds, self.warnings, self.errors = [], [], [], []
         gate = FrameGate(GapSampler({2: 1.0}, 1), FRAME_PERIOD)
         self.core = AdapterCore(
             pipeline(gate=gate), self.depths.append, self.clouds.append,
-            self.warnings.append)
+            self.warnings.append, self.errors.append)
         self.depth, self.rgb = sample_frame()
 
     def frame(self, index, color=True, depth=True):
@@ -705,7 +819,8 @@ class TestAdapterCore(unittest.TestCase):
         # An identity transform leaves each cloud z the very value of its pixel.
         target.set_transform((0.0, 0.0, 0.0), IDENTITY)
         core = AdapterCore(
-            target, self.depths.append, self.clouds.append, self.warnings.append)
+            target, self.depths.append, self.clouds.append, self.warnings.append,
+            self.errors.append)
         core.on_camera_info(camera_info(4, 3))
         for index in range(3):
             seconds = 1.0 + index * FRAME_PERIOD
@@ -727,8 +842,9 @@ class TestAdapterCore(unittest.TestCase):
         self.frame(0)
         self.assertEqual(self.outputs(), (1, 0))
         np.testing.assert_array_equal(depth_array(self.depths[0]), self.depth)
-        self.assertEqual(len(self.warnings), 1)
-        self.assertIn("camera_info", self.warnings[0])
+        self.assertEqual(self.warnings, [])
+        self.assertEqual(len(self.errors), 1)
+        self.assertIn("camera_info", self.errors[0])
         # The mismatched frame did not use up the gate's first delivery.
         self.core.on_camera_info(camera_info(4, 3))
         self.frame(1)
@@ -741,20 +857,22 @@ class TestAdapterCore(unittest.TestCase):
         self.core.on_color(bad)
         self.core.on_depth(depth_image(self.depth))
         self.assertEqual(self.outputs(), (1, 0))
-        self.assertEqual(len(self.warnings), 1)
-        self.assertIn("Dropping the cloud", self.warnings[0])
+        self.assertEqual(self.warnings, [])
+        self.assertEqual(len(self.errors), 1)
+        self.assertIn("Dropping the cloud", self.errors[0])
         self.frame(1)
         self.assertEqual(self.outputs(), (2, 1))
 
-    def test_an_invalid_depth_image_is_dropped_whole_with_a_warning(self):
+    def test_an_invalid_depth_image_is_dropped_whole_and_logged_at_error(self):
         self.core.on_camera_info(camera_info(4, 3))
         bad = depth_image(self.depth)
         bad.data = bad.data[:-4]
         self.core.on_color(color_image(self.rgb))
         self.core.on_depth(bad)
         self.assertEqual(self.outputs(), (0, 0))
-        self.assertEqual(len(self.warnings), 1)
-        self.assertIn("Dropping invalid depth image", self.warnings[0])
+        self.assertEqual(self.warnings, [])
+        self.assertEqual(len(self.errors), 1)
+        self.assertIn("Dropping invalid depth image", self.errors[0])
         # The next frame is fine and goes through.
         self.frame(1)
         self.assertEqual(self.outputs(), (1, 1))
@@ -781,7 +899,7 @@ class TestAdapterCore(unittest.TestCase):
 
         core = AdapterCore(
             pipeline(condition=condition), self.depths.append, self.clouds.append,
-            self.warnings.append)
+            self.warnings.append, self.errors.append)
         core.on_depth(depth_image(self.depth))
         self.assertEqual(len(calls), 1)
         np.testing.assert_array_equal(depth_array(self.depths[0]), self.depth * 2.0)

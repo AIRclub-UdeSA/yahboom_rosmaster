@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Keep the simulator/physical parity ledger internally consistent."""
 
+import ast
 from pathlib import Path
 import re
 import sys
@@ -11,7 +12,7 @@ import yaml
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_DIR / "scripts"))
 
-from cloud_timing import gap_statistics  # noqa: E402
+from cloud_timing import gap_statistics, mean_rate_floor  # noqa: E402
 from real_robot_contract import (  # noqa: E402
     OPEN_STEPS,
     RealRobotContract,
@@ -30,6 +31,22 @@ CAMERA_TOPICS = (
     "/cam_1/color/camera_info",
     "/cam_1/depth/camera_info",
 )
+SENSOR_CONTRACT_LAUNCH = PACKAGE_DIR / "test" / "sensor_contract.launch.py"
+
+
+def probe_sample_count():
+    """Return sensor_contract.launch.py's default `samples` probe window."""
+    tree = ast.parse(SENSOR_CONTRACT_LAUNCH.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "DeclareLaunchArgument"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and node.args[0].value == "samples"):
+            keywords = {keyword.arg: keyword.value for keyword in node.keywords}
+            return int(ast.literal_eval(keywords["default_value"]))
+    raise AssertionError(f"{SENSOR_CONTRACT_LAUNCH} no longer declares 'samples'")
 
 
 def keys(node):
@@ -164,8 +181,16 @@ class TestRealRobotContract(unittest.TestCase):
         """A mean rate over a few clouds must not fail a correct simulator."""
         minimum, maximum = CONTRACT.rate_bounds("/cam_1/depth/color/points")
         profile = load_sensor_profile(PROFILES_PATH, "point_cloud", "physical")
-        # 9 gaps: the mean rate falls under 2.8 Hz once in 10,000 windows.
-        self.assertLessEqual(minimum, 2.8)
+        # The probe grades a window of `samples` messages, `samples - 1` gaps
+        # drawn independently from the physical table (test/sensor_contract
+        # .launch.py). Below this rate the window's mean falls only one time
+        # in 10,000: the ledger's bound must clear it, or a run this rare
+        # would fail a correct simulator. Deriving it here from the sample
+        # count and the table, instead of a hand-picked literal, means the
+        # two cannot silently drift apart if either changes.
+        floor = mean_rate_floor(
+            profile["gap_frames"], profile["frame_period_s"], probe_sample_count())
+        self.assertLessEqual(minimum, floor)
         self.assertGreaterEqual(maximum, 1.0 / profile["frame_period_s"])
 
     def test_registered_camera_labels_every_topic_alike(self):

@@ -73,7 +73,12 @@ def pose_matrix(xyz, rpy):
 
 
 def transform_matrix(transform):
-    """Return the homogeneous matrix of a geometry_msgs Transform."""
+    """
+    Return the homogeneous matrix of a geometry_msgs Transform.
+
+    Deliberately independent of camera_adapter.rotation_matrix: this probe
+    checks the adapter's output and must not share its quaternion math.
+    """
     x, y, z, w = (
         transform.rotation.x,
         transform.rotation.y,
@@ -218,7 +223,12 @@ class DepthGeometryProbe(Node):
 
     @staticmethod
     def image_array(message, channels, dtype):
-        """Create a strided NumPy view that honors ROS Image row padding."""
+        """
+        Create a strided NumPy view that honors ROS Image row padding.
+
+        Deliberately independent of camera_adapter._pixels: this probe checks
+        the adapter's output and must not share its pixel-view code.
+        """
         item_size = np.dtype(dtype).itemsize
         required_step = int(message.width) * channels * item_size
         if message.step < required_step:
@@ -328,6 +338,10 @@ class DepthGeometryProbe(Node):
 
     def capture_points(self, message):
         try:
+            if message.height == 1:
+                raise ValueError(
+                    "the point cloud is unorganized (height 1); this probe indexes "
+                    "it by row and column and needs cloud_strip_nan:=false")
             fields = {field.name: field for field in message.fields}
             field_metadata = {
                 name: (int(field.offset), int(field.datatype), int(field.count))

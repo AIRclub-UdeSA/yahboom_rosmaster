@@ -89,6 +89,52 @@ def gap_statistics(distribution):
     }
 
 
+def convolved(distribution, count):
+    """
+    Return the distribution of the sum of ``count`` independent draws.
+
+    Exact, by repeated convolution rather than sampling: the table's support
+    is small enough (dozens of gap lengths) that this costs nothing, and a
+    rate contract's lower bound is a rare-event tail that a fixed number of
+    Monte Carlo draws would only approximate.
+    """
+    if count < 1:
+        raise ValueError("count must be at least 1")
+    base = normalized(distribution)
+    pmf = dict(base)
+    for _ in range(count - 1):
+        next_pmf = {}
+        for gap, probability in pmf.items():
+            for step, step_probability in base.items():
+                total = gap + step
+                combined = next_pmf.get(total, 0.0) + probability * step_probability
+                # A path through enough rare gaps underflows to exactly zero in
+                # float64 well before the tail probability this is used for. Such
+                # an entry carries no probability mass, so dropping it changes no
+                # statistic drawn from the result, and keeps it out of
+                # normalized()'s "every listed gap is possible" check downstream.
+                if combined > 0.0:
+                    next_pmf[total] = combined
+        pmf = next_pmf
+    return pmf
+
+
+def mean_rate_floor(distribution, frame_period_s, samples, tail_probability=1e-4):
+    """
+    Return the rate a window's mean rate falls below only ``tail_probability`` of the time.
+
+    A window of ``samples`` messages spans ``samples - 1`` gaps, drawn
+    independently as the table's are. This is the same tail a rate contract's
+    lower bound has to clear: too high, and a correct simulator's short-window
+    mean fails it by pure chance; too low, and a real regression stops moving it.
+    """
+    count = samples - 1
+    if count < 1:
+        raise ValueError("samples must be at least 2 to span a gap")
+    longest = quantile(convolved(distribution, count), 1.0 - tail_probability)
+    return count / (longest * frame_period_s)
+
+
 def cumulative_within(distribution, gap):
     """Return the probability of a gap of at most ``gap`` frames."""
     return sum(

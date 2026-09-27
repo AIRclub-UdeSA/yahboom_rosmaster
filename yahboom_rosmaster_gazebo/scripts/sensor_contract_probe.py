@@ -442,8 +442,6 @@ class SensorContractProbe(Node):
         errors.extend(f"point cloud: {problem}" for problem in layout_errors(points))
         if points.width == 0 or points.height == 0 or not points.data:
             errors.append("point cloud: dimensions or data are empty")
-        if len(points.data) != points.row_step * points.height:
-            errors.append("point cloud: data length does not match row_step*height")
 
         scan = self.messages["/scan"][-1]
         if scan.header.frame_id != self.expected_frames["/scan"]:

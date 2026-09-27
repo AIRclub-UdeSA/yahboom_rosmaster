@@ -543,7 +543,8 @@ def generate_launch_description():
     motion_bias_config = os.path.join(pkg_gz, "config", "motion_bias.yaml")
     wheel_odometry_script = os.path.join(pkg_gz, "scripts", "wheel_state_odometry.py")
 
-    declare_use_sim_time = DeclareLaunchArgument("use_sim_time", default_value="true")
+    declare_use_sim_time = DeclareLaunchArgument(
+        "use_sim_time", default_value="true", description="Use simulation clock")
     declare_world = DeclareLaunchArgument("world", default_value=default_world)
     declare_rviz = DeclareLaunchArgument(
         "rviz", default_value="true", description="Launch RViz (true/false)")

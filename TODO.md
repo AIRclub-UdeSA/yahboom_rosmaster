@@ -36,8 +36,9 @@ these items.
   record how; the depth noise, scale and dropouts are step 7.
 - [ ] Cut the camera adapter's CPU. About 40 of its 53 points of a core on the
   host GPU are the executor waking for every tick of the 1 kHz `/clock`; see
-  "Point cloud pipeline" in the deferred changes for the options. The
-  real-time factor is unaffected today.
+  "Point cloud pipeline" in the deferred changes for the options, including
+  one delay queue instead of a timer per cloud. The real-time factor is
+  unaffected today.
 - [ ] Re-pin `physical.provenance.commit` in the parity ledger to the merge
   commit of physical_rosmaster#45. It pins that PR's head until then.
 
