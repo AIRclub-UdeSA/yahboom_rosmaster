@@ -27,17 +27,17 @@ def generate_launch_description():
     gui_arg = DeclareLaunchArgument(
         "gui",
         default_value="true",
-        description="Launch Gazebo UI"
+        description="Launch Gazebo GUI client (true/false)"
     )
     headless_arg = DeclareLaunchArgument(
         "headless",
         default_value="false",
-        description="Skip Gazebo UI client (true/false)"
+        description="Skip Gazebo GUI client — server-only for autonomous/CI debugging"
     )
     rviz_arg = DeclareLaunchArgument(
         "rviz",
         default_value="true",
-        description="Launch RViz2 visualization"
+        description="Launch RViz (true/false)"
     )
     motion_profile_arg = DeclareLaunchArgument(
         "motion_profile",
@@ -96,8 +96,10 @@ def generate_launch_description():
         "ground_truth_frame",
         default_value="auto",
         description=(
-            "Ground-truth display frame: auto, odom, map, or another "
-            "localization frame")
+            "Diagnostic ground-truth display frame. 'auto' starts in odom and "
+            "captures a fixed map alignment if map->odom appears; use 'odom' "
+            "to disable the automatic SLAM switch"
+        )
     )
     spawn_x_arg = DeclareLaunchArgument(
         "spawn_x",
@@ -112,7 +114,10 @@ def generate_launch_description():
     spawn_yaw_arg = DeclareLaunchArgument(
         "spawn_yaw",
         default_value="0.0",
-        description="Robot start heading in the Gazebo world frame, in radians"
+        description=(
+            "Robot start heading in the Gazebo world frame, in radians "
+            "(counterclockwise from +x). /odom still starts at zero"
+        )
     )
 
     include_sim = IncludeLaunchDescription(
