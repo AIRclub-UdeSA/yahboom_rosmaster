@@ -267,19 +267,49 @@ def _launch_rviz(context):
 
 
 def _process_stopped(process):
-    """Return whether an owned launch process has exited or become a zombie."""
+    """
+    Return whether an owned launch process has actually been reaped.
+
+    A zombie (state ``Z``) does NOT count as stopped here. For a
+    multi-threaded process, /proc reports state Z as soon as the leading
+    thread exits -- typically 66-85 ms before the kernel can actually reap
+    the process and drop its /proc/<pid> entry. Treating Z as "stopped" let
+    this function's caller return early, so launch's own SIGINT dispatch
+    (``Popen.send_signal``, which on Python 3.10 first calls ``poll()``,
+    i.e. ``waitpid(WNOHANG)``) could win a race against asyncio's
+    ThreadedChildWatcher thread and reap the child itself. When launch won
+    that race, the watcher thread's own waitpid got ECHILD and asyncio
+    fabricated an exit code of 255, even though the process (Gazebo) had
+    actually exited 0 (see issue #31; #50 fixed an earlier problem on this
+    same shutdown path). Waiting for /proc/<pid> to vanish entirely instead
+    lets the watcher thread reap the child first while this function's
+    caller blocks the event loop in its polling sleep; launch's later
+    ``poll()`` then lands on an already-reaped child, gets ECHILD, and
+    ``Popen`` handles that without re-signalling.
+
+    This relies on Humble's default asyncio child watcher (Python 3.10's
+    ThreadedChildWatcher) reaping children from its own thread while this
+    function is polled from a loop that blocks the event loop. If a future
+    watcher only reaps children when the event loop itself gets to run,
+    that assumption breaks -- but the effect is simply that the wait runs
+    out its existing timeout and the caller force-kills the process as it
+    already does for any other stall, so this fails safe instead of
+    hanging forever.
+    """
     if process.return_code is not None:
         return True
     details = process.process_details
     if details is None or "pid" not in details:
         return False
     try:
-        with open(f"/proc/{details['pid']}/stat", encoding="utf-8") as stat_file:
-            state = stat_file.read().rsplit(")", 1)[1].strip().split()[0]
+        with open(f"/proc/{details['pid']}/stat", encoding="utf-8"):
+            pass
     except FileNotFoundError:
-        # Linux exposes live and zombie state in /proc. Platforms such as
-        # macOS do not mount /proc at all, so probe the PID there rather than
-        # mistaking every running process for one that has already exited.
+        # Linux exposes both live and zombie processes in /proc, so a
+        # missing entry means the process has actually been reaped.
+        # Platforms such as macOS do not mount /proc at all, so probe the
+        # PID there instead of mistaking every running process for one
+        # that has already exited.
         if os.path.isdir("/proc"):
             return True
         try:
@@ -289,9 +319,11 @@ def _process_stopped(process):
         except OSError:
             return False
         return False
-    except (IndexError, OSError):
+    except OSError:
         return False
-    return state == "Z"
+    # /proc/<pid> still exists: the process is either still running or is a
+    # zombie awaiting reap. Either way, it has not actually stopped yet.
+    return False
 
 
 def _wait_for_process_stop(

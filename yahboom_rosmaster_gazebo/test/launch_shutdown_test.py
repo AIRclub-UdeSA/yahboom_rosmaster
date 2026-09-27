@@ -3,9 +3,11 @@
 
 import ast
 import importlib.util
+import os
 from pathlib import Path
 import signal
 import tempfile
+import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -130,6 +132,41 @@ class TestLaunchShutdown(unittest.TestCase):
             stopped = LAUNCH_MODULE._process_stopped(process)
 
         self.assertTrue(stopped)
+
+    @unittest.skipUnless(os.path.isdir("/proc"), "requires /proc (Linux)")
+    def test_zombie_child_is_not_stopped_until_reaped(self):
+        # Regression test for the reap race (issue #31): /proc reports a
+        # zombie (state Z) well before the process is actually reapable, and
+        # treating Z as "stopped" let launch's own SIGINT dispatch race
+        # asyncio's watcher thread to reap the child first, misreporting its
+        # exit code. Forks a real child that exits immediately, confirms it
+        # is observed as a zombie, and checks that _process_stopped stays
+        # False until this test reaps it itself.
+        pid = os.fork()
+        if pid == 0:
+            os._exit(0)  # noqa: SLF001 -- child leg of a test fork
+
+        try:
+            deadline = time.monotonic() + 5.0
+            state = None
+            while time.monotonic() < deadline:
+                with open(f"/proc/{pid}/stat", encoding="utf-8") as stat_file:
+                    state = stat_file.read().rsplit(")", 1)[1].strip().split()[0]
+                if state == "Z":
+                    break
+                time.sleep(0.005)
+            self.assertEqual(state, "Z", "child never reached zombie state")
+
+            process = FakeProcess(process_details={"pid": pid})
+            self.assertFalse(
+                LAUNCH_MODULE._process_stopped(process),
+                "a zombie must not be reported as stopped before it is reaped")
+        finally:
+            os.waitpid(pid, 0)
+
+        self.assertTrue(
+            LAUNCH_MODULE._process_stopped(process),
+            "a reaped child must be reported as stopped")
 
     def test_unstarted_bridge_is_safe(self):
         logger = RecordingLogger()
