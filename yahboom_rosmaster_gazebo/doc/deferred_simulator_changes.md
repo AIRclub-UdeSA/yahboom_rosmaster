@@ -209,8 +209,8 @@ parity ledger.
   published either way, and it is published the moment it arrives, as on `main`
   and in physical_rosmaster's `sensor_adapter.py`: a lost or late color image,
   or a `camera_info` that has not come, does not drop or delay it. It passes
-  through one `condition_depth()` that does nothing yet, which step 7 fills in,
-  and needs neither the color nor `camera_info`. The conditioned array is kept
+  through one conditioning step (`DepthConditioner`, from step 7, see "Depth
+  quality" below), which needs neither the color nor `camera_info`. The conditioned array is kept
   by stamp, and the cloud is built from that same array when its color image
   arrives. A `camera_info` of another size, or a bad color image, drops only
   that cloud.

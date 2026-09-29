@@ -33,14 +33,23 @@ these items.
 - [x] Match the physical point cloud: its 16-byte NaN-stripped layout, its
   gaps of whole 30 Hz frames and its 50 ms latency, under
   `sensor_profile:=physical` (#43 step 6). `depth_geometry` and the ledger
-  record how; the depth noise, scale and dropouts are step 7.
+  record how. The depth noise, scale and minimum range followed in step 7.
 - [ ] Cut the camera adapter's CPU. About 40 of its 53 points of a core on the
   host GPU are the executor waking for every tick of the 1 kHz `/clock`; see
   "Point cloud pipeline" in the deferred changes for the options, including
   one delay queue instead of a timer per cloud. The real-time factor is
   unaffected today.
-- [ ] Re-pin `physical.provenance.commit` in the parity ledger to the merge
-  commit of physical_rosmaster#45. It pins that PR's head until then.
+- [x] Re-pin `physical.provenance.commit` in the parity ledger to the merge
+  commit of physical_rosmaster#45, and re-read the values taken from it. Done in
+  #43 step 7: 468662c, no value changed.
+- [x] Model the physical depth camera's scale error (-1.1858%), noise
+  (`max(0.002, 0.0019 * d^2.36)` m) and 0.6 m minimum range under
+  `sensor_profile:=physical`, and publish NaN for a pixel with no return under
+  both profiles (#43 step 7). The noise fit is extrapolated beyond the 3.6 m it
+  was calibrated to.
+- [ ] Depth floor dropout and the close-range wedge of the physical sensor: both
+  need an incidence-angle model (#59). The fraction of valid pixels depends on
+  the scene, and is not a parity check.
 
 ## CAD model validation and cleanup
 

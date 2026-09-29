@@ -47,6 +47,28 @@ rate_hz:                  # simulator.topics./scan.rate_hz
   xacro's own values (their y has nine decimals). Re-measuring or re-rounding
   a physical value means changing the simulator's with it.
 
+A physical value that is a measured range is written `{min: low, max: high}`,
+as `physical.depth.scale_error` is. A simulator number agrees with it when it
+lies inside the range, widened by the entry's `tolerance`, so "the simulator's
+scale error is in the physical range" is checked, not assumed. A bare
+`[low, high]` list is not a range: lists compare element by element, and a
+simulator number against one is not comparable.
+
+### Simulator-only settings
+
+`simulator.render_settings` is the one group of the simulator section that is
+not made of parity entries. It holds what the simulator is configured with that
+has no physical counterpart, each as `{nominal, note}`: today the depth camera's
+clip planes, `depth_near_clip_m` (0.05) and `depth_far_clip_m` (8.0). They are
+read with `RealRobotContract.setting()` by `scripts/depth_geometry_probe.py`
+(the range its finite depths must fall in) and by the description contract (the
+xacro's `<clip>`). They are not `depth.min_range_m` and `depth.max_range_m`,
+which are parity entries: the minimum range the robot delivers, 0.6 m, and the
+same far limit as an out-of-scope gap. `test/real_robot_contract_test.py`
+validates the group: each setting must be a positive number, must not carry
+`matches_physical`, and must not share a name with a physical key, which would
+make it a parity entry that has to be compared.
+
 `test/real_robot_contract_test.py` checks every flag. Where the simulator and
 physical values are comparable it recomputes the match and fails when a flag
 disagrees. A `true` flag must be verifiable: if the two values can't be
@@ -65,11 +87,12 @@ shared loader.
 | Reader | Keys |
 |---|---|
 | `scripts/sensor_contract_probe.py` | `topics.<topic>.rate_hz.contract` (only with `performance_checks:=true`; the cloud's is graded on its mean rate over the window, since its gaps make the median period meaningless), `topics.<topic>.frame_id`, `topics./odom.child_frame_id`, and the `camera` size, intrinsics, distortion and `horizontal_fov_rad` that `camera_info` must carry. The cloud's layout is graded in every run against the physical adapter's |
-| `scripts/depth_geometry_probe.py` | `camera.width`, `camera.height`, the depth image and cloud `frame_id`, `depth.min_range_m`, `depth.max_range_m` (the clip range), and the depth and color `frames.mounts`: the color frames' calibrated offset in TF, where the color aperture sees the target, and where each cloud point must land in `cam_1_depth_frame` |
+| `scripts/depth_geometry_probe.py` | `camera.width`, `camera.height`, the depth image and cloud `frame_id`, `render_settings.depth_near_clip_m` and `depth_far_clip_m` (the clip range), and the depth and color `frames.mounts`: the color frames' calibrated offset in TF, where the color aperture sees the target, and where each cloud point must land in `cam_1_depth_frame` |
 | `test/depth_geometry.launch.py` | `frames.mounts.cam_1_color_frame`, `frames.mounts.cam_1_depth_frame` and `frames.base_footprint_to_base_link_z_m`, to put the target at a known depth along the color optical axis, centred on the depth aperture |
-| `yahboom_rosmaster_description/test/robot_description_contract_test.py` | `frames.*` mounts and camera frames, `wheels.*`, the camera, LiDAR and IMU settings the xacro must produce, and the physical `frames.tape_check` camera setback that `camera.obj` must reproduce |
+| `yahboom_rosmaster_description/test/robot_description_contract_test.py` | `frames.*` mounts and camera frames, `wheels.*`, the camera, LiDAR and IMU settings the xacro must produce (the clip planes from `render_settings`), and the physical `frames.tape_check` camera setback that `camera.obj` must reproduce |
+| `scripts/sensor_contract_probe.py` (with `scripts/depth_quality.py`) | `physical.depth`: the scale error range, the minimum range and the noise model, which it parses from the ledger's string. It grades the published depth image against the rendered one of the same stamp (see "The depth quality check") |
 | `test/sensor_contract_probe_test.py` | Every rate the probe grades has a contract; the probe's Best Effort topics and wheel joint names match the ledger |
-| `test/real_robot_contract_test.py` | Every parity flag (a `true` one must be verifiable), the provenance commits and `step_measurements` records, the legacy `superseded_by` references, the `/joint_states` rate in `config/ros2_control.yaml`, and that the cloud's timing entries (`rate_hz`, `period_p95_ms`, `latency_ms`, `gap_frames`, `worst_gap_s`) are what `config/sensor_profiles.yaml`'s physical profile implies |
+| `test/real_robot_contract_test.py` | Every parity flag (a `true` one must be verifiable), the provenance commits and `step_measurements` records, the legacy `superseded_by` references, the `/joint_states` rate in `config/ros2_control.yaml`, and that the cloud's timing entries (`rate_hz`, `period_p95_ms`, `latency_ms`, `gap_frames`, `worst_gap_s`) and the depth entries (`scale_error`, `noise_model`, `min_range_m`) are what `config/sensor_profiles.yaml`'s physical profile implies, `render_settings`, the range comparison, and that no measured key is in two `step_measurements` records |
 
 `sensor_contract_ci` still runs with `performance_checks:=false`, so it reads
 the frames and field of view and the cloud's layout but never grades the rate
@@ -77,6 +100,35 @@ contracts. It also grades 15 sim seconds of the cloud's timing against
 `config/sensor_profiles.yaml` (`scripts/cloud_timing_probe.py`), which is where
 the timing entries above come from, not from the ledger: the ledger records
 that the profile matches the robot, and the profile is what the simulator runs.
+
+## The depth quality check
+
+`sensor_contract_probe` grades the depth the adapter publishes (#43 step 7)
+in every run of `sensor_contract_ci`, `_empty`, `_cafe` and `_empty_ideal`, so
+the CI gate carries it without an extra simulator. For the length of its
+grading window (`depth_quality_frames`, default the `samples` count) it
+subscribes to the adapter's raw input, `/internal/cam_1/depth/image_raw`, and to
+`/cam_1/depth/image_raw`, both Best Effort and five frames deep, and pairs the
+two by exact stamp. The render is the truth: no geometry model, and no code
+shared with the adapter. `scripts/depth_quality.py` says whether the pairs look
+like the physical camera (or, under `sensor_profile:=ideal`, like the render):
+
+- every profile: no published infinity, and NaN wherever the render has no
+  return, exactly;
+- `ideal`: every finite rendered pixel published bit for bit;
+- `physical`: nothing below `depth.min_range_m` is ever published, exactly;
+  pixels more than six standard deviations under it are NaN and over it finite;
+  the mean of published over rendered, where the render is 1.5 m or more away,
+  lies in the physical scale range within its standard error; and in each band of
+  distances (0.65 to 8.1 m, about 0.6 m to 8 m of the empty world's floor) the
+  residual has the standard deviation of the ledger's noise model, to five
+  standard errors and a percent.
+
+The bands are graded in the frames' own distances: an empty-world frame spans
+the whole range from its floor. A correct simulator failed this check in none of
+1,500 seeded trials of an independent model of the camera; each departure a test
+introduces (no scale, a wrong exponent, no noise floor, no cutoff, a leaked
+infinity) fails it and is named.
 
 ## Closing a gap
 
@@ -90,8 +142,11 @@ Each step of #43 closes gaps the same way:
    lookups for frames. Update `measured`, and add a record to
    `simulator.provenance.step_measurements` with the step, the commit you
    measured, the date, the method and the keys you re-measured.
-   `real_robot_contract` checks that the commit is a full SHA and that every
-   listed key has a `measured` value.
+   `real_robot_contract` checks that the commit is a full SHA, that every
+   listed key has a `measured` value, and that no key is in two records: a step
+   that re-measures a key takes it over from the older record, so remove it from
+   that record's `keys` and say in its `note` where it went. The harness in
+   `tools/` (see `tools/README.md`) produces the camera figures.
 4. Run `real_robot_contract`, `robot_description_contract` and the launch
    contracts. A flag that no longer agrees with the values fails the first.
 
@@ -135,13 +190,17 @@ The physical figures come from
 [physical_rosmaster#45](https://github.com/AIRclub-UdeSA/physical_rosmaster/pull/45)
 (`docs/sensor_capabilities.md` "Point cloud" and `robot_artifacts/
 x3c_sensor_capability_2026-09-24/`), which measured the shipped pipeline:
-16-byte points, `cloud_strip_nan` true. While #45 is open,
-`physical.provenance.commit` pins its head. **Re-pin it to #45's merge commit
-once it merges**; nothing else in the physical section changes. The compared
-timing values are scalars, so `values_agree` needs no range support: the mean
-rate (8.26 Hz), the p95 period (367 ms) and the latency (50 ms). The 7.3-9.2 Hz
-settled range and the 43-53 ms run medians are kept as descriptive fields that
-nothing is compared with.
+16-byte points, `cloud_strip_nan` true. #43 step 7 re-pinned
+`physical.provenance.commit` to #45's merge commit, 468662c, and re-read every
+value taken from `docs/sensor_capabilities.md` or the 2026-09-24 artifacts
+there. None changed. #45's last commit, b76b2b5, scoped the boot claim to one
+warm reboot's 25-65 s window (the ledger's comment says so) and reworded the
+paired-run counts (the driver produced a cloud for "at least 36%" of frames); no
+value here depends on either. The compared timing values are scalars, so the
+mean rate (8.26 Hz), the p95 period (367 ms) and the latency (50 ms) need no
+range support. The 7.3-9.2 Hz settled range and the 43-53 ms run medians are
+kept as descriptive fields that nothing is compared with. The one physical value
+that is a range, the depth scale error, uses the `{min, max}` form above.
 
 The simulator's frame period is not the robot's. With the 1 ms physics step the
 camera's stamps come 33 ms apart (30.3 Hz), against the robot's 33.3 ms, so the
