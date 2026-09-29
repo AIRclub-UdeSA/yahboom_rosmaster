@@ -1,0 +1,33 @@
+--- a/sensor_capability_probe.py
++++ b/sensor_capability_probe.py
+@@ -65,7 +65,7 @@
+ from nav_msgs.msg import Odometry
+ from rcl_interfaces.srv import GetParameters
+ from rclpy.node import Node
+-from rclpy.parameter import parameter_value_to_python
++from rclpy.parameter import Parameter, parameter_value_to_python
+ from rclpy.qos import (
+     DurabilityPolicy,
+     HistoryPolicy,
+@@ -527,7 +527,11 @@
+ 
+     def __init__(self, topics, content_samples):
+         """Subscribe to every requested topic with a matched QoS profile."""
+-        super().__init__("sensor_capability_probe")
++        # Simulator patch: run on the ROS clock, which follows /clock.
++        super().__init__(
++            "sensor_capability_probe",
++            parameter_overrides=[Parameter("use_sim_time", Parameter.Type.BOOL, True)],
++        )
+         self.content_samples = content_samples
+         self.records = {}
+         self.tf_buffer = Buffer()
+@@ -576,7 +580,7 @@
+ 
+         def callback(message):
+             arrival = time.monotonic()
+-            receipt = time.time()
++            receipt = self.get_clock().now().nanoseconds * 1e-9
+             stamp_seconds = None
+             if stamped:
+                 stamp = message.header.stamp
