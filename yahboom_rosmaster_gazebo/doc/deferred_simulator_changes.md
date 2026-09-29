@@ -284,6 +284,108 @@ saturated CPUs with software rendering, so the local launch tests grade the
 gaps with tolerances derived from the sample size, and the ideal grade allows
 3% of clouds lost. The robot's own Best Effort cloud has the same exposure.
 
+## Depth quality (implemented)
+
+Under `sensor_profile:=physical`, the default, the depth image has the physical
+Astra's scale error, noise and minimum range (#43 step 7). The numbers are in
+`config/sensor_profiles.yaml`, each with its source, and in the parity ledger.
+
+- **The model.** `DepthConditioner` in `camera_adapter.py` runs once on every
+  depth image as it arrives. For a pixel with rendered depth `z`, in this order:
+  `z' = z * (1 + s)` with `s = -0.011858`, the inverse of physical_rosmaster's
+  recommended correction `true ~= reported * 1.012`
+  (`docs/depth_camera_calibration.md` "Scale"; the recorded range is -1.1% to
+  -1.3%, and the linear fit's slope was -1.33%); then
+  `z' + sigma(z') * n` with `sigma(d) = max(0.002, 0.0019 * d^2.36)` m and an
+  independent standard normal `n` per pixel ("Noise"); then NaN below 0.6 m
+  ("Range limits and dropout"). The public image and the cloud come from that one
+  conditioned array.
+- **Which distance.** The doc tabulates scale, noise and range in the distance the
+  camera reports, not the tape's: its noise table's distances (0.63, 0.83, 1.12,
+  1.63 m) are the "Reported" column of its scale table, and its 0.6 m minimum and
+  its dead-zone table are reported distances too. So sigma takes the scaled `z'`
+  and the cutoff tests the published value, after noise. The published contract is
+  then exactly "nothing below 0.6 m", and does not depend on the rendered depth.
+  Sigma from the rendered depth would differ by 2.8%.
+- **Extrapolation.** The fit is calibrated to 3.6 m (its farthest wall) and the
+  simulator applies it beyond, unclamped: about 12 cm at 5.8 m, the deepest return
+  in physical_rosmaster's `camera_public.json`, and 25 cm at the 8 m far clip.
+  Nothing measured those. The profile's sources and the README say so.
+- **No return is NaN.** `metric_depth()` in physical_rosmaster's
+  `sensor_adapter.py` (468662c) sets zero to NaN, so a pixel with no return is
+  NaN. Gazebo has +inf beyond the far clip. Both profiles now publish NaN for every
+  non-finite pixel; `ideal` publishes every finite pixel bit for bit. This is a
+  breaking change for both profiles, including the organized cloud under
+  `cloud_strip_nan:=false`. The 1 mm quantization of the robot's `16UC1` depth is
+  not modelled: 0.29 mm rms against a 2 mm noise floor.
+- **Randomness.** A frame's noise comes from
+  `Generator(PCG64(SeedSequence([sensor_seed, frame stamp in ns, tag])))`. It
+  needs no state, so a dropped frame shifts no other, and it is a stream of its
+  own: the cloud gap sampler is Python's `random.Random(seed)`, untouched, and its
+  sequence for a seed is pinned in `test/camera_adapter_test.py` from `main`.
+  numpy does not promise the same stream across versions (the CI image has 1.21.5,
+  a development machine may have 2.x), so no test pins a noise value: they assert
+  statistics, and reproducibility within a process.
+- **Arithmetic.** float32, element-wise, one thread (`OMP_NUM_THREADS=1`), no
+  matrix products.
+- **What is checked, and where.** Unit tests (`camera_adapter_test.py`) check the
+  scale, the mean and standard deviation at six distances to five standard errors,
+  the 0.6 m cutoff, NaN for no return, the `ideal` path bit for bit on finite
+  pixels, the per-(seed, stamp) stream, and that the cloud holds exactly the
+  published finite pixels. Each was shown to fail when the code is broken on
+  purpose: no scale, a flipped sign, exponent 2, no noise floor, no cutoff, a
+  cutoff before the noise, sigma from the rendered depth, infinity left in place,
+  noise independent of stamp or of seed, one advancing generator, noise drawn only
+  for valid pixels, a second conditioning for the cloud, float64 output, and a
+  reseeded gap sampler. `sensor_contract_probe` checks the running simulator: it
+  pairs the adapter's raw input with the published depth of the same stamp, so the
+  render is the truth (see `doc/real_robot_contract.md`, "The depth quality
+  check"). On the host GPU in `empty.world` it read a scale of -0.01188 (standard
+  error 0.00005) against the profile's -0.011858, and noise of 1.99, 2.65, 5.31,
+  11.9, 26.3, 51.9 and 142 mm in the bands 0.65-0.8, 1.0-1.3, 1.3-1.8, 1.8-2.5,
+  2.5-3.6, 3.6-5.0 and 5.0-8.1 m, against the model's 2.00, 2.66, 5.35, 12.0, 26.4,
+  52.2 and 140 mm.
+- **numpy.** The unit tests and the CI gate pass with `PYTHONNOUSERSITE=1`
+  (numpy 1.21.5, the CI image's) as with the user's numpy 2.2.6.
+
+### Cost
+
+Measured with `tools/measure_adapter_cost.py`, alternating `main` and this branch
+five times each, `PYTHONNOUSERSITE=1` on both (numpy 1.21.5), on `empty.world`
+under `physical`, over 30 s after 20 s of settling. Median, with the range in
+brackets, in percent of one core on the Ryzen 5 3600:
+
+| | GPU `main` | GPU step 7 | llvmpipe `main` | llvmpipe step 7 |
+|---|---|---|---|---|
+| Adapter CPU | 53.1 (46.8-54.1) | 54.0 (51.3-54.4) | 18.6 (17.9-19.0) | 20.3 (20.2-20.6) |
+| Depth latency, sim ms | 6 (6-7) | 9 (8-9) | 34 (34-34) | 36 (35-36) |
+| Real-time factor | 0.999 | 0.998 | 0.504 (0.501-0.508) | 0.496 (0.494-0.500) |
+| Depth rate on stamps, Hz | 30.303 | 30.303 | 30.303 | 30.303 |
+
+The conditioning costs about 2 ms of float32 arithmetic per frame (a benchmark on
+one pinned core gave 2.1 ms, 6.5% of a core at 30.3 Hz): about 1 point on the GPU,
+where the run-to-run drift is larger, and 1.7 points on llvmpipe. It delays the
+depth image, which is published after it, by 2-3 ms of sim time. The GPU's
+real-time factor is unchanged; on llvmpipe, with four cores shared, it falls
+about 1.6% (0.504 to 0.496, the ranges do not overlap). About 40 points of the
+adapter's CPU remain rclpy waking for every tick of the 1 kHz `/clock` (see
+"Point cloud pipeline" above); that, and not the arithmetic, is the cost to cut.
+
+### Deferred
+
+- **The floor's dropout and the close-range wedge** of the physical sensor need an
+  incidence-angle model. They are the follow-up #59, and the ledger's
+  `depth.floor_returns` and `depth.close_range_wedge` rows are out of scope with a
+  note naming it. The bottom third of the physical image never returns the floor;
+  the simulator's floor returns from 0.6 m out.
+- **The fraction of valid pixels** depends on the scene more than on the camera,
+  so `depth.valid_fraction` and `depth.nan_fraction` are recorded, not compared.
+  In `empty.world`, where only the floor returns, the simulator's is about 19%
+  under `physical` (48.9% before, with the floor from 0.25 m); the robot's 38.5% is
+  one room.
+- **The far limit** of the physical camera has not been measured, so
+  `depth.max_range_m` (the simulator's 8 m far clip) stays out of scope.
+
 ## Legacy mesh removal
 
 The old STL visuals are no longer referenced after the CAD migration, but they
