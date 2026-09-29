@@ -16,6 +16,7 @@ from sensor_profiles import (  # noqa: E402
     SENSOR_KEYS,
     SOURCE_PATH,
     default_path,
+    depth_parameters,
     load_sensor_profile,
     point_cloud_parameters,
 )
@@ -26,14 +27,14 @@ def document():
     return yaml.safe_load(SOURCE_PATH.read_text(encoding="utf-8"))
 
 
-def load_edited(edit, profile="physical"):
+def load_edited(edit, profile="physical", sensor="point_cloud"):
     """Load the profile from the shipped document after ``edit`` changed it."""
     data = document()
-    edit(data["point_cloud"][profile])
+    edit(data[sensor][profile])
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "sensor_profiles.yaml"
         path.write_text(yaml.safe_dump(data), encoding="utf-8")
-        return load_sensor_profile(path, "point_cloud", profile)
+        return load_sensor_profile(path, sensor, profile)
 
 
 class TestShippedProfiles(unittest.TestCase):
@@ -46,10 +47,11 @@ class TestShippedProfiles(unittest.TestCase):
                 self.assertEqual(set(data[sensor]), set(PROFILE_NAMES))
 
     def test_every_value_names_its_source(self):
-        for profile, values in document()["point_cloud"].items():
-            for key, record in values.items():
-                with self.subTest(profile=profile, key=key):
-                    self.assertTrue(record["source"].strip())
+        for sensor in SENSOR_KEYS:
+            for profile, values in document()[sensor].items():
+                for key, record in values.items():
+                    with self.subTest(sensor=sensor, profile=profile, key=key):
+                        self.assertTrue(record["source"].strip())
 
     def test_the_physical_values_are_the_measured_ones(self):
         profile = load_sensor_profile(SOURCE_PATH, "point_cloud", "physical")
@@ -84,6 +86,78 @@ class TestShippedProfiles(unittest.TestCase):
         self.assertEqual(parameters["latency_s"], 0.050)
 
 
+class TestDepthProfiles(unittest.TestCase):
+    """The depth profiles are the calibration doc's numbers, and ideal is undegraded."""
+
+    def test_the_physical_values_are_the_calibrated_ones(self):
+        profile = load_sensor_profile(SOURCE_PATH, "depth", "physical")
+        # docs/depth_camera_calibration.md: true ~= reported * 1.012, so the
+        # camera reads 1 / 1.012 of the distance; sigma = max(0.002, 0.0019 d^2.36);
+        # nothing below 0.6 m.
+        self.assertAlmostEqual(profile["scale_error"], 1.0 / 1.012 - 1.0, places=6)
+        self.assertEqual(profile["noise_sigma_floor_m"], 0.002)
+        self.assertEqual(profile["noise_sigma_coefficient"], 0.0019)
+        self.assertEqual(profile["noise_sigma_exponent"], 2.36)
+        self.assertEqual(profile["min_range_m"], 0.6)
+
+    def test_the_ideal_profile_degrades_nothing(self):
+        profile = load_sensor_profile(SOURCE_PATH, "depth", "ideal")
+        self.assertEqual(profile["scale_error"], 0.0)
+        self.assertEqual(profile["noise_sigma_floor_m"], 0.0)
+        self.assertEqual(profile["noise_sigma_coefficient"], 0.0)
+        self.assertEqual(profile["min_range_m"], 0.0)
+
+    def test_the_extrapolation_beyond_the_calibrated_range_is_stated(self):
+        record = document()["depth"]["physical"]["noise_sigma_coefficient"]
+        self.assertIn("EXTRAPOLATED beyond 3.6 m", record["source"])
+
+    def test_the_scale_source_cites_the_correction_the_range_and_the_slope(self):
+        source = document()["depth"]["physical"]["scale_error"]["source"]
+        for text in ("1.012", "-1.1% to -1.3%", "-1.33%"):
+            self.assertIn(text, source)
+
+    def test_the_node_parameters_carry_every_depth_value(self):
+        profile = load_sensor_profile(SOURCE_PATH, "depth", "physical")
+        parameters = depth_parameters(profile)
+        self.assertEqual(parameters, {
+            "depth_scale_error": profile["scale_error"],
+            "depth_noise_floor_m": profile["noise_sigma_floor_m"],
+            "depth_noise_coefficient": profile["noise_sigma_coefficient"],
+            "depth_noise_exponent": profile["noise_sigma_exponent"],
+            "depth_min_range_m": profile["min_range_m"],
+        })
+
+    def test_invalid_depth_values_are_rejected(self):
+        def with_value(key, value):
+            return lambda profile: profile[key].update(value=value)
+
+        def load(key, value):
+            return load_edited(with_value(key, value), sensor="depth")
+
+        with self.assertRaisesRegex(RuntimeError, "greater than -1.0"):
+            load("scale_error", -1.0)
+        with self.assertRaisesRegex(RuntimeError, "must be numeric"):
+            load("scale_error", "-1%")
+        with self.assertRaisesRegex(RuntimeError, "at least 0.0"):
+            load("noise_sigma_floor_m", -0.001)
+        with self.assertRaisesRegex(RuntimeError, "at least 0.0"):
+            load("noise_sigma_coefficient", float("nan"))
+        with self.assertRaisesRegex(RuntimeError, "greater than 0.0"):
+            load("noise_sigma_exponent", 0.0)
+        with self.assertRaisesRegex(RuntimeError, "at least 0.0"):
+            load("min_range_m", -0.6)
+
+    def test_a_depth_profile_needs_its_keys_and_sources(self):
+        with self.assertRaisesRegex(RuntimeError, "missing=\\['min_range_m'\\]"):
+            load_edited(lambda profile: profile.pop("min_range_m"), sensor="depth")
+        with self.assertRaisesRegex(RuntimeError, "extra=\\['bias_m'\\]"):
+            load_edited(lambda profile: profile.update(
+                bias_m={"value": 0.0, "source": "made up"}), sensor="depth")
+        with self.assertRaisesRegex(RuntimeError, "needs a source"):
+            load_edited(
+                lambda profile: profile["min_range_m"].update(source=""), sensor="depth")
+
+
 class TestValidation(unittest.TestCase):
     """A malformed profile stops the launch instead of running wrong."""
 
@@ -94,6 +168,8 @@ class TestValidation(unittest.TestCase):
     def test_an_unknown_sensor_is_rejected(self):
         with self.assertRaisesRegex(RuntimeError, "Unknown sensor 'lidar'"):
             load_sensor_profile(SOURCE_PATH, "lidar", "physical")
+        with self.assertRaisesRegex(RuntimeError, "Unknown sensor profile 'noisy'"):
+            load_sensor_profile(SOURCE_PATH, "depth", "noisy")
 
     def test_a_missing_key_is_rejected(self):
         with self.assertRaisesRegex(RuntimeError, "missing=\\['latency_s'\\]"):

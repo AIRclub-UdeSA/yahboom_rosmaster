@@ -6,6 +6,7 @@ import math
 import sys
 import time
 
+import numpy as np
 import rclpy
 from nav_msgs.msg import Odometry
 from rclpy.duration import Duration
@@ -18,6 +19,7 @@ from tf2_msgs.msg import TFMessage
 from tf2_ros import Buffer, TransformListener
 
 from cloud_timing_probe import layout_errors
+from depth_quality import FramePairs, depth_quality_errors, expectations_from_ledger
 from real_robot_contract import RealRobotContract
 
 
@@ -73,6 +75,16 @@ BEST_EFFORT_TOPICS = (
 )
 
 
+# The depth the camera adapter is fed, before it conditions it. Reliable, and
+# only subscribed to (Best Effort, a few frames deep) while the depth quality is
+# graded, so the probe's own load stays out of the rest of the contract.
+RAW_DEPTH_TOPIC = "/internal/cam_1/depth/image_raw"
+PUBLIC_DEPTH_TOPIC = "/cam_1/depth/image_raw"
+DEPTH_HOLD_FRAMES = 5
+# Wall seconds the grading window may run once everything else is collected.
+DEPTH_GRADING_SECONDS = 8.0
+
+
 def validated_sample_count(value):
     """Return at least the three samples the stamp and TF checks need."""
     return max(3, int(value))
@@ -86,11 +98,19 @@ class SensorContractProbe(Node):
         self.declare_parameter("timeout", 35.0)
         self.declare_parameter("samples", 3)
         self.declare_parameter("performance_checks", True)
+        # Which sensor profile the simulator runs, for the depth quality it must
+        # deliver, and how many stamp-matched frames to grade it on (0 skips it).
+        self.declare_parameter("sensor_profile", "physical")
+        self.declare_parameter("depth_quality_frames", -1)
         self.timeout = float(self.get_parameter("timeout").value)
         self.samples = validated_sample_count(
             self.get_parameter("samples").value)
         self.performance_checks = bool(
             self.get_parameter("performance_checks").value)
+        self.sensor_profile = str(self.get_parameter("sensor_profile").value)
+        frames = int(self.get_parameter("depth_quality_frames").value)
+        self.depth_quality_frames = self.samples if frames < 0 else frames
+        self.depth_pairs = []
 
         contract = RealRobotContract.load()
         self.rate_contracts = {
@@ -117,6 +137,7 @@ class SensorContractProbe(Node):
         }
         self.expected_odom_child_frame = contract.nominal(
             "topics./odom.child_frame_id")
+        self.expected_depth = expectations_from_ledger(contract)
 
         self.required_counts = {
             "/clock": self.samples,
@@ -236,6 +257,73 @@ class SensorContractProbe(Node):
             )
             and REQUIRED_DYNAMIC_TF_EDGE in self.observed_dynamic_tf_edges
         )
+
+    @staticmethod
+    def depth_pixels(message):
+        """Return a 32FC1 depth image as a (height, width) float32 copy."""
+        if message.encoding != "32FC1":
+            raise ValueError(f"expected a 32FC1 depth image, got {message.encoding}")
+        rows = np.frombuffer(message.data, dtype="<f4").reshape(
+            message.height, message.step // 4)
+        return rows[:, :message.width].copy()
+
+    def collect_depth_quality(self, deadline):
+        """
+        Pair rendered and published depth images by exact stamp until enough arrive.
+
+        Subscribes to the adapter's raw input and to its public output for the
+        length of the window only, and holds a few frames of each, so a pair
+        is two views of one frame: the render is the truth the published depth
+        is graded against, with no geometry model in between.
+        """
+        self.depth_pairs = []
+        if self.depth_quality_frames <= 0:
+            return
+        pairing = FramePairs(DEPTH_HOLD_FRAMES)
+        qos = QoSProfile(
+            depth=DEPTH_HOLD_FRAMES, reliability=ReliabilityPolicy.BEST_EFFORT)
+
+        def take(kind, message):
+            try:
+                pixels = self.depth_pixels(message)
+            except ValueError:
+                return
+            pairing.add(
+                kind, (message.header.stamp.sec, message.header.stamp.nanosec), pixels)
+            self.depth_pairs = pairing.pairs
+
+        subscriptions = [
+            self.create_subscription(
+                Image, RAW_DEPTH_TOPIC, lambda m: take("rendered", m), qos),
+            self.create_subscription(
+                Image, PUBLIC_DEPTH_TOPIC, lambda m: take("published", m), qos),
+        ]
+        try:
+            while (rclpy.ok() and time.monotonic() < deadline
+                   and len(self.depth_pairs) < self.depth_quality_frames):
+                rclpy.spin_once(self, timeout_sec=0.05)
+        finally:
+            for subscription in subscriptions:
+                self.destroy_subscription(subscription)
+
+    def depth_quality_problems(self):
+        """Return how the published depth departs from what the profile promises."""
+        if self.depth_quality_frames <= 0:
+            return []
+        if len(self.depth_pairs) < self.depth_quality_frames:
+            return [
+                f"depth quality: only {len(self.depth_pairs)}/"
+                f"{self.depth_quality_frames} rendered and published frames "
+                "were paired by stamp"]
+        notes = []
+        problems = depth_quality_errors(
+            self.depth_pairs, self.sensor_profile, self.expected_depth, notes)
+        self.get_logger().info(
+            f"Depth quality ({self.sensor_profile}) over {len(self.depth_pairs)} "
+            "frames: " + (
+                "; ".join(notes) if notes else "every finite pixel published as rendered"))
+        return [
+            f"depth quality ({self.sensor_profile}): {problem}" for problem in problems]
 
     @staticmethod
     def stamp_seconds(message):
@@ -511,6 +599,7 @@ class SensorContractProbe(Node):
             errors.append(f"/tf_static: missing frames {sorted(missing_static)}")
 
         self.validate_timestamped_tf(errors)
+        errors.extend(self.depth_quality_problems())
 
         return errors
 
@@ -533,6 +622,8 @@ def main():
         tf_deadline = min(deadline, time.monotonic() + 0.5)
         while rclpy.ok() and time.monotonic() < tf_deadline:
             rclpy.spin_once(node, timeout_sec=0.05)
+        if node.complete():
+            node.collect_depth_quality(time.monotonic() + DEPTH_GRADING_SECONDS)
         errors = node.validate()
         if errors:
             node.get_logger().error("Sensor contract FAILED: " + "; ".join(errors))

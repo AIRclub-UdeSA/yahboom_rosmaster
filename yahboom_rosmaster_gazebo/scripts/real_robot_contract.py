@@ -22,6 +22,9 @@ OPEN_STEPS = range(4, 10)
 OUT_OF_SCOPE = "out_of_scope"
 # Absorbs binary rounding, so a difference equal to the tolerance agrees.
 ROUNDING_SLACK = 1e-12
+# Simulator-only settings with no physical counterpart, so no parity entry.
+SETTINGS_GROUP = "render_settings"
+SETTING_FIELDS = {"nominal", "note"}
 
 
 def default_path():
@@ -39,17 +42,39 @@ def is_entry(node):
     return isinstance(node, dict) and "matches_physical" in node
 
 
+def _is_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def is_range(value):
+    """
+    Return whether a physical value is a measured range, ``{min: low, max: high}``.
+
+    A range is a mapping of exactly those two numbers, in order. A bare
+    two-element list is not one: lists compare element by element.
+    """
+    return (
+        isinstance(value, dict) and set(value) == {"min", "max"}
+        and _is_number(value["min"]) and _is_number(value["max"])
+        and value["min"] <= value["max"])
+
+
 def values_agree(simulator, physical, tolerance=0.0):
     """
     Return whether two ledger values agree, or None if they are not comparable.
 
     Numbers agree within the absolute tolerance, strings and booleans when
-    equal, and lists and mappings when every element agrees.
+    equal, and lists and mappings when every element agrees. A physical
+    ``{min, max}`` range (see ``is_range``) agrees with a simulator number that
+    lies inside it, widened by the tolerance at both ends.
     """
     if isinstance(simulator, bool) or isinstance(physical, bool):
         if type(simulator) is not type(physical):
             return None
         return simulator == physical
+    if _is_number(simulator) and is_range(physical):
+        slack = tolerance + ROUNDING_SLACK
+        return physical["min"] - slack <= simulator <= physical["max"] + slack
     if isinstance(simulator, (int, float)) and isinstance(physical, (int, float)):
         return abs(simulator - physical) <= tolerance + ROUNDING_SLACK
     if isinstance(simulator, str) and isinstance(physical, str):
@@ -106,6 +131,16 @@ class RealRobotContract:
         """Return the simulator's configured value at a dotted key."""
         return self.entry(key)["nominal"]
 
+    def setting(self, key):
+        """
+        Return a simulator-only setting at a dotted key of ``render_settings``.
+
+        These are values the simulator is configured with that have no physical
+        counterpart, such as the camera's clip planes, so they are not parity
+        entries. ``settings_errors`` validates them.
+        """
+        return self._lookup("simulator", f"{SETTINGS_GROUP}.{key}")["nominal"]
+
     def rate_bounds(self, topic):
         """Return the (minimum, maximum) sim-time rate a probe grades."""
         minimum, maximum = self.entry(f"topics.{topic}.rate_hz")["contract"]
@@ -116,7 +151,7 @@ class RealRobotContract:
         if node is None:
             node = {
                 key: value for key, value in self.data["simulator"].items()
-                if key != "provenance"
+                if key not in ("provenance", SETTINGS_GROUP)
             }
         for key, value in node.items():
             dotted = f"{prefix}.{key}" if prefix else key
@@ -168,3 +203,33 @@ class RealRobotContract:
                     f"{simulator!r} and physical {physical!r} "
                     f"{'agree' if agreement else 'differ'}")
         return errors
+
+    def settings_errors(self):
+        """Return every problem in the simulator's ``render_settings`` group."""
+        settings = self.data["simulator"].get(SETTINGS_GROUP)
+        if not isinstance(settings, dict) or not settings:
+            return [f"simulator.{SETTINGS_GROUP} must be a non-empty mapping"]
+        errors = []
+        for name, setting in settings.items():
+            where = f"{SETTINGS_GROUP}.{name}"
+            if not isinstance(setting, dict) or "nominal" not in setting:
+                errors.append(f"{where}: needs a mapping with a nominal value")
+                continue
+            unknown = set(setting) - SETTING_FIELDS
+            if unknown:
+                errors.append(f"{where}: unknown fields {sorted(unknown)}")
+            if not _is_number(setting["nominal"]) or not setting["nominal"] > 0.0:
+                errors.append(f"{where}: nominal must be a positive number")
+            if "matches_physical" in setting:
+                errors.append(f"{where}: a setting is not a parity entry")
+            if self._has_physical(name):
+                errors.append(
+                    f"{where}: has a physical counterpart, so it belongs in "
+                    "the parity entries")
+        return errors
+
+    def _has_physical(self, name):
+        """Return whether the physical section has a key of this name."""
+        return any(
+            name in group for group in self.data["physical"].values()
+            if isinstance(group, dict))

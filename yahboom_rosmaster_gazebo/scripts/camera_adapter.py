@@ -115,17 +115,105 @@ def depth_image_message(header, depth):
     return message
 
 
-def condition_depth(depth):
-    """
-    Return the depth image that the sensor profile publishes and builds clouds from.
+def stamp_ns(stamp):
+    """Return a builtin_interfaces Time as integer nanoseconds."""
+    return int(stamp.sec) * 1_000_000_000 + int(stamp.nanosec)
 
-    Step 7 of #43 fills this in with the physical camera's scale error, noise
-    and NaN below its minimum range. It runs once on every depth image as it
-    arrives, needing neither its color partner nor ``camera_info``, and the
-    public depth image and the cloud are both built from its result, so that
-    the two always come from the same degraded frame. It does nothing for now.
+
+def condition_depth(depth, stamp_nanoseconds=0):
     """
-    return depth
+    Return ``depth`` as the ideal profile publishes it: every non-finite pixel NaN.
+
+    Gazebo marks a pixel with no return as +inf beyond the far clip, and the
+    physical adapter's ``metric_depth()`` publishes NaN for a pixel with none,
+    so the interface says NaN under both profiles. Every finite pixel is
+    returned bit for bit.
+    """
+    depth = np.asarray(depth, dtype=np.float32)
+    return np.where(np.isfinite(depth), depth, np.float32(np.nan))
+
+
+class DepthConditioner:
+    """
+    The depth image the sensor profile publishes, and builds clouds from.
+
+    Under the physical profile each finite pixel with rendered depth ``z`` goes
+    through, in this order (#43 step 7, docs/depth_camera_calibration.md):
+
+    1. ``z' = z * (1 + scale_error)``, the camera's scale error;
+    2. ``out = z' + sigma(z') * n`` for an independent standard normal ``n``,
+       with ``sigma(d) = max(noise_floor_m, noise_coefficient * d ** noise_exponent)``;
+    3. ``out`` is NaN below ``min_range_m``.
+
+    The doc tabulates scale, noise and range in the distance the camera reports,
+    so sigma takes the scaled ``z'`` and the cutoff tests the published value:
+    nothing below the minimum range is ever published. Every non-finite pixel
+    is NaN, as in ``condition_depth``. A conditioner with no scale error, noise
+    or minimum range is that ideal path and draws no random numbers.
+
+    The noise of a frame comes from ``(seed, frame stamp)`` alone, in a stream of
+    its own, so a frame that is dropped shifts no later frame's noise, and the
+    cloud gap sampler's sequence for the same seed is untouched. The arithmetic
+    is float32, element-wise and single threaded, as the rest of the adapter.
+    """
+
+    STREAM_TAG = 0x44455054  # "DEPT": keeps this stream apart from any other use of the seed
+
+    def __init__(
+            self, scale_error=0.0, noise_floor_m=0.0, noise_coefficient=0.0,
+            noise_exponent=1.0, min_range_m=0.0, seed=0):
+        values = {
+            "scale_error": scale_error, "noise_floor_m": noise_floor_m,
+            "noise_coefficient": noise_coefficient, "noise_exponent": noise_exponent,
+            "min_range_m": min_range_m,
+        }
+        for name, value in values.items():
+            if isinstance(value, bool) or not math.isfinite(float(value)):
+                raise ValueError(f"depth {name} must be a finite number, got {value!r}")
+        if scale_error <= -1.0:
+            raise ValueError("depth scale_error must be greater than -1")
+        if noise_floor_m < 0.0 or noise_coefficient < 0.0 or min_range_m < 0.0:
+            raise ValueError(
+                "depth noise_floor_m, noise_coefficient and min_range_m must not be negative")
+        if noise_exponent <= 0.0:
+            raise ValueError("depth noise_exponent must be positive")
+        self._scale = np.float32(1.0 + scale_error)
+        self._floor = np.float32(noise_floor_m)
+        self._coefficient = np.float32(noise_coefficient)
+        self._exponent = np.float32(noise_exponent)
+        self._min_range = np.float32(min_range_m)
+        self._noisy = noise_floor_m > 0.0 or noise_coefficient > 0.0
+        self._ideal = not (scale_error != 0.0 or self._noisy or min_range_m > 0.0)
+        self._seed = int(seed)
+
+    def _noise(self, shape, stamp_nanoseconds):
+        """Return the frame's standard normal draws, from its seed and stamp."""
+        entropy = [self._seed, int(stamp_nanoseconds), self.STREAM_TAG]
+        generator = np.random.Generator(np.random.PCG64(np.random.SeedSequence(entropy)))
+        return generator.standard_normal(shape, dtype=np.float32)
+
+    def __call__(self, depth, stamp_nanoseconds=0):
+        """Return the conditioned (height, width) float32 array of a rendered one."""
+        if self._ideal:
+            return condition_depth(depth)
+        depth = np.asarray(depth, dtype=np.float32)
+        # Infinities and NaNs times or plus anything stay non-finite and are
+        # set to NaN below, so the warnings they raise say nothing useful.
+        with np.errstate(invalid="ignore", over="ignore"):
+            scaled = depth * self._scale
+            present = np.isfinite(scaled)
+            if self._noisy:
+                sigma = np.power(scaled, self._exponent)
+                sigma *= self._coefficient
+                np.maximum(sigma, self._floor, out=sigma)
+                sigma *= self._noise(scaled.shape, stamp_nanoseconds)
+                scaled += sigma
+            gone = ~present
+            if self._min_range > 0.0:
+                # NaN compares false, so a NaN pixel is dropped here too.
+                gone |= ~(scaled >= self._min_range)
+        scaled[gone] = np.nan
+        return scaled
 
 
 class CameraRays:
@@ -387,7 +475,9 @@ class FramePipeline:
         It reads the image alone, needing no ``camera_info``. Raises ValueError
         if the image is malformed. The caller drops it.
         """
-        return ConditionedDepth(depth.header, self._condition(depth_array(depth)))
+        stamp = depth.header.stamp
+        return ConditionedDepth(
+            depth.header, self._condition(depth_array(depth), stamp_ns(stamp)))
 
     def build_cloud(self, color, depth, info):
         """
@@ -512,6 +602,13 @@ class CameraAdapter(Node):
         self.declare_parameter("gap_frames", [1])
         self.declare_parameter("gap_probabilities", [1.0])
         self.declare_parameter("seed", -1)
+        # The depth quality, likewise ideal by default (no scale error, no noise,
+        # no minimum range) and set from the selected profile by the launch file.
+        self.declare_parameter("depth_scale_error", 0.0)
+        self.declare_parameter("depth_noise_floor_m", 0.0)
+        self.declare_parameter("depth_noise_coefficient", 0.0)
+        self.declare_parameter("depth_noise_exponent", 1.0)
+        self.declare_parameter("depth_min_range_m", 0.0)
 
         def parameter(name):
             return self.get_parameter(name).value
@@ -526,6 +623,18 @@ class CameraAdapter(Node):
         seed = resolve_seed(parameter("seed"))
         self.get_logger().info(
             f"Point cloud gaps drawn from seed {seed}, latency {self.latency_s:.3f} s")
+        conditioner = DepthConditioner(
+            scale_error=float(parameter("depth_scale_error")),
+            noise_floor_m=float(parameter("depth_noise_floor_m")),
+            noise_coefficient=float(parameter("depth_noise_coefficient")),
+            noise_exponent=float(parameter("depth_noise_exponent")),
+            min_range_m=float(parameter("depth_min_range_m")),
+            seed=seed)
+        self.get_logger().info(
+            f"Depth: scale error {parameter('depth_scale_error'):+.6f}, noise "
+            f"max({parameter('depth_noise_floor_m')}, {parameter('depth_noise_coefficient')} "
+            f"* d^{parameter('depth_noise_exponent')}) m from seed {seed}, "
+            f"NaN below {parameter('depth_min_range_m')} m")
         gate = FrameGate(
             GapSampler(dict(zip(gap_frames, gap_probabilities)), seed),
             float(parameter("frame_period_s")))
@@ -534,7 +643,8 @@ class CameraAdapter(Node):
             gate,
             decimation=int(parameter("cloud_decimation")),
             strip_nan=bool(parameter("cloud_strip_nan")),
-            target_frame=self.target_frame)
+            target_frame=self.target_frame,
+            condition=conditioner)
         self.core = AdapterCore(
             self.pipeline,
             self._publish_depth,

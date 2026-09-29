@@ -10,10 +10,13 @@ PACKAGE_NAME = "yahboom_rosmaster_gazebo"
 FILE_NAME = "sensor_profiles.yaml"
 SOURCE_PATH = Path(__file__).resolve().parents[1] / "config" / FILE_NAME
 PROFILE_NAMES = ("ideal", "physical")
-# The keys every profile of a sensor must carry. Steps 7 and 8 of #43 add the
-# depth, LiDAR and IMU sensors here.
+# The keys every profile of a sensor must carry. Step 8 of #43 adds the LiDAR
+# and IMU sensors here.
 SENSOR_KEYS = {
     "point_cloud": ("frame_period_s", "latency_s", "gap_frames"),
+    "depth": (
+        "scale_error", "noise_sigma_floor_m", "noise_sigma_coefficient",
+        "noise_sigma_exponent", "min_range_m"),
 }
 # The published gap probabilities carry four decimals and sum to 0.9998.
 PROBABILITY_SUM_TOLERANCE = 1e-3
@@ -60,8 +63,11 @@ def _gap_frames(sensor, profile, key, value):
 def _validated_value(sensor, profile, key, value):
     if key == "gap_frames":
         return _gap_frames(sensor, profile, key, value)
-    if key == "frame_period_s":
+    if key in ("frame_period_s", "noise_sigma_exponent"):
         return _number(sensor, profile, key, value, 0.0, exclusive=True)
+    if key == "scale_error":
+        # A fraction of the depth: -1 would read every distance as zero.
+        return _number(sensor, profile, key, value, -1.0, exclusive=True)
     return _number(sensor, profile, key, value, 0.0)
 
 
@@ -125,4 +131,15 @@ def point_cloud_parameters(profile):
         "latency_s": profile["latency_s"],
         "gap_frames": list(gaps),
         "gap_probabilities": list(gaps.values()),
+    }
+
+
+def depth_parameters(profile):
+    """Return the camera adapter's node parameters for a depth profile."""
+    return {
+        "depth_scale_error": profile["scale_error"],
+        "depth_noise_floor_m": profile["noise_sigma_floor_m"],
+        "depth_noise_coefficient": profile["noise_sigma_coefficient"],
+        "depth_noise_exponent": profile["noise_sigma_exponent"],
+        "depth_min_range_m": profile["min_range_m"],
     }

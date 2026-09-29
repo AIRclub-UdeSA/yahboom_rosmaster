@@ -40,6 +40,7 @@ from camera_adapter import (  # noqa: E402
     StampPairer,
     back_project,
     color_array,
+    DepthConditioner,
     condition_depth,
     depth_array,
     depth_image_message,
@@ -47,6 +48,7 @@ from camera_adapter import (  # noqa: E402
     rotation_matrix,
 )
 from cloud_timing import FrameGate, GapSampler  # noqa: E402
+from sensor_profiles import SOURCE_PATH, load_sensor_profile  # noqa: E402
 
 OPTICAL_FRAME = "cam_1_color_optical_frame"
 CLOUD_FRAME = "cam_1_depth_frame"
@@ -655,14 +657,10 @@ class TestMalformedInput(unittest.TestCase):
 class TestDepthConditioning(unittest.TestCase):
     """The step-7 seam runs once on every depth image, and feeds both outputs."""
 
-    def test_it_does_nothing_for_now(self):
-        depth = np.ones((2, 2))
-        self.assertIs(condition_depth(depth), depth)
-
     def test_it_runs_on_every_depth_image_but_a_cloud_is_built_only_for_delivered_ones(self):
         calls = []
 
-        def condition(depth):
+        def condition(depth, _stamp):
             calls.append(depth)
             return depth * 2.0
 
@@ -686,6 +684,309 @@ class TestDepthConditioning(unittest.TestCase):
         # Under the +90 degree z turn the depth (optical z) stays the z axis.
         np.testing.assert_allclose(
             decode(clouds[0])["z"], (depth * 2.0).ravel() + 3.0, rtol=1e-6)
+
+
+DEPTH_SHAPE = (240, 320)
+PHYSICAL = load_sensor_profile(SOURCE_PATH, "depth", "physical")
+# The values under test, read from the profile file. The expectations below
+# are worked out from them with math.pow, never with the adapter's arithmetic.
+SCALE = 1.0 + PHYSICAL["scale_error"]
+
+
+def physical_conditioner(seed=5, **changes):
+    """Return a conditioner built from the physical depth profile."""
+    values = dict(
+        scale_error=PHYSICAL["scale_error"],
+        noise_floor_m=PHYSICAL["noise_sigma_floor_m"],
+        noise_coefficient=PHYSICAL["noise_sigma_coefficient"],
+        noise_exponent=PHYSICAL["noise_sigma_exponent"],
+        min_range_m=PHYSICAL["min_range_m"],
+        seed=seed)
+    values.update(changes)
+    return DepthConditioner(**values)
+
+
+def expected_sigma(rendered):
+    """Return sigma for a rendered depth: the scaled depth into the noise law."""
+    reported = rendered * SCALE
+    return max(
+        PHYSICAL["noise_sigma_floor_m"],
+        PHYSICAL["noise_sigma_coefficient"]
+        * math.pow(reported, PHYSICAL["noise_sigma_exponent"]))
+
+
+class TestIdealDepth(unittest.TestCase):
+    """The ideal profile publishes every finite pixel bit for bit, and NaN for the rest."""
+
+    @staticmethod
+    def rendered():
+        generator = np.random.default_rng(11)
+        depth = generator.uniform(0.05, 8.0, DEPTH_SHAPE).astype(np.float32)
+        depth[0, :5] = [np.inf, -np.inf, np.nan, 0.0, -0.5]
+        depth[1, :3] = np.finfo(np.float32).tiny / 4  # a subnormal
+        return depth
+
+    def check(self, conditioned, rendered):
+        self.assertEqual(conditioned.dtype, np.float32)
+        finite = np.isfinite(rendered)
+        np.testing.assert_array_equal(
+            conditioned.view(np.uint32)[finite], rendered.view(np.uint32)[finite])
+        self.assertTrue(np.all(np.isnan(conditioned[~finite])))
+        self.assertFalse(np.any(np.isinf(conditioned)))
+
+    def test_finite_pixels_are_unchanged_and_every_other_pixel_is_nan(self):
+        rendered = self.rendered()
+        self.check(condition_depth(rendered), rendered)
+
+    def test_an_unset_conditioner_is_that_ideal_path_and_draws_nothing(self):
+        conditioner = DepthConditioner()
+
+        def refuse(*_):
+            raise AssertionError("the ideal path must not draw noise")
+
+        conditioner._noise = refuse
+        rendered = self.rendered()
+        self.check(conditioner(rendered, 123), rendered)
+
+    def test_the_input_is_left_alone(self):
+        rendered = self.rendered()
+        before = rendered.copy()
+        condition_depth(rendered)
+        physical_conditioner()(rendered, 1)
+        np.testing.assert_array_equal(rendered.view(np.uint32), before.view(np.uint32))
+
+
+class TestPhysicalDepth(unittest.TestCase):
+    """The physical profile's scale error, noise and minimum range."""
+
+    @staticmethod
+    def flat(distance, height=DEPTH_SHAPE[0], width=DEPTH_SHAPE[1]):
+        return np.full((height, width), distance, dtype=np.float32)
+
+    def test_the_scale_error_alone_scales_every_distance(self):
+        conditioner = physical_conditioner(noise_floor_m=0.0, noise_coefficient=0.0)
+        for distance in (0.7, 1.5, 4.0, 7.9):
+            with self.subTest(distance=distance):
+                published = conditioner(self.flat(distance), 1)
+                np.testing.assert_allclose(
+                    published, distance * SCALE, rtol=2e-7, atol=0.0)
+
+    def test_the_mean_and_deviation_follow_the_law_at_each_distance(self):
+        conditioner = physical_conditioner()
+        frames = 4
+        for distance in (0.8, 1.05, 1.5, 2.5, 3.6, 5.0):
+            with self.subTest(distance=distance):
+                published = np.concatenate([
+                    conditioner(self.flat(distance), 1000 + frame).ravel()
+                    for frame in range(frames)]).astype(np.float64)
+                count = published.size
+                reported = distance * SCALE
+                sigma = expected_sigma(distance)
+                # Five standard errors of the mean and of a standard deviation.
+                self.assertAlmostEqual(
+                    published.mean(), reported, delta=5.0 * sigma / math.sqrt(count))
+                self.assertAlmostEqual(
+                    published.std() / sigma, 1.0, delta=5.0 / math.sqrt(2.0 * count))
+
+    def test_the_noise_is_the_floor_up_close_and_grows_as_the_power_law_beyond(self):
+        conditioner = physical_conditioner()
+        spread = {
+            distance: float(conditioner(self.flat(distance), 7).astype(np.float64).std())
+            for distance in (0.7, 1.0, 3.0, 6.0)}
+        # Under the floor's knee (about 1.02 m reported) the deviation is 2 mm.
+        for distance in (0.7, 1.0):
+            self.assertAlmostEqual(spread[distance], 0.002, delta=0.0002)
+        # Beyond it, doubling the distance multiplies sigma by 2 ** 2.36 = 5.13.
+        self.assertAlmostEqual(spread[6.0] / spread[3.0], 2.0 ** 2.36, delta=0.15)
+
+    def test_nothing_below_the_minimum_range_is_ever_published(self):
+        generator = np.random.default_rng(2)
+        rendered = generator.uniform(0.3, 8.0, DEPTH_SHAPE).astype(np.float32)
+        minimum = PHYSICAL["min_range_m"]
+        conditioner = physical_conditioner()
+        for stamp_ns in range(20):
+            published = conditioner(rendered, stamp_ns)
+            self.assertGreaterEqual(float(np.nanmin(published)), minimum)
+            self.assertFalse(np.any(np.isinf(published)))
+
+    def test_pixels_well_under_the_cutoff_are_nan_and_well_over_it_are_not(self):
+        minimum = PHYSICAL["min_range_m"]
+        boundary = minimum / SCALE
+        # Six sigma of the floor is 12 mm: rendered depths that far off the
+        # boundary can only fall on one side.
+        margin = 6.0 * PHYSICAL["noise_sigma_floor_m"] / SCALE
+        conditioner = physical_conditioner()
+        under = conditioner(self.flat(boundary - margin - 0.001), 4)
+        over = conditioner(self.flat(boundary + margin + 0.001), 4)
+        self.assertTrue(np.all(np.isnan(under)))
+        self.assertFalse(np.any(np.isnan(over)))
+
+    def test_at_the_cutoff_about_half_the_pixels_survive(self):
+        boundary = PHYSICAL["min_range_m"] / SCALE
+        published = physical_conditioner()(self.flat(boundary), 4)
+        survived = float(np.mean(np.isfinite(published)))
+        # Half, within five standard errors of a fair coin over 76,800 pixels.
+        self.assertAlmostEqual(survived, 0.5, delta=5 * 0.5 / math.sqrt(published.size))
+
+    def test_no_return_pixels_are_nan_not_infinite(self):
+        rendered = self.flat(2.0)
+        rendered[0, :3] = [np.inf, -np.inf, np.nan]
+        published = physical_conditioner()(rendered, 1)
+        self.assertTrue(np.all(np.isnan(published[0, :3])))
+        self.assertFalse(np.any(np.isinf(published)))
+        self.assertTrue(np.all(np.isfinite(published[1:])))
+
+    def test_the_output_is_float32(self):
+        self.assertEqual(physical_conditioner()(self.flat(2.0), 1).dtype, np.float32)
+        self.assertEqual(
+            physical_conditioner()(self.flat(2.0).astype(np.float64), 1).dtype, np.float32)
+
+    def test_neighbouring_pixels_and_frames_are_uncorrelated(self):
+        conditioner = physical_conditioner()
+        first = conditioner(self.flat(3.0), 1).astype(np.float64)
+        second = conditioner(self.flat(3.0), 2).astype(np.float64)
+        first -= first.mean()
+        second -= second.mean()
+        limit = 5.0 / math.sqrt(first.size)
+        horizontal = float(np.mean(first[:, 1:] * first[:, :-1]) / first.var())
+        vertical = float(np.mean(first[1:] * first[:-1]) / first.var())
+        across = float(np.mean(first * second) / math.sqrt(first.var() * second.var()))
+        for name, correlation in (
+                ("horizontal", horizontal), ("vertical", vertical), ("frames", across)):
+            with self.subTest(neighbour=name):
+                self.assertLess(abs(correlation), limit)
+
+    def test_invalid_parameters_are_rejected(self):
+        for name, value in (
+                ("scale_error", -1.0), ("scale_error", math.nan),
+                ("noise_floor_m", -0.1), ("noise_coefficient", -1.0),
+                ("noise_exponent", 0.0), ("min_range_m", -0.6),
+                ("min_range_m", math.inf)):
+            with self.subTest(name=name, value=value):
+                with self.assertRaises(ValueError):
+                    physical_conditioner(**{name: value})
+
+
+class TestDepthNoiseStream(unittest.TestCase):
+    """
+    A frame's noise comes from (seed, stamp) alone, in a stream of its own.
+
+    numpy does not promise the same random stream across versions, so nothing
+    here pins a noise value: only reproducibility within one process. The gap
+    sampler uses Python's ``random``, so its sequence is pinned below.
+    """
+
+    def setUp(self):
+        self.depth = np.full(DEPTH_SHAPE, 3.0, dtype=np.float32)
+
+    def test_the_same_seed_and_stamp_give_the_same_frame_bit_for_bit(self):
+        first = physical_conditioner(seed=9)(self.depth, 5_000_000_000)
+        again = physical_conditioner(seed=9)(self.depth, 5_000_000_000)
+        np.testing.assert_array_equal(first.view(np.uint32), again.view(np.uint32))
+
+    def test_another_stamp_or_seed_gives_other_noise(self):
+        base = physical_conditioner(seed=9)(self.depth, 5_000_000_000)
+        for other in (
+                physical_conditioner(seed=9)(self.depth, 5_033_000_000),
+                physical_conditioner(seed=10)(self.depth, 5_000_000_000)):
+            self.assertFalse(np.array_equal(base, other))
+
+    def test_a_dropped_frame_does_not_shift_the_noise_of_the_next(self):
+        stamps = [1_000_000_000, 1_033_000_000, 1_066_000_000]
+        every = physical_conditioner(seed=3)
+        with_gap = physical_conditioner(seed=3)
+        kept = [every(self.depth, stamp) for stamp in stamps]
+        skipped = [with_gap(self.depth, stamps[0]), with_gap(self.depth, stamps[2])]
+        np.testing.assert_array_equal(kept[0], skipped[0])
+        np.testing.assert_array_equal(kept[2], skipped[1])
+
+    def test_a_pixels_noise_does_not_depend_on_which_others_are_valid(self):
+        holed = self.depth.copy()
+        holed[:100] = np.inf
+        conditioner = physical_conditioner(seed=4)
+        full = conditioner(self.depth, 77)
+        partial = conditioner(holed, 77)
+        np.testing.assert_array_equal(partial[100:], full[100:])
+        self.assertTrue(np.all(np.isnan(partial[:100])))
+
+    def test_the_cloud_gap_sequence_for_a_seed_is_what_main_produced(self):
+        """The gap sampler is untouched: these are main's draws, captured at 7da6469."""
+        table = load_sensor_profile(SOURCE_PATH, "point_cloud", "physical")["gap_frames"]
+        pinned = {
+            0: [6, 4, 2, 1, 2, 2, 5, 1, 2, 3, 8, 2, 1, 4, 3, 1, 8, 17, 5, 8,
+                1, 4, 8, 4, 2, 1, 2, 3, 9, 13, 2, 7, 1, 5, 3, 1, 4, 2, 6, 3],
+            1: [1, 6, 5, 1, 2, 2, 3, 5, 1, 1, 6, 2, 5, 1, 2, 4, 1, 11, 8, 1,
+                1, 3, 10, 2, 1, 2, 1, 1, 2, 2, 1, 1, 1, 2, 1, 1, 6, 3, 3, 1],
+            20260926: [1, 1, 1, 2, 1, 1, 2, 5, 6, 1, 4, 4, 4, 4, 3, 1, 3, 2, 1, 7,
+                       1, 1, 1, 2, 2, 7, 8, 11, 1, 4, 5, 1, 2, 2, 5, 1, 4, 3, 2, 1],
+        }
+        for seed, gaps in pinned.items():
+            with self.subTest(seed=seed):
+                sampler = GapSampler(table, seed)
+                self.assertEqual([sampler.next_gap() for _ in gaps], gaps)
+
+    def test_conditioning_leaves_the_delivered_frames_of_a_seed_unchanged(self):
+        """The same seed feeds both; the frames that become clouds are main's."""
+        table = load_sensor_profile(SOURCE_PATH, "point_cloud", "physical")["gap_frames"]
+        pinned = [
+            0, 1, 2, 5, 6, 9, 11, 12, 14, 15, 17, 18, 19, 21, 27, 28, 29, 32, 43, 46,
+            48, 62, 63, 69, 70, 71, 72, 73, 79, 80, 83, 86, 88, 91, 92, 93, 94, 98,
+            100, 101, 104, 106, 107, 112, 116, 117, 120, 123, 130, 134, 135, 150,
+            151, 153, 157, 158, 160, 161, 164, 169, 172, 179, 180, 184, 187, 190,
+            192, 198, 209, 211, 214, 215, 219, 222, 242, 248, 249, 251, 254, 255,
+            257, 258, 259, 260, 265, 266, 267, 269, 276, 277, 279, 282, 289, 295]
+        depth, rgb = sample_frame()
+        target = FramePipeline(
+            FrameGate(GapSampler(table, 7), FRAME_PERIOD),
+            condition=physical_conditioner(seed=7))
+        target.set_transform((0.0, 0.0, 0.0), IDENTITY)
+        delivered = []
+        for frame in range(300):
+            seconds = 1.0 + frame * FRAME_PERIOD
+            conditioned = target.condition(depth_image(depth, seconds=seconds))
+            cloud = target.build_cloud(
+                color_image(rgb, seconds=seconds), conditioned, camera_info(4, 3))
+            if cloud is not None:
+                delivered.append(frame)
+        self.assertEqual(delivered, pinned)
+
+
+class TestOneConditionedFrame(unittest.TestCase):
+    """The public depth image and the cloud come from one conditioned array."""
+
+    def test_the_cloud_holds_exactly_the_published_finite_pixels(self):
+        depths, clouds, warnings, errors = [], [], [], []
+        conditioner = physical_conditioner(seed=1)
+        calls = []
+
+        def counting(depth, stamp_nanoseconds):
+            calls.append(stamp_nanoseconds)
+            return conditioner(depth, stamp_nanoseconds)
+
+        target = FramePipeline(AlwaysDeliver(), condition=counting)
+        target.set_transform((0.0, 0.0, 0.0), IDENTITY)
+        core = AdapterCore(
+            target, depths.append, clouds.append, warnings.append, errors.append)
+        core.on_camera_info(camera_info(6, 4, fx=50.0, fy=50.0, cx=2.5, cy=1.5))
+        generator = np.random.default_rng(6)
+        rendered = generator.uniform(0.3, 6.0, (4, 6)).astype(np.float32)
+        rendered[0, 0] = np.inf
+        rgb = np.zeros((4, 6, 3), np.uint8)
+        for index in range(3):
+            seconds = 1.0 + index * FRAME_PERIOD
+            core.on_color(color_image(rgb, seconds=seconds))
+            core.on_depth(depth_image(rendered, seconds=seconds))
+        self.assertEqual(len(calls), 3)
+        self.assertEqual((len(depths), len(clouds)), (3, 3))
+        for message, cloud in zip(depths, clouds):
+            published = depth_array(message)
+            self.assertFalse(np.array_equal(published, rendered))
+            finite = np.isfinite(published).ravel()
+            # Stripped of non-finite points, in row order: the finite pixels'
+            # depths are the cloud's z, unchanged, so no second draw was made.
+            np.testing.assert_array_equal(
+                decode(cloud)["z"], published.ravel()[finite])
+        self.assertEqual(warnings + errors, [])
 
 
 class TestStampPairer(unittest.TestCase):
@@ -811,7 +1112,7 @@ class TestAdapterCore(unittest.TestCase):
         noise = np.random.default_rng(3)
         calls = []
 
-        def condition(depth):
+        def condition(depth, _stamp):
             calls.append(depth)
             return depth + noise.normal(0.0, 0.01, depth.shape)
 
@@ -893,7 +1194,7 @@ class TestAdapterCore(unittest.TestCase):
     def test_it_conditions_a_depth_image_that_never_finds_a_partner(self):
         calls = []
 
-        def condition(depth):
+        def condition(depth, _stamp):
             calls.append(depth)
             return depth * 2.0
 

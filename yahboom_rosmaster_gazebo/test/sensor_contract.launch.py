@@ -42,6 +42,7 @@ def generate_test_description():
     samples = LaunchConfiguration("samples")
     performance_checks = LaunchConfiguration("performance_checks")
     cloud_timing_seconds = LaunchConfiguration("cloud_timing_seconds")
+    sensor_profile = LaunchConfiguration("sensor_profile")
     # The performance checks need a sim that is already publishing; a run
     # without them waits for readiness itself and can start its probe early.
     probe_delay = PythonExpression([
@@ -58,6 +59,7 @@ def generate_test_description():
             "world": PathJoinSubstitution([package_share, "worlds", world]),
             # A fixed seed makes the cloud's gap sequence the same every launch.
             "sensor_seed": "1",
+            "sensor_profile": sensor_profile,
         }.items(),
     )
     probe = Node(
@@ -68,6 +70,8 @@ def generate_test_description():
             "samples": ParameterValue(samples, value_type=int),
             "performance_checks": ParameterValue(
                 performance_checks, value_type=bool),
+            # Grades the depth quality the profile promises against the render.
+            "sensor_profile": ParameterValue(sensor_profile, value_type=str),
         }],
         output="screen",
     )
@@ -79,7 +83,7 @@ def generate_test_description():
         executable="cloud_timing_probe.py",
         parameters=[{
             "use_sim_time": True,
-            "profile": "physical",
+            "profile": ParameterValue(sensor_profile, value_type=str),
             "duration_s": ParameterValue(cloud_timing_seconds, value_type=float),
             "timeout": 110.0,
         }],
@@ -88,6 +92,9 @@ def generate_test_description():
 
     return LaunchDescription([
         DeclareLaunchArgument("world", default_value="empty.world"),
+        DeclareLaunchArgument(
+            "sensor_profile", default_value="physical",
+            choices=["ideal", "physical"]),
         DeclareLaunchArgument("samples", default_value="10"),
         DeclareLaunchArgument("performance_checks", default_value="true"),
         DeclareLaunchArgument(
