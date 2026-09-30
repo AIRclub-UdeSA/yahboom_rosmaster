@@ -347,6 +347,12 @@ Astra's scale error, noise and minimum range (#43 step 7). The numbers are in
   52.2 and 140 mm.
 - **numpy.** The unit tests and the CI gate pass with `PYTHONNOUSERSITE=1`
   (numpy 1.21.5, the CI image's) as with the user's numpy 2.2.6.
+- **Re-measured** with `tools/measure_cloud_timing.py` (physical_rosmaster's probe
+  at 468662c, three 40 s runs, numpy 1.21.5): on the host GPU 993 cloud gaps with
+  median 2, p95 11, longest 32 and mean 3.60 frames, 8.42 Hz, a 363 ms p95 period,
+  a worst gap of 1.056 s and a 50 ms latency in every run; on llvmpipe 492 gaps,
+  8.61 Hz on stamps and 50 ms. The depth image ran at 30.303 Hz on stamps. In
+  `empty.world` 18.6% of its pixels are valid and the rest NaN, on both.
 
 ### Cost
 

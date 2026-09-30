@@ -38,7 +38,8 @@ these items.
   host GPU are the executor waking for every tick of the 1 kHz `/clock`; see
   "Point cloud pipeline" in the deferred changes for the options, including
   one delay queue instead of a timer per cloud. The real-time factor is
-  unaffected today.
+  unaffected on the GPU; #43 step 7's depth conditioning added about 1 point
+  there and 1.7 on llvmpipe (real-time factor 0.504 to 0.496).
 - [x] Re-pin `physical.provenance.commit` in the parity ledger to the merge
   commit of physical_rosmaster#45, and re-read the values taken from it. Done in
   #43 step 7: 468662c, no value changed.
