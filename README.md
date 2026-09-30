@@ -541,7 +541,7 @@ The adapter also gives the depth the physical Astra's quality under
    inverse of the doc's recommended correction (`true ~= reported * 1.012`; the
    doc records -1.1% to -1.3%);
 2. Gaussian noise is added, independent per pixel, with
-   `sigma(z') = max(0.002, 0.0019 * z'^2.36)` m: 2 mm up close, 26 mm at 3 m.
+   `sigma(z') = max(0.002, 0.0019 * z'^2.36)` m: 2 mm up close, 25 mm at 3 m.
    The fit is calibrated to 3.6 m and is **extrapolated** beyond it, to about 12
    cm at 5.8 m and 25 cm at the 8 m far clip, which nothing measured;
 3. anything under 0.6 m after that is NaN: nothing below 0.6 m is ever published.
