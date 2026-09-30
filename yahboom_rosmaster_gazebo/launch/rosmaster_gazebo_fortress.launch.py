@@ -197,11 +197,16 @@ def _camera_adapter(context, pkg_gz):
     # The loader lives with the scripts, so that its unit tests can import it.
     # It is imported here, once the launch is running, rather than at load.
     sys.path.insert(0, os.path.join(pkg_gz, "scripts"))
-    from sensor_profiles import load_sensor_profile, point_cloud_parameters
+    from sensor_profiles import (
+        depth_parameters,
+        load_sensor_profile,
+        point_cloud_parameters,
+    )
 
     profile_config = os.path.join(pkg_gz, "config", "sensor_profiles.yaml")
     profile_name = LaunchConfiguration("sensor_profile").perform(context)
     profile = load_sensor_profile(profile_config, "point_cloud", profile_name)
+    depth_profile = load_sensor_profile(profile_config, "depth", profile_name)
 
     decimation = LaunchConfiguration("cloud_decimation").perform(context)
     seed = LaunchConfiguration("sensor_seed").perform(context)
@@ -231,6 +236,7 @@ def _camera_adapter(context, pkg_gz):
                 context).lower() in ("true", "1", "yes"),
             "seed": seed,
             **point_cloud_parameters(profile),
+            **depth_parameters(depth_profile),
         }],
         # The adapter does its arithmetic element-wise. Should any call reach
         # BLAS, its spinning threads would take cores from the Gazebo server:
@@ -648,8 +654,10 @@ def generate_launch_description():
         choices=["ideal", "physical"],
         description=(
             "Sensor quality and timing profile: physical delivers the point "
-            "cloud with the physical X3's gaps and latency; ideal delivers "
-            "every frame as soon as it is built"),
+            "cloud with the physical X3's gaps and latency, and the depth "
+            "image with its scale error, noise and NaN below 0.6 m; ideal "
+            "delivers every frame as soon as it is built, with the rendered "
+            "depth unchanged"),
     )
     declare_sensor_seed = DeclareLaunchArgument(
         "sensor_seed",

@@ -506,7 +506,7 @@ a physical ROSMASTER X3. See
 | `/scan` | `sensor_msgs/msg/LaserScan` | `laser_link` / 5 Hz | 1080-sample 2D LiDAR scan |
 | `/imu/data` | `sensor_msgs/msg/Imu` | `imu_link` / 10 Hz | Simulated IMU data |
 | `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | `cam_1_color_optical_frame` / 30 Hz | 320x240 `rgb8` image |
-| `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | `cam_1_color_optical_frame` / 30 Hz | 320x240 `32FC1` depth in metres, registered to color |
+| `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | `cam_1_color_optical_frame` / 30 Hz | 320x240 `32FC1` depth in metres, registered to color. A pixel with no return is NaN. Under `physical` (the default) depth reads 1.1858% short, carries noise of `max(0.002, 0.0019·d^2.36)` m and is NaN below 0.6 m; under `ideal` it is the render, unchanged |
 | `/cam_1/color/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_color_optical_frame` / 30 Hz | fx = fy = 271.809, (cx, cy) = (159.5, 119.5), `plumb_bob` with zero distortion |
 | `/cam_1/depth/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_color_optical_frame` / 30 Hz | Same as color: depth is registered to color |
 | `/cam_1/depth/color/points` | `sensor_msgs/msg/PointCloud2` | `cam_1_depth_frame` / about 8 Hz (every frame under `sensor_profile:=ideal`) | Unorganized XYZRGB cloud, 16-byte points with the NaN returns stripped. Under `physical` it arrives in gaps of whole 30 Hz frames, up to 1.1 s, about 50 ms after its stamp |
@@ -532,6 +532,27 @@ each depth image the moment it arrives, as on the robot, whether or not its colo
 image or a `camera_info` has come; a cloud is built from that same depth image,
 so the two always come from the same frame. Gazebo's own cloud is no longer
 bridged, and `/internal/cam_1/points_raw` is gone.
+
+The adapter also gives the depth the physical Astra's quality under
+`sensor_profile:=physical`, the default (#43 step 7, from physical_rosmaster's
+`docs/depth_camera_calibration.md`). For each pixel with rendered depth `z`:
+
+1. the camera reads short: `z' = z / 1.012`, a scale error of -1.1858%, the
+   inverse of the doc's recommended correction (`true ~= reported * 1.012`; the
+   doc records -1.1% to -1.3%);
+2. Gaussian noise is added, independent per pixel, with
+   `sigma(z') = max(0.002, 0.0019 * z'^2.36)` m: 2 mm up close, 25 mm at 3 m.
+   The fit is calibrated to 3.6 m and is **extrapolated** beyond it, to about 12
+   cm at 5.8 m and 25 cm at the 8 m far clip, which nothing measured;
+3. anything under 0.6 m after that is NaN: nothing below 0.6 m is ever published.
+
+The noise of a frame comes from `sensor_seed` and the frame's stamp, so a fixed
+seed repeats it and a frame that goes missing shifts no other. The published
+depth image and the cloud are built from one conditioned frame. The floor's
+dropout and the close-range wedge of the physical sensor are not modelled
+(#59). `sensor_profile:=ideal` publishes every finite pixel exactly as rendered.
+Under both profiles a pixel with no return is NaN, as the robot publishes it,
+where Gazebo has +inf beyond the far clip.
 
 `sensor_profile` sets what the cloud's timing looks like. Under `physical` (the
 default) the adapter delivers a cloud for only about one camera frame in
@@ -580,9 +601,10 @@ robot. A color pixel and the depth pixel at the same coordinates see the same
 point. The principal point is the rendered image centre, (159.5, 119.5), 0.8
 and 0.6 px from the physical unit's (158.719, 120.092): Fortress cannot render
 an off-centre one. Everything else about the depth is still nominal and
-idealized, with no measured noise, scale error, 0.6 m minimum range or
-dropouts (#43 step 7). The point cloud is the physical adapter's, in layout and
-timing (#43 step 6, above).
+idealized under `ideal`; under the default `physical` profile it has the
+measured scale error, noise and 0.6 m minimum range (#43 step 7, above), but not
+the floor's dropout or the close-range wedge (#59). The point cloud is the
+physical adapter's, in layout and timing (#43 step 6, above).
 
 ## Verify the Simulator
 
@@ -644,7 +666,7 @@ ideal-versus-stress motion-profile contract:
 
 ```bash
 colcon test --packages-select yahboom_rosmaster_gazebo \
-  --ctest-args -R '^(sensor_contract_(probe_contract|empty|cafe)|cloud_timing_(physical|ideal)|depth_geometry|ground_truth_contract|motion_profile_.*|lidar_geometry|imu_motion|base_feedback|wheel_odometry_resilience)$' \
+  --ctest-args -R '^(sensor_contract_(probe_contract|empty|empty_ideal|cafe)|cloud_timing_(physical|ideal)|depth_geometry|ground_truth_contract|motion_profile_.*|lidar_geometry|imu_motion|base_feedback|wheel_odometry_resilience)$' \
   --output-on-failure
 colcon test-result --verbose
 ```
@@ -831,6 +853,26 @@ on the robot. Code that assumed a cloud every frame must tolerate the gaps.
 is built. Gaps come from `sensor_seed`, so a fixed seed repeats them, and the
 depth image is not affected: every frame is still published.
 
+⚠️ **The depth image changed in #43 step 7, which breaks code built against the
+old one.** By default (`sensor_profile:=physical`) it now has the physical
+Astra's quality, and under both profiles a pixel with no return changed from
++inf to NaN:
+
+| | Before | Now |
+|---|---|---|
+| Scale | exact | reads 1.1858% short (`z / 1.012`) under `physical` |
+| Noise | none | Gaussian, `max(0.002, 0.0019 * d^2.36)` m, from `sensor_seed` and the frame stamp; extrapolated beyond the 3.6 m the physical fit covers |
+| Below 0.6 m | returns from 0.05 m | NaN under `physical`: nothing below 0.6 m is published |
+| No return (beyond the 8 m far clip) | `+inf`, **under both profiles** | `NaN`, **under both profiles** |
+| Organized cloud (`cloud_strip_nan:=false`) | `inf` where nothing returned | `NaN` there; stripped clouds are unchanged |
+
+In the empty world the bottom 30% of the image, where the floor lies 0.25 m to
+0.6 m away, is now NaN. Code that tested `math.isinf()` for a missing return must
+test `isnan` (or `not isfinite`), as it must on the robot. Code that relied on
+depth starting at 0.05 m, or on exact distances, must use
+`sensor_profile:=ideal`, which publishes every finite pixel bit for bit. The
+floor's dropout and the close-range wedge are not modelled yet (#59).
+
 Work to match the remaining sensors to the physical robot is tracked in #43.
 `yahboom_rosmaster_gazebo/config/real_robot_contract.yaml` records the physical
 robot's measurements, the simulator's current values, and the #43 step that
@@ -844,10 +886,13 @@ The following simulator limitations remain:
   contact values are fitted against synchronized wheel odometry and external
   ground truth. Motor, encoder, floor, latency, and battery effects remain
   separate future calibration layers.
-- Sensor data is nominal simulation output. The camera's geometry,
-  resolution, intrinsics and rate follow the physical Astra, but its depth is
-  ideal: none of the measured noise, scale error, minimum range or dropouts
-  (#43 step 7). The LiDAR and IMU models have not been calibrated against
+- Sensor data is mostly nominal simulation output. The camera's geometry,
+  resolution, intrinsics and rate follow the physical Astra, and under the
+  default `physical` profile so do its depth's scale error, noise and 0.6 m
+  minimum range (#43 step 7). The noise fit is extrapolated beyond the 3.6 m it
+  was calibrated to. The physical sensor's floor dropout, its close-range wedge
+  and the fraction of pixels that return, which depends on the scene, are not
+  modelled (#59). The LiDAR and IMU models have not been calibrated against
   measurements from the physical robot (#43 step 8).
 - The 30 Hz camera is the heaviest sensor to render. With a GPU the simulator
   runs at about 0.95x real time. Under software rendering (llvmpipe, as on CI

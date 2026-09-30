@@ -142,8 +142,8 @@ class DepthGeometryProbe(Node):
             f"topics.{DEPTH_TOPIC}.frame_id")
         self.expected_cloud_frame = contract.nominal(
             f"topics.{POINTS_TOPIC}.frame_id")
-        self.depth_near = contract.nominal("depth.min_range_m")
-        self.depth_far = contract.nominal("depth.max_range_m")
+        self.depth_near = contract.setting("depth_near_clip_m")
+        self.depth_far = contract.setting("depth_far_clip_m")
         # Camera frame poses on base_link, from the ledger's mounts. The color
         # frames sit at the physical unit's calibrated offset from depth.
         optical = pose_matrix((0.0, 0.0, 0.0), OPTICAL_RPY)

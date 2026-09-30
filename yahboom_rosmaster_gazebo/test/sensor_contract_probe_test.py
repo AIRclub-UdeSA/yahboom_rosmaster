@@ -8,6 +8,8 @@ import sys
 from types import SimpleNamespace
 import unittest
 
+import numpy as np
+
 
 PROBE_PATH = (
     Path(__file__).resolve().parents[1] / "scripts" / "sensor_contract_probe.py"
@@ -113,6 +115,37 @@ class TestRateGrading(unittest.TestCase):
 
     def test_the_cloud_is_the_only_mean_graded_topic(self):
         self.assertEqual(PROBE_MODULE.MEAN_RATE_TOPICS, (self.CLOUD,))
+
+
+class TestDepthQualityInputs(unittest.TestCase):
+    """The probe reads the adapter's own input and decodes it with the row stride."""
+
+    def test_the_raw_topic_is_the_one_the_adapter_subscribes_to(self):
+        adapter = (PROBE_PATH.parent / "camera_adapter.py").read_text(encoding="utf-8")
+        self.assertIn(f'"{PROBE_MODULE.RAW_DEPTH_TOPIC}"', adapter)
+        self.assertIn(f'"{PROBE_MODULE.PUBLIC_DEPTH_TOPIC}"', adapter)
+
+    def test_a_padded_depth_image_decodes_to_its_pixels(self):
+        pixels = np.arange(6, dtype="<f4").reshape(2, 3)
+        rows = np.zeros((2, 4), dtype="<f4")
+        rows[:, :3] = pixels
+        message = SimpleNamespace(
+            encoding="32FC1", height=2, width=3, step=16, data=rows.tobytes())
+        decoded = PROBE_MODULE.SensorContractProbe.depth_pixels(message)
+        np.testing.assert_array_equal(decoded, pixels)
+        self.assertEqual(decoded.dtype, np.float32)
+
+    def test_another_encoding_is_refused(self):
+        message = SimpleNamespace(encoding="16UC1", height=1, width=1, step=2, data=b"")
+        with self.assertRaises(ValueError):
+            PROBE_MODULE.SensorContractProbe.depth_pixels(message)
+
+    def test_the_probe_grades_the_physical_profile_by_default(self):
+        launch = (PROBE_PATH.parents[1] / "test" / "sensor_contract.launch.py").read_text(
+            encoding="utf-8")
+        self.assertIn(
+            'DeclareLaunchArgument(\n            "sensor_profile", default_value="physical"',
+            launch)
 
 
 class TestSensorContractLedger(unittest.TestCase):

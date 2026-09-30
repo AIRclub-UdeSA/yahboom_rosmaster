@@ -40,6 +40,21 @@
 #                     out_of_scope (with a note) when #43 does not plan to.
 #   tolerance, note   optional.
 #
+# A physical value that is a measured range is written {min: low, max: high}.
+# values_agree() accepts a simulator number inside it, widened by the entry's
+# `tolerance`, so "the simulator's scale error lies in the physical range" is
+# verified rather than assumed. A bare [low, high] list is not a range: lists
+# compare element by element, and a simulator number against one is not
+# comparable.
+#
+# simulator.render_settings is the one group of the simulator section that is
+# not made of parity entries. It holds what the simulator is configured with
+# that has no physical counterpart (the camera's clip planes), each as
+# {nominal, note}. The description contract and depth_geometry_probe read it
+# through RealRobotContract.setting(), and real_robot_contract_test validates
+# it: a setting must be a positive number, must not be a parity entry, and must
+# not share a name with a physical key (which would make it a parity entry).
+#
 # See yahboom_rosmaster_gazebo/doc/real_robot_contract.md for how to refresh
 # each section.
 
@@ -48,13 +63,18 @@ version: 2
 physical:
   provenance:
     repository: https://github.com/AIRclub-UdeSA/physical_rosmaster
-    commit: bff09c77c937285c2592ab6af75d3a299cb3e46c
-    read_on: "2026-09-26"
-    # physical_rosmaster#45 (docs: re-measure point cloud timing on the shipped
-    # pipeline) is still open, so this pins its head, docs/cloud-timing-2026-09-24.
-    # It adds only the 2026-09-24 point cloud measurement to b144d31, which is
-    # main and the commit every other physical value below was read at. Re-pin to
-    # #45's merge commit once it merges; the files it names do not change.
+    commit: 468662ca25a52515a218dd944fc031ca85266244
+    read_on: "2026-09-29"
+    # physical_rosmaster main after #44 and #45 merged (this is #45's merge
+    # commit). Every physical value below was re-read at it on 2026-09-29, for
+    # #43 step 7. Since bff09c7, the head of #45 that this file pinned until
+    # then, only docs/sensor_capabilities.md and the probe tools changed; the
+    # files and artifacts this ledger names are otherwise identical, and so are
+    # the 2026-09-24 artifacts. What #45 gained in b76b2b5 is reflected in the
+    # comments below: the boot claim is scoped to one warm reboot's 25-65 s
+    # window, and the driver produces a cloud for "at least 36%" of frames.
+    # No value below changed. The measurement of the point cloud was taken at
+    # b144d31 (docs/sensor_capabilities.md "Measurement record").
     robot: x3-c (host yahboom), Astra serial ACRC64300ET, pinned Orbbec driver f7e71d9
     deployed_commit_during_measurements: 01e1a60
     sources:
@@ -197,8 +217,10 @@ physical:
       # Descriptive: how the settled runs spread, which no simulator value is
       # compared with. Five settled runs gave 7.3-9.2 Hz with nothing changed
       # between them, and run medians of 43-53 ms with a per-run standard
-      # deviation of 1-3 ms. The boot capture, 25 s after the platform came up,
-      # ran at 9.56 Hz, not slower than the settled runs.
+      # deviation of 1-3 ms. The one boot capture, a warm reboot begun 25 s
+      # after the platform came up (so its 25-65 s window, not the ready gate's
+      # first five clouds), ran at 9.56 Hz, not slower than the settled runs.
+      # It does not cover a cold boot, a separate failure mode.
       rate_hz_settled_range: [7.3, 9.2]
       latency_ms_run_medians: [43, 53]
       reliability: best_effort
@@ -254,7 +276,11 @@ physical:
     source: >
       docs/depth_camera_calibration.md (wall fits, 2026-09-18) and
       camera_public.json (2026-09-17)
-    scale_error: [-0.013, -0.011]
+    # The doc records -1.1% to -1.3% and recommends correcting with
+    # true ~= reported * 1.012 ("Scale"); the simulator applies that inverse.
+    scale_error: {min: -0.013, max: -0.011}
+    # Calibrated to 3.6 m ("Noise"). The simulator applies it beyond that as an
+    # extrapolation.
     noise_model: "sigma = max(0.002, 0.0019 * d^2.36) m"
     min_range_m: 0.6
     # Not measured as a cutoff. Returns reached 5.83 m in camera_public.json;
@@ -274,7 +300,7 @@ physical:
     source: >
       camera_settled_1.json to camera_settled_3.json, 2026-09-24 (the content
       of each run's cloud samples), and yahboomcar_astra/yahboomcar_astra/
-      sensor_adapter.py transform_cloud() at physical_rosmaster b144d31
+      sensor_adapter.py transform_cloud() (unchanged from b144d31 to 468662c)
     note: >
       The layout of the shipped adapter (physical_rosmaster PR #41), with
       cloud_strip_nan true and cloud_decimation 1, the launch defaults. About
@@ -431,7 +457,11 @@ simulator:
         note: >
           Measured at 556263d79d7f7d1be03f953b9227e22a6fcb8c99. Rebasing before
           the merge rewrote it as this commit. The model is identical; only a
-          comment in test/depth_geometry.launch.py differs.
+          comment in test/depth_geometry.launch.py differs. Step 7 re-measured
+          the depth image's rate_hz and latency_ms, the cloud's rate_hz,
+          period_p95_ms and latency_ms, and depth.valid_fraction after the
+          adapter changed; those keys, and the values under them, moved to its
+          record.
         keys:
           - topics./cam_1/color/image_raw.frame_id
           - topics./cam_1/color/image_raw.rate_hz
@@ -439,14 +469,9 @@ simulator:
           - topics./cam_1/color/camera_info.frame_id
           - topics./cam_1/color/camera_info.rate_hz
           - topics./cam_1/depth/image_raw.frame_id
-          - topics./cam_1/depth/image_raw.rate_hz
-          - topics./cam_1/depth/image_raw.latency_ms
           - topics./cam_1/depth/camera_info.frame_id
           - topics./cam_1/depth/camera_info.rate_hz
           - topics./cam_1/depth/color/points.frame_id
-          - topics./cam_1/depth/color/points.rate_hz
-          - topics./cam_1/depth/color/points.period_p95_ms
-          - topics./cam_1/depth/color/points.latency_ms
           - camera.width
           - camera.height
           - camera.fx
@@ -456,7 +481,6 @@ simulator:
           - camera.horizontal_fov_rad
           - camera.distortion_model
           - camera.distortion_coefficients
-          - depth.valid_fraction
         method: >
           physical_rosmaster tools/sensor_capability_probe.py at b144d31,
           unmodified (--group camera --duration 30), plus the sim-clock helper
@@ -479,13 +503,11 @@ simulator:
           layout, the 50.0 ms latency, the whole-frame gaps, the p95 period and
           the worst gap came out as before. The rate (8.61 to 8.69 Hz) and the
           mean gap (3.52 to 3.49 frames) moved by less than the 0.12 frames that
-          1,000 draws from the table spread by.
+          1,000 draws from the table spread by. Step 7 changed the adapter
+          again (the depth conditioning) and re-measured the timing keys
+          (rate_hz, period_p95_ms, latency_ms, gap_frames and worst_gap_s),
+          which moved to its record; the layout keys stay here.
         keys:
-          - topics./cam_1/depth/color/points.rate_hz
-          - topics./cam_1/depth/color/points.period_p95_ms
-          - topics./cam_1/depth/color/points.latency_ms
-          - topics./cam_1/depth/color/points.gap_frames
-          - topics./cam_1/depth/color/points.worst_gap_s
           - point_cloud.point_step
           - point_cloud.rgb_offset
           - point_cloud.rgb_datatype
@@ -508,6 +530,47 @@ simulator:
           points, x, y, z and rgb at 0, 4, 8 and 12, all FLOAT32, height 1,
           dense.
 
+      - step: 7
+        commit: e9b795ba96ad5f164ff05bbb02be19729490e602
+        measured_on: "2026-09-29"
+        note: >
+          The adapter did not change after d58b693; the commits after it add
+          tools, tests and documents. Step 7 re-measured the keys below after the
+          depth conditioning, and they moved here from the step 5 and step 6
+          records.
+        keys:
+          - topics./cam_1/depth/image_raw.rate_hz
+          - topics./cam_1/depth/image_raw.latency_ms
+          - topics./cam_1/depth/color/points.rate_hz
+          - topics./cam_1/depth/color/points.period_p95_ms
+          - topics./cam_1/depth/color/points.latency_ms
+          - topics./cam_1/depth/color/points.gap_frames
+          - topics./cam_1/depth/color/points.worst_gap_s
+          - depth.scale_error
+          - depth.min_range_m
+          - depth.valid_fraction
+          - depth.nan_fraction
+        method: >
+          The camera keys: tools/measure_cloud_timing.py, which runs
+          physical_rosmaster's tools/sensor_capability_probe.py (with
+          physical_contract_probe.py, fetched at 468662c with git show and
+          patched to stamp receipt with the ROS clock on sim time) as --group
+          camera --duration 40 --camera-frame-rate 30.30303 --per-message, three
+          times in one launch, on empty.world, headless, under
+          sensor_profile:=physical with a random seed and PYTHONNOUSERSITE=1
+          (numpy 1.21.5), on the host GPU (real-time factor 0.998) and on
+          llvmpipe pinned to four CPUs (about 0.5). Pooled: 993 gaps on the GPU
+          (median 2, p95 11, longest 32, mean 3.60 frames; 8.42 Hz, p95 period
+          363 ms, worst gap 1.056 s; cloud latency 50 ms in every run) and 492 on
+          llvmpipe (median 2, p95 10, longest 34, mean 3.52; 8.61 Hz on stamps).
+          The depth image ran at 30.303 Hz on stamps on both, with a latency of 9
+          ms (p95 11) on the GPU and 36 ms (p95 38) on llvmpipe; the alternating
+          comparison with main gave 6 to 9 ms and 34 to 36 ms. valid_fraction is
+          the mean of the depth content samples, 0.186 on both. The depth keys:
+          sensor_contract_probe under the full suite on the host GPU, which pairs
+          the published depth with the render of the same stamp: a scale error
+          of -0.01179 (standard error 0.00005) on empty.world and -0.01185 on
+          cafe.world, and the lowest finite depth 0.600003 m.
   frames:
     base_footprint_to_base_link_z_m:
       nominal: 0.0714
@@ -648,20 +711,27 @@ simulator:
       rate_hz:
         nominal: 30.0
         contract: [27.0, 33.0]
-        measured: 28.76
+        measured: 30.21
         tolerance: 0.5
         matches_physical: true
         note: >
           #43 step 5; was 5 Hz. With the 1 ms physics step Gazebo fires every
-          33 ms of sim time, so the stamps run at 30.3 Hz.
+          33 ms of sim time, so the stamps run at 30.3 Hz. Re-measured in step 7
+          after the depth conditioning: 30.20 to 30.21 Hz on wall time on the host
+          GPU (three 40 s runs), 30.303 Hz on stamps on both render paths.
       latency_ms:
-        measured: {host_gpu: 20, llvmpipe_4cpu: 33}
+        measured: {host_gpu: 9, llvmpipe_4cpu: 36}
         matches_physical: false
         closes_in_step: out_of_scope
         note: >
-          No step adds image latency: the simulator's intrinsic latency
-          already exceeds the physical 2-6 ms. At 5 Hz (step 2) it was 16 ms
-          and 64-66 ms.
+          The simulator's intrinsic latency already exceeded the physical
+          2.2 ms: 16 ms and 64-66 ms at 5 Hz (step 2), 20 and 33 ms with
+          the step-5 camera. Step 7's depth conditioning adds about 3 ms of sim
+          time (6 to 9 ms on the host GPU in the alternating comparison with
+          main, 34 to 36 ms on llvmpipe), because the image is published after it.
+          The simulator still exceeds the physical latency, so out_of_scope
+          stands. The step-7 figures are the physical probe's, on sim time, and
+          include its own subscription's load.
       reliability:
         nominal: best_effort
         matches_physical: true
@@ -703,25 +773,29 @@ simulator:
         # few clouds. The 9-gap mean rate falls under 2.8 Hz once in 10,000
         # windows, so a correct simulator is not failed for a run of long gaps.
         contract: [2.5, 33.0]
-        measured: 8.69
+        measured: 8.42
         tolerance: 0.2
         matches_physical: true
         note: >
           #43 step 6; was 30 Hz. The mean of the measured gap table, 3.62
-          frames of 33 ms. Three 40 s probe runs on the host GPU gave 8.95,
-          8.45 and 8.49 Hz, 8.69 pooled, against the robot's 7.3-9.2 Hz settled
-          runs: a 40 s run holds only about 340 clouds, so runs of either spread
-          about a hertz (the first measurement's were 9.57, 7.81 and 8.39).
+          frames of 33 ms. Re-measured in step 7 after the adapter changed: three
+          40 s probe runs on the host GPU gave 8.42, 8.52 and 8.24 Hz on wall
+          time and 8.42 pooled on stamps (mean gap 3.60 frames), against the
+          robot's 7.3-9.2 Hz settled runs; on llvmpipe the stamps gave 8.61 Hz
+          (mean gap 3.52 frames, 492 gaps) though wall time reads 4.0 to 4.4 Hz.
+          Step 6's runs gave 8.95, 8.45 and 8.49 Hz (8.69 pooled): a 40 s run
+          holds only about 340 clouds, so runs of either spread about a hertz.
           sensor_profile:=ideal delivers every frame, at 30.3 Hz.
       period_p95_ms:
         nominal: 363
-        measured: 330
+        measured: 363
         tolerance: 5
         matches_physical: true
         note: >
           #43 step 6; was 66 ms. 11 frames of 33 ms. The robot's 11 frames are
-          33.3 ms each: 367 ms. The pooled sample's p95 was 10 frames, 330 ms,
-          which 1,006 draws from the table give about one time in five.
+          33.3 ms each: 367 ms. Step 7's 993 gaps on the host GPU gave 11 frames,
+          363 ms; its 492 gaps on llvmpipe gave 10, 330 ms (step 6's 1,006 gave 10
+          as well, which draws from the table give about one time in five).
       latency_ms:
         nominal: 50
         measured: {host_gpu: 50, llvmpipe_4cpu: 50}
@@ -730,28 +804,30 @@ simulator:
         note: >
           #43 step 6; was 31 and 46 ms. The cloud leaves 50 ms of sim time after
           the stamp of its frame, which the images reach the adapter well
-          before: 7-8 ms on the host GPU and 35 ms on llvmpipe with 4 CPUs.
-          None of 1,294 clouds on the GPU or 502 on llvmpipe was ready late. The
-          tolerance covers the robot's 43-53 ms run medians.
+          before: 7-8 ms on the host GPU and 35 ms on llvmpipe with 4 CPUs in
+          step 6, 3 ms later with step 7's depth conditioning. Re-measured in
+          step 7: a 50.0 ms median in every run on both render paths (p95 50 and
+          51 ms). The tolerance covers the robot's 43-53 ms run medians.
       gap_frames:
         nominal: {median: 2, p95: 11, longest: 34, mean: 3.625}
-        measured: {median: 2, p95: 10, longest: 32, mean: 3.49}
+        measured: {median: 2, p95: 11, longest: 32, mean: 3.6}
         tolerance: 0.01
         matches_physical: true
         note: >
           #43 step 6. Drawn from the robot's measured table (988 gaps, whole
-          frames only). Measured over 1,006 gaps from three 40 s runs on the
-          host GPU: 32.1% of gaps were one frame against the table's 33.1%, and
-          no gap length differed from the table by more than 1.3 percentage
-          points.
+          frames only). Re-measured in step 7 over 993 gaps from three 40 s runs
+          on the host GPU: 31.9% of gaps were one frame against the table's
+          33.1%, no gap length differed from the table by more than 1.4
+          percentage points, and none was off the frame grid.
       worst_gap_s:
         nominal: 1.122
         measured: 1.056
         tolerance: 0.02
         matches_physical: true
         note: >
-          #43 step 6. The longest gap in the table, 34 frames of 33 ms. The
-          pooled sample's was 32 frames, 1.056 s.
+          #43 step 6. The longest gap in the table, 34 frames of 33 ms. Step 7's
+          pooled sample on the host GPU had 32 frames, 1.056 s (llvmpipe's, 492
+          gaps, 34 frames, 1.123 s).
       reliability:
         nominal: best_effort
         matches_physical: true
@@ -864,46 +940,100 @@ simulator:
       measured: [0.0, 0.0, 0.0, 0.0, 0.0]
       matches_physical: true
 
+  # Settings of the simulator with no physical counterpart: not parity entries
+  # (see the header). The camera's own clip planes, as the xacro sets them.
+  render_settings:
+    depth_near_clip_m:
+      nominal: 0.05
+      note: >
+        The depth camera's near clip plane. The render has no return closer
+        than this. Under sensor_profile:=physical the profile's minimum range
+        (depth.min_range_m, 0.6 m) is applied on top of it.
+    depth_far_clip_m:
+      nominal: 8.0
+      note: >
+        The depth camera's far clip plane. Beyond it the render has no return
+        (+inf), which the adapter publishes as NaN. depth.max_range_m is the
+        parity row for the same limit.
+
   depth:
     scale_error:
-      nominal: [0.0, 0.0]
-      matches_physical: false
-      closes_in_step: 7
+      nominal: -0.011858
+      measured: -0.01179
+      matches_physical: true
+      note: >
+        #43 step 7; was none. The inverse of the calibration doc's recommended
+        correction, true ~= reported * 1.012, applied under
+        sensor_profile:=physical. It lies inside the physical range, which
+        real_robot_contract_test checks. The linear fit's slope was -1.33%,
+        just outside that range. Measured in step 7 by sensor_contract_probe,
+        which pairs the published depth with the render of the same stamp, on
+        empty.world on the host GPU: -0.01179 (standard error 0.00005, 49,140
+        pixels rendered 1.5 m or more away, 10 frames); cafe.world gave -0.01185
+        (0.00002, 441,600 pixels). The noise it read in seven bands from 0.65 to
+        8.1 m was within 1% of the model's in every band (142 mm against 140 at
+        5 to 8.1 m).
     noise_model:
-      nominal: none
-      matches_physical: false
-      closes_in_step: 7
+      nominal: "sigma = max(0.002, 0.0019 * d^2.36) m"
+      matches_physical: true
+      note: >
+        #43 step 7; was none. Under sensor_profile:=physical, from the scaled
+        depth. The fit is calibrated to 3.6 m and the simulator applies it
+        beyond that as an extrapolation: about 12 cm at 5.8 m and 25 cm at the
+        8 m far clip. sensor_profiles.yaml carries the numbers, and
+        real_robot_contract_test checks that they give this string.
     min_range_m:
-      nominal: 0.05
-      matches_physical: false
-      closes_in_step: 7
+      nominal: 0.6
+      measured: 0.6
+      matches_physical: true
+      note: >
+        #43 step 7; was 0.05, which is now render_settings.depth_near_clip_m.
+        Under sensor_profile:=physical nothing below it is published: a pixel
+        whose depth, after scale and noise, is under 0.6 m is NaN. The lowest
+        finite depth in the 12 content samples of the step-7 probe runs was
+        0.600003 m.
     max_range_m:
       nominal: 8.0
       matches_physical: false
       closes_in_step: out_of_scope
-      note: The physical far limit has not been measured.
-    valid_fraction:
-      measured: 0.489
-      matches_physical: false
-      closes_in_step: 7
       note: >
-        The empty world's floor, from the step-5 camera; 0.484 at 424x240
-        from cam_1_link. Scene-dependent on both robots.
-    nan_fraction:
-      measured: 0.0
+        The physical far limit has not been measured. The simulator's is the
+        camera's far clip, render_settings.depth_far_clip_m.
+    valid_fraction:
+      measured: 0.186
       matches_physical: false
-      closes_in_step: 7
-      note: Returns beyond the 8 m far clip are inf, not NaN.
+      closes_in_step: out_of_scope
+      note: >
+        Scene-dependent, not a parity check: the fraction of finite pixels
+        depends on what the camera faces far more than on the camera, and the
+        physical 0.385 is one scene. The floor dropout and the close-range wedge
+        (yahboom_rosmaster#59) are part of why the two differ. Measured on
+        empty.world, whose floor is all that returns, with the robot at rest:
+        0.186 under sensor_profile:=physical (0.489 before step 7, when the
+        floor returned from 0.25 m). The floor from 0.6 m out is 45 of 240 rows.
+    nan_fraction:
+      measured: 0.814
+      matches_physical: false
+      closes_in_step: out_of_scope
+      note: >
+        Scene-dependent, not a parity check; see valid_fraction and
+        yahboom_rosmaster#59. Since #43 step 7 a pixel with no return is NaN
+        under both profiles, as on the robot; it was +inf. Measured on
+        empty.world as for valid_fraction: 0.814 (0.0 before, all of it inf).
     floor_returns:
       nominal: true
       matches_physical: false
-      closes_in_step: 7
-      note: An optional follow-up of step 7 (needs an incidence-angle model).
+      closes_in_step: out_of_scope
+      note: >
+        Moved out of step 7 to yahboom_rosmaster#59: needs an incidence-angle
+        model.
     close_range_wedge:
       nominal: false
       matches_physical: false
-      closes_in_step: 7
-      note: An optional follow-up of step 7 (needs an incidence-angle model).
+      closes_in_step: out_of_scope
+      note: >
+        Moved out of step 7 to yahboom_rosmaster#59: needs an incidence-angle
+        model. Below 0.6 m the simulator publishes NaN by range alone.
 
   point_cloud:
     fields:

@@ -41,6 +41,7 @@ install(
 install(
   FILES
     scripts/cloud_timing.py
+    scripts/depth_quality.py
     scripts/ground_truth_alignment.py
     scripts/real_robot_contract.py
     scripts/sensor_profiles.py
@@ -100,6 +101,14 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/camera_adapter_test.py
   )
   add_test(
+    NAME depth_quality_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/depth_quality_test.py
+  )
+  add_test(
+    NAME measurement_tools_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/measurement_tools_test.py
+  )
+  add_test(
     NAME real_robot_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/real_robot_contract_test.py
   )
@@ -114,6 +123,14 @@ if(BUILD_TESTING)
     TARGET sensor_contract_cafe
     TIMEOUT 90
     ARGS "world:=cafe.world"
+  )
+  # The ideal profile publishes the render bit for bit on every finite pixel.
+  # Full suite only: the physical targets carry the same probe in the CI gate.
+  add_launch_test(
+    test/sensor_contract.launch.py
+    TARGET sensor_contract_empty_ideal
+    TIMEOUT 90
+    ARGS "world:=empty.world" "sensor_profile:=ideal"
   )
   # Hosted runners use software rendering, where message delivery rate reflects
   # runner load rather than sensor correctness.

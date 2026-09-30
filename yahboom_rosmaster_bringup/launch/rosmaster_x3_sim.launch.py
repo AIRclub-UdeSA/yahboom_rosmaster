@@ -59,8 +59,10 @@ def generate_launch_description():
         choices=["ideal", "physical"],
         description=(
             "Sensor quality and timing profile: physical delivers the point "
-            "cloud with the physical X3's gaps and latency; ideal delivers "
-            "every frame as soon as it is built"
+            "cloud with the physical X3's gaps and latency, and the depth "
+            "image with its scale error, noise and NaN below 0.6 m; ideal "
+            "delivers every frame as soon as it is built, with the rendered "
+            "depth unchanged"
         )
     )
     sensor_seed_arg = DeclareLaunchArgument(

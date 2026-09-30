@@ -6,8 +6,8 @@
 # and determinism tests. A profile changes quality and timing, never the
 # interface: topics, frames and layouts are the same under both.
 #
-# The file is organized by sensor. Steps 7 and 8 of #43 add `depth`, `lidar`
-# and `imu`. Every value is a mapping with the value and the source of its
+# The file is organized by sensor. Step 7 of #43 added `depth`; step 8 adds
+# `lidar` and `imu`. Every value is a mapping with the value and the source of its
 # measurement, so a number can be traced back to the capture behind it.
 # scripts/sensor_profiles.py loads and validates it; test/sensor_profiles_test.py
 # checks the values against the physical measurement.
@@ -84,3 +84,74 @@ point_cloud:
         1: 1.0
       source: >
         By definition (#43 decision D1): every camera frame becomes a cloud.
+
+depth:
+  physical:
+    scale_error:
+      value: -0.011858
+      source: >
+        physical_rosmaster docs/depth_camera_calibration.md "Scale", wall fits of
+        2026-09-18 (read at physical_rosmaster 468662c). The camera under-reports
+        depth: the doc records -1.1% to -1.3% (four low-yaw positions gave
+        -0.94, -1.10, -1.23 and -1.18%; the ledger's physical range) and says to
+        correct with "true ~= reported * 1.012". The simulator applies the
+        inverse of that recommended correction, reported = true / 1.012, which
+        is a scale error of -0.011858 (-1.1858%). The linear fit's slope gave
+        -1.33%, just outside the recorded range; the doc puts the spread across
+        positions at 0.3%.
+    noise_sigma_floor_m:
+      value: 0.002
+      source: >
+        docs/depth_camera_calibration.md "Noise": measured noise flattens at a
+        floor of about 2 mm below roughly 1.1 m (0.13 to 0.25 cm at 0.45 to 1.12
+        m), so sigma = max(0.002, 0.0019 * d^2.36) m. Distances in that table
+        are the reported ones, so sigma takes the scaled depth (#43 step 7).
+    noise_sigma_coefficient:
+      value: 0.0019
+      source: >
+        docs/depth_camera_calibration.md "Noise": above about 1.1 m the residual
+        RMS about the fitted plane (0.57, 1.84 and 3.93 cm at 1.63, 2.60 and 3.60
+        m) is a power law, sigma ~= 0.0019 * d^2.36 m, four points within 7%.
+        EXTRAPOLATED beyond 3.6 m, the farthest distance the doc calibrates: the
+        law gives about 12 cm at 5.8 m (the deepest return in camera_public.json)
+        and about 25 cm at the simulator's 8 m far clip, which nothing measured.
+    noise_sigma_exponent:
+      value: 2.36
+      source: >
+        docs/depth_camera_calibration.md "Noise", the exponent of the fit above;
+        the doc notes that a textbook d^2 understates noise at 3.5 m by about
+        40%. Extrapolated beyond 3.6 m like the coefficient.
+    min_range_m:
+      value: 0.6
+      source: >
+        docs/depth_camera_calibration.md "Range limits and dropout": usable range
+        starts at about 0.6 m, matching the Astra family's published minimum; at
+        0.63 m reported 61.1% of pixels were valid, at 0.45 m 35.4%. The doc
+        tabulates reported distance, so the simulator publishes NaN for any
+        depth below this after scale and noise. The close-range wedge and the
+        floor dropout are not modelled (yahboom_rosmaster#59).
+
+  ideal:
+    scale_error:
+      value: 0.0
+      source: >
+        By definition (#43 decision D1), the rendered depth, undegraded.
+    noise_sigma_floor_m:
+      value: 0.0
+      source: >
+        By definition (#43 decision D1), no noise.
+    noise_sigma_coefficient:
+      value: 0.0
+      source: >
+        By definition (#43 decision D1), no noise.
+    noise_sigma_exponent:
+      value: 2.36
+      source: >
+        Unused while the floor and coefficient are zero; the physical profile's
+        exponent, so the two profiles carry the same keys.
+    min_range_m:
+      value: 0.0
+      source: >
+        By definition (#43 decision D1): no cutoff beyond the camera's own near
+        clip. Every finite pixel is published bit for bit; only the non-finite
+        ones become NaN, in both profiles.

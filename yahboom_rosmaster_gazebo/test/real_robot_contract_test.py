@@ -18,6 +18,7 @@ from real_robot_contract import (  # noqa: E402
     RealRobotContract,
     SOURCE_PATH,
     default_path,
+    is_range,
     values_agree,
 )
 from sensor_profiles import SOURCE_PATH as PROFILES_PATH  # noqa: E402
@@ -25,6 +26,8 @@ from sensor_profiles import load_sensor_profile  # noqa: E402
 
 CONTRACT = RealRobotContract.load(SOURCE_PATH)
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
+# physical_rosmaster main after #44 and #45 merged; the commit #43 step 7 re-pinned to.
+PHYSICAL_PIN = "468662ca25a52515a218dd944fc031ca85266244"
 CAMERA_TOPICS = (
     "/cam_1/color/image_raw",
     "/cam_1/depth/image_raw",
@@ -78,6 +81,45 @@ class TestRealRobotContract(unittest.TestCase):
         self.assertIsNone(values_agree(True, 1))
         self.assertIsNone(values_agree(8.0, None))
 
+    def test_a_physical_range_holds_a_number_inside_it_and_nothing_else(self):
+        physical = {"min": -0.013, "max": -0.011}
+        self.assertTrue(is_range(physical))
+        self.assertTrue(values_agree(-0.012, physical))
+        self.assertTrue(values_agree(-0.013, physical))
+        self.assertTrue(values_agree(-0.011, physical))
+        self.assertFalse(values_agree(-0.0135, physical))
+        self.assertFalse(values_agree(0.0, physical))
+        # A tolerance widens both ends.
+        self.assertTrue(values_agree(-0.0135, physical, tolerance=0.001))
+        # Not a number, or not a range: nothing to verify.
+        self.assertIsNone(values_agree([-0.012, -0.012], physical))
+        self.assertIsNone(values_agree(True, physical))
+        self.assertIsNone(values_agree("-0.012", physical))
+        self.assertIsNone(values_agree(-0.012, [-0.013, -0.011]))
+        self.assertFalse(is_range({"min": -0.011, "max": -0.013}))
+        self.assertFalse(is_range({"min": 0.0, "max": 1.0, "mean": 0.5}))
+        self.assertFalse(is_range({"min": True, "max": 1.0}))
+        self.assertFalse(is_range([0.0, 1.0]))
+
+    def test_a_true_flag_on_a_range_is_verified_and_a_wrong_one_is_caught(self):
+        def contract(nominal, matches):
+            entry = {"nominal": nominal, "matches_physical": matches}
+            if not matches:
+                entry["closes_in_step"] = 7
+            return RealRobotContract({
+                "physical": {"depth": {"scale_error": {"min": -0.013, "max": -0.011}}},
+                "simulator": {"depth": {"scale_error": entry}},
+            })
+
+        self.assertEqual(contract(-0.012, True).parity_errors(), [])
+        self.assertEqual(contract(0.0, False).parity_errors(), [])
+        wrong = contract(0.0, True).parity_errors()
+        self.assertEqual([error.split(":")[0] for error in wrong], ["depth.scale_error"])
+        self.assertIn("differ", wrong[0])
+        wrong = contract(-0.012, False).parity_errors()
+        self.assertEqual([error.split(":")[0] for error in wrong], ["depth.scale_error"])
+        self.assertIn("agree", wrong[0])
+
     def test_parity_errors_catch_a_wrong_flag(self):
         contract = RealRobotContract({
             "physical": {"camera": {"width": 320, "height": 240}},
@@ -129,6 +171,8 @@ class TestRealRobotContract(unittest.TestCase):
         physical = CONTRACT.data["physical"]["provenance"]
         simulator = CONTRACT.data["simulator"]["provenance"]
         self.assertRegex(physical["commit"], COMMIT)
+        self.assertEqual(physical["commit"], PHYSICAL_PIN)
+        self.assertEqual(physical["read_on"], "2026-09-29")
         self.assertRegex(simulator["measured_commit"], COMMIT)
         self.assertIn("issuecomment", simulator["measurement"])
         for record in simulator.get("step_measurements", []):
@@ -137,6 +181,17 @@ class TestRealRobotContract(unittest.TestCase):
                 self.assertRegex(record["commit"], COMMIT)
                 for key in record["keys"]:
                     self.assertIn("measured", CONTRACT.entry(key), key)
+
+    def test_no_measured_key_appears_in_two_records(self):
+        """A step that re-measures a key takes it over from the older record."""
+        holder = {}
+        for record in CONTRACT.data["simulator"]["provenance"]["step_measurements"]:
+            for key in record["keys"]:
+                with self.subTest(key=key):
+                    self.assertNotIn(
+                        key, holder,
+                        f"in the records of steps {holder.get(key)} and {record['step']}")
+                holder[key] = record["step"]
 
     def test_dotted_keys_are_unambiguous(self):
         for section in ("physical", "simulator"):
@@ -176,6 +231,67 @@ class TestRealRobotContract(unittest.TestCase):
             {key: nominal[key] for key in ("median", "p95", "longest")},
             {key: statistics[key] for key in ("median", "p95", "longest")})
         self.assertAlmostEqual(nominal["mean"], statistics["mean"], delta=0.001)
+
+    def test_depth_follows_the_default_sensor_profile(self):
+        """The ledger's simulator depth values are what the physical profile implies."""
+        profile = load_sensor_profile(PROFILES_PATH, "depth", "physical")
+        self.assertEqual(
+            CONTRACT.nominal("depth.scale_error"), profile["scale_error"])
+        self.assertEqual(
+            CONTRACT.nominal("depth.min_range_m"), profile["min_range_m"])
+        # The noise string, written out from the profile's three numbers.
+        self.assertEqual(
+            CONTRACT.nominal("depth.noise_model"),
+            "sigma = max({floor:g}, {coefficient:g} * d^{exponent:g}) m".format(
+                floor=profile["noise_sigma_floor_m"],
+                coefficient=profile["noise_sigma_coefficient"],
+                exponent=profile["noise_sigma_exponent"]))
+        # The physical side those rows are checked against reads the same.
+        self.assertEqual(
+            CONTRACT.physical("depth.noise_model"), CONTRACT.nominal("depth.noise_model"))
+        self.assertEqual(
+            CONTRACT.physical("depth.min_range_m"), profile["min_range_m"])
+        # The scale error lies in the physical range (parity_errors checks the
+        # flag; this states it) and is the inverse of the doc's 1.012 correction.
+        physical = CONTRACT.physical("depth.scale_error")
+        self.assertTrue(physical["min"] <= profile["scale_error"] <= physical["max"])
+        self.assertAlmostEqual(profile["scale_error"], 1.0 / 1.012 - 1.0, places=6)
+
+    def test_the_ideal_depth_profile_is_undegraded(self):
+        profile = load_sensor_profile(PROFILES_PATH, "depth", "ideal")
+        self.assertEqual(profile["scale_error"], 0.0)
+        self.assertEqual(profile["noise_sigma_floor_m"], 0.0)
+        self.assertEqual(profile["noise_sigma_coefficient"], 0.0)
+        self.assertEqual(profile["min_range_m"], 0.0)
+
+    def test_render_settings_are_validated_and_not_parity_entries(self):
+        self.assertEqual(CONTRACT.settings_errors(), [])
+        near = CONTRACT.setting("depth_near_clip_m")
+        far = CONTRACT.setting("depth_far_clip_m")
+        self.assertLess(near, CONTRACT.nominal("depth.min_range_m"))
+        self.assertLess(CONTRACT.nominal("depth.min_range_m"), far)
+        # depth.max_range_m is the parity row for the same limit.
+        self.assertEqual(CONTRACT.nominal("depth.max_range_m"), far)
+        keys = {key for key, _ in CONTRACT.entries()}
+        self.assertFalse([key for key in keys if key.startswith("render_settings")])
+
+    def test_a_malformed_render_setting_is_caught(self):
+        def errors(settings):
+            return RealRobotContract({
+                "physical": {"depth": {"min_range_m": 0.6}},
+                "simulator": {"render_settings": settings},
+            }).settings_errors()
+
+        self.assertEqual(errors({"near": {"nominal": 0.05, "note": "clip"}}), [])
+        self.assertTrue(errors({}))
+        self.assertTrue(errors({"near": 0.05}))
+        self.assertTrue(errors({"near": {"note": "no value"}}))
+        self.assertTrue(errors({"near": {"nominal": "0.05"}}))
+        self.assertTrue(errors({"near": {"nominal": -1.0}}))
+        self.assertTrue(errors({"near": {"nominal": 0.05, "colour": "red"}}))
+        self.assertTrue(errors({"near": {"nominal": 0.05, "matches_physical": True}}))
+        # A setting named like a physical key is a parity entry in disguise.
+        self.assertTrue(errors({"min_range_m": {"nominal": 0.05}}))
 
     def test_the_cloud_rate_contract_leaves_room_for_a_short_window(self):
         """A mean rate over a few clouds must not fail a correct simulator."""
