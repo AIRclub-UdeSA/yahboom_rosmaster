@@ -15,6 +15,16 @@ It reports, pooled over the runs and on sim time:
 * the depth image's rate and latency;
 * the depth image's valid and NaN fractions, with the scene they were seen in.
 
+``--group stationary`` runs the other half of the step-2 baseline of #43: the
+probe's non-camera groups (``lidar``, ``imu``, ``odom`` and ``health``, the
+"stationary sensors" capture of sensors_stationary.json), with the robot idle.
+For every topic the simulator publishes it reports, pooled over the runs and on
+sim time, the stamp rate, the stamp period median and p95, the latency median
+and p95 and the publisher's reliability, plus the scan's ``scan_time`` and
+``time_increment`` and the IMU and odometry series' standard deviations. A topic
+the simulator does not publish (``/imu/mag``, ``/vel_raw``, ``/voltage``,
+``/diagnostics`` and ``/scan_filtered``) is listed as absent.
+
 Nothing of physical_rosmaster is vendored. The probe and the contract probe it
 imports are fetched from a pinned commit of a local checkout with ``git show``,
 never checked out, into a work directory; then a small committed patch
@@ -65,6 +75,20 @@ LAUNCH_ARGUMENTS = (
     "headless:=true", "rviz:=false", "use_sim_time:=true", "world:={world}",
     "sensor_profile:={profile}", "sensor_seed:=-1", "motion_bias:=false")
 SETTLE_S = 15.0
+# What each --group stands for: the probe groups it runs, and the topics that
+# show the simulator is up. The stationary group needs the rendering sensors.
+GROUPS = {
+    "camera": {
+        "probe_groups": ("camera",),
+        "ready_topics": (CLOUD,),
+        "extra": ("--camera-frame-rate", f"{FRAME_RATE_HZ}"),
+    },
+    "stationary": {
+        "probe_groups": ("lidar", "imu", "odom", "health"),
+        "ready_topics": ("/scan", "/imu/data", "/odom"),
+        "extra": (),
+    },
+}
 
 
 def fetch_probe(repository, commit, work_dir):
@@ -110,17 +134,27 @@ def wait_for_publisher(topic, timeout_s):
         rclpy.shutdown()
 
 
-def run_probe(probe, duration_s, output, environment):
-    """Run the probe once, on the camera group, and return its parsed JSON."""
+def run_probe(probe, duration_s, output, environment, group="camera"):
+    """Run the probe once on a ``GROUPS`` entry and return its parsed JSON."""
     merged = dict(os.environ)
     merged.update(environment)
+    spec = GROUPS[group]
+    selected = " ".join(f"--group {name}" for name in spec["probe_groups"])
+    extra = " ".join(spec["extra"])
     command = (
-        f"source {ROS_SETUP} && exec python3 {probe} --group camera "
-        f"--duration {duration_s:g} --camera-frame-rate {FRAME_RATE_HZ} "
+        f"source {ROS_SETUP} && exec python3 {probe} {selected} "
+        f"--duration {duration_s:g} {extra} "
         f"--per-message --output {output}")
-    subprocess.run(
-        ["bash", "-c", command], env=merged, check=True,
+    completed = subprocess.run(
+        ["bash", "-c", command], env=merged,
         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    # The probe exits 1 when a requested topic stayed silent, after writing its
+    # JSON. The stationary group asks for topics the simulator does not publish,
+    # and pooled_stationary() reports them as absent, so exit 1 with a result
+    # is a measurement. Anything else is not.
+    if completed.returncode not in (0, 1) or not Path(output).is_file():
+        raise RuntimeError(
+            f"the probe exited {completed.returncode}: {completed.stderr.strip()}")
     return json.loads(Path(output).read_text(encoding="utf-8"))
 
 
@@ -200,6 +234,64 @@ def pooled(results):
     return report
 
 
+def series_stddevs(summary):
+    """Return {series name: stddev} of a topic's ``series``, or nothing."""
+    return {
+        name: values["stddev"] for name, values in summary.get("series", {}).items()
+        if values.get("count")}
+
+
+def pooled_stationary(results):
+    """
+    Pool the stationary group's figures over several probe results.
+
+    Rates and periods come from the header stamps, so they are sim time. A topic
+    that no run received a message on is reported as absent, and a topic is
+    listed in the order the first probe result gave it.
+    """
+    report = {}
+    for first in results[0]["topics"]:
+        topic = first["topic"]
+        summaries = [topic_summary(result, topic) for result in results]
+        entry = {
+            "runs": len(summaries),
+            "messages": sum(s["message_count"] for s in summaries),
+        }
+        if not entry["messages"]:
+            entry["absent"] = True
+            report[topic] = entry
+            continue
+        gaps = [gap for s in summaries for gap in stamp_gaps_s(s)]
+        if gaps:
+            entry["rate_hz_on_stamps"] = round(len(gaps) / sum(gaps), 3)
+            entry["period_ms_median"] = round(1000.0 * statistics.median(gaps), 2)
+            entry["period_ms_p95"] = round(1000.0 * percentile(gaps, 0.95), 2)
+        latencies = [
+            v for s in summaries
+            for v in s.get("per_message", {}).get("latency_ms", []) if v is not None]
+        if latencies:
+            entry["latency_ms_median"] = round(statistics.median(latencies), 2)
+            entry["latency_ms_p95"] = round(percentile(latencies, 0.95), 2)
+        qos = sorted({
+            q["reliability"] for s in summaries for q in s.get("publisher_qos", [])})
+        entry["reliability"] = qos
+        entry["publishers"] = sorted({s["publisher_count"] for s in summaries})
+        stddevs = [series_stddevs(s) for s in summaries]
+        names = sorted({name for item in stddevs for name in item})
+        if names:
+            entry["series_stddev"] = {
+                name: round(statistics.mean(
+                    item[name] for item in stddevs if name in item), 5)
+                for name in names}
+        content = [s["content"] for s in summaries if s.get("content")]
+        for key in ("scan_time", "time_increment"):
+            values = sorted({c[key] for c in content if key in c})
+            if values:
+                entry[key] = values
+        report[topic] = entry
+    return report
+
+
 def measure(args):
     """Launch the simulator, run the probe ``args.runs`` times and return the report."""
     work_dir = Path(args.work_dir).expanduser().resolve()
@@ -216,17 +308,21 @@ def measure(args):
     results, outcome = [], "not started"
     try:
         simulator.start()
-        if not wait_for_publisher(CLOUD, 240.0 if args.render == "llvmpipe" else 90.0):
-            raise RuntimeError(f"no publisher on {CLOUD}; see {work_dir / 'simulator.log'}")
+        for topic in GROUPS[args.group]["ready_topics"]:
+            if not wait_for_publisher(topic, 240.0 if args.render == "llvmpipe" else 90.0):
+                raise RuntimeError(f"no publisher on {topic}; see {work_dir / 'simulator.log'}")
         time.sleep(SETTLE_S)
         for index in range(args.runs):
             print(f"probe run {index + 1}/{args.runs}", flush=True)
             results.append(run_probe(
-                probe, args.duration, work_dir / f"probe_run_{index + 1}.json", environment))
+                probe, args.duration, work_dir / f"probe_run_{index + 1}.json",
+                environment, args.group))
     finally:
         outcome = simulator.stop()
-    report = pooled(results)
+    report = (
+        pooled(results) if args.group == "camera" else pooled_stationary(results))
     report["measurement"] = {
+        "group": args.group,
         "physical_commit": args.commit,
         "probe_blob": results[0]["measurement"].get("probe_git_blob"),
         "world": args.world,
@@ -247,6 +343,10 @@ def main():
         "--physical-repo", default="~/Documents/air-club/physical_rosmaster",
         help="a local physical_rosmaster checkout; it is only read")
     parser.add_argument("--commit", default=PHYSICAL_PIN, help="physical_rosmaster commit")
+    parser.add_argument(
+        "--group", choices=sorted(GROUPS), default="camera",
+        help="which of the physical probe's groups to run: the camera, or the "
+        "stationary sensors (LiDAR, IMU, odometry, health)")
     parser.add_argument("--render", choices=("gpu", "llvmpipe"), default="gpu")
     parser.add_argument("--profile", choices=("physical", "ideal"), default="physical")
     parser.add_argument("--world", default="empty.world")

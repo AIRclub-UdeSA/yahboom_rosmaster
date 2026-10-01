@@ -37,7 +37,41 @@ observed controller-manager startup timeout and worked on Linux and macOS.
 
 Any future implementation should be a separate change. It may need a small
 relay to restore `JointState.header.frame_id` and cap the native stream to
-30 Hz.
+10 Hz, the rate `joint_state_broadcaster` now publishes (#43 step 8a).
+
+## Command limits and odometry (implemented)
+
+The base follows the physical driver's command limits and publishes odometry
+at its rate and with its covariance (#43 step 8a). Every number is in a config
+file with its source and tied to the parity ledger by a test.
+
+- **Limits.** `config/command_limits.yaml`: ±1.0 m/s on x and y, ±5.0 rad/s on
+  yaw, from physical_rosmaster 468662c `x3_driver.yaml` (`xlinear_limit`,
+  `ylinear_limit`, `angular_limit`). The driver's `clamp_motion_command`
+  saturates each component on its own, without scaling the vector, and answers
+  a non-finite command with zero. `cmd_vel_watchdog.py` does the same, and does
+  it before the motion bias: the driver clamps before it hands the command to
+  the motor controller, and the bias stands for the drivetrain that follows. A
+  biased command may therefore exceed a limit slightly, as the real wheels can.
+  The watchdog has no default for the limits, so a launch that forgets them
+  fails. The limits are inferred (no run drove the robot past them).
+- **Rate.** `joint_state_broadcaster` has no `publish_rate` parameter in
+  Humble's ros2_controllers 2.54, so the `publish_rate: 30.0` that
+  `ros2_control.yaml` carried was always ignored and the 30 Hz came from the
+  controller manager's `update_rate`. The controller's own `update_rate: 10`
+  now makes it publish every third cycle of the unchanged 30 Hz loop. The
+  steps are 34 ms, so the stamps are 102 ms apart (9.80 Hz against the robot's
+  10.00 Hz); the ledger's tolerance of 0.3 Hz covers that, and the measured
+  period is what its nominal states. With `use_ros2_control:=false` the
+  `topic_tools` throttle is set to 10 Hz instead.
+- **Covariance.** `config/wheel_odometry.yaml`, passed to
+  `wheel_state_odometry.py` as its parameters: pose `0.001` and twist `0.0001`
+  on x, y and yaw, from `x3_odometry.yaml`, which marks them provisional. Only
+  the entries at 0, 7 and 35 are set, as in the robot's `odometry.hpp`.
+- **Integration step.** Wheel odometry now integrates a third as often. Its
+  midpoint rule is exact for motion along a constant heading and a constant
+  turn rate, and its error on a changing command grows with the step, so a
+  bound that depends on it follows the 100 ms step, not the 33 ms one.
 
 ## Render visibility masks
 

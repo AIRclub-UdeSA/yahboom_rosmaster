@@ -20,6 +20,7 @@ Two macOS details are handled here rather than upstream:
 """
 import os
 import platform
+import sys
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -107,6 +108,10 @@ def generate_launch_description():
     # timeout either, so the watchdog's zero-on-silence also stops the robot
     # when a teleop terminal is closed mid-command.
     pkg_gz = get_package_share_directory("yahboom_rosmaster_gazebo")
+    sys.path.insert(0, os.path.join(pkg_gz, "scripts"))
+    from command_limits import load_command_limits
+    x_limit, y_limit, angular_limit = load_command_limits(
+        os.path.join(pkg_gz, "config", "command_limits.yaml"))
     cmd_vel_watchdog = Node(
         package="yahboom_rosmaster_gazebo",
         executable="cmd_vel_watchdog.py",
@@ -115,6 +120,9 @@ def generate_launch_description():
             "input_topic": "/cmd_vel",
             "output_topic": "/cmd_vel_classic",
             "motion_bias_file": os.path.join(pkg_gz, "config", "motion_bias.yaml"),
+            "linear_x_limit": x_limit,
+            "linear_y_limit": y_limit,
+            "angular_z_limit": angular_limit,
         }],
         condition=IfCondition(LaunchConfiguration("motion_bias")),
     )

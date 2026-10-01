@@ -812,8 +812,9 @@ def generate_launch_description():
 
     # Stands in for joint_state_broadcaster when ros2_control is disabled.
     # Gazebo's JointStatePublisher has no rate control and fires every sim step,
-    # so the raw topic arrives near 1 kHz; throttle it to the same 30 Hz
-    # joint_state_broadcaster uses, which also paces /odom and /tf downstream.
+    # so the raw topic arrives near 1 kHz; throttle it to the same 10 Hz
+    # joint_state_broadcaster delivers (the physical driver's rate, #43 step 8a),
+    # which also paces /odom and /tf downstream.
     joint_state_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
@@ -828,7 +829,7 @@ def generate_launch_description():
         package="topic_tools",
         executable="throttle",
         name="joint_state_throttle",
-        arguments=["messages", "/joint_states_raw", "30.0", "/joint_states"],
+        arguments=["messages", "/joint_states_raw", "10.0", "/joint_states"],
         output="screen",
         condition=UnlessCondition(use_ros2_control),
     )
@@ -840,12 +841,25 @@ def generate_launch_description():
     # every launch, so tests asserting an exact trajectory must switch it off.
     # An empty path is how the watchdog is told to relay unmodified, so the two
     # variants differ only in that parameter.
+    #
+    # Both variants clamp /cmd_vel first, to the physical driver's limits from
+    # config/command_limits.yaml (#43 step 8a).
+    sys.path.insert(0, os.path.join(pkg_gz, "scripts"))
+    from command_limits import load_command_limits
+    x_limit, y_limit, angular_limit = load_command_limits(
+        os.path.join(pkg_gz, "config", "command_limits.yaml"))
+
     def _watchdog(bias_file, condition):
         return Node(
             package="yahboom_rosmaster_gazebo",
             executable="cmd_vel_watchdog.py",
             output="screen",
-            parameters=[{"motion_bias_file": bias_file}],
+            parameters=[{
+                "motion_bias_file": bias_file,
+                "linear_x_limit": x_limit,
+                "linear_y_limit": y_limit,
+                "angular_z_limit": angular_limit,
+            }],
             condition=condition,
         )
 
@@ -885,7 +899,11 @@ def generate_launch_description():
     # Encoder-style odometry from wheel joint states remains separate from the
     # measurement-only /ground_truth/odom bridge and owns odom->base TF.
     wheel_state_odometry = ExecuteProcess(
-        cmd=["python3", wheel_odometry_script],
+        cmd=[
+            "python3", wheel_odometry_script,
+            "--ros-args", "--params-file",
+            os.path.join(pkg_gz, "config", "wheel_odometry.yaml"),
+        ],
         output="screen",
     )
 

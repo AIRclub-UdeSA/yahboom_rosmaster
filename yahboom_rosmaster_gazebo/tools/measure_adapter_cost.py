@@ -6,7 +6,9 @@ Each run starts one headless simulator on empty.world under
 ``sensor_profile:=physical``, lets it settle, and then over a window reads:
 
 * the CPU of the camera adapter and of the Gazebo server, as percent of one
-  core, from /proc (ticks used over wall time);
+  core, from /proc (ticks used over wall time), and of every other process
+  whose command line contains a ``--node`` marker (for example
+  ``--node wheel_state_odometry --node cmd_vel_watchdog``);
 * the depth image's latency, as sim time at receipt minus ``header.stamp``, and
   its rate on stamps;
 * the real-time factor, as sim seconds over wall seconds.
@@ -161,6 +163,7 @@ def one_run(label, workspace, args, index):
         probe.spin_for(args.settle_s)
         adapter_before = _cpu_ticks(simulator, "camera_adapter")
         server_before = _cpu_ticks(simulator, "ign gazebo")
+        nodes_before = {m: _cpu_ticks(simulator, m) for m in args.node}
         everything_before = sum(t for _, t in simulator.processes().values())
         probe.open_window()
         probe.spin_for(args.window_s)
@@ -173,6 +176,9 @@ def one_run(label, workspace, args, index):
             "session_cpu_percent": _percent(
                 sum(t for _, t in simulator.processes().values()) - everything_before,
                 wall_s),
+            "node_cpu_percent": {
+                marker: _percent(_cpu_ticks(simulator, marker) - nodes_before[marker], wall_s)
+                for marker in args.node},
             "real_time_factor": sim_s / wall_s,
             "depth_latency_ms_median": 1000.0 * statistics.median(probe.latencies_s),
             "depth_latency_ms_p95": 1000.0 * sorted(probe.latencies_s)[
@@ -215,6 +221,9 @@ def main():
                         help="wall seconds to wait after the first frame")
     parser.add_argument("--window-s", type=float, default=30.0,
                         help="wall seconds measured")
+    parser.add_argument("--node", action="append", default=[], metavar="MARKER",
+                        help="also report the CPU of processes whose command line "
+                        "contains MARKER (repeatable)")
     parser.add_argument("--no-user-site", action="store_true",
                         help="hide ~/.local packages: use the distribution's numpy")
     parser.add_argument("--output-dir", default="adapter_cost_logs")
@@ -245,6 +254,11 @@ def main():
                 "adapter_cpu_percent", "server_cpu_percent", "session_cpu_percent",
                 "real_time_factor", "depth_latency_ms_median", "depth_latency_ms_p95",
                 "depth_rate_hz_on_stamps")}
+        report["summary"][label]["node_cpu_percent"] = {
+            marker: summarize(
+                [{"v": r["node_cpu_percent"][marker]} for r in mine
+                 if marker in r.get("node_cpu_percent", {})], "v")
+            for marker in args.node}
         report["summary"][label]["failed_runs"] = sum("error" in r for r in mine)
     text = json.dumps(report, indent=2)
     print(text)

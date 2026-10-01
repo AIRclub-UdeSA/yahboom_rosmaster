@@ -8,8 +8,8 @@ running.
 
 | Tool | Measures | Used for |
 |---|---|---|
-| `measure_cloud_timing.py` | physical_rosmaster's own `sensor_capability_probe.py`, run on the camera group against the simulator: the cloud's rate, gaps, latency and worst gap, the depth image's rate and latency, and the depth image's valid and NaN fractions | The `step_measurements` records of `config/real_robot_contract.yaml` |
-| `measure_adapter_cost.py` | The camera adapter's CPU, the Gazebo server's, the depth image's latency and rate, and the real-time factor, alternating two or more workspaces | Comparing a branch with `main` (#43 step 7, review item R5) |
+| `measure_cloud_timing.py` | physical_rosmaster's own `sensor_capability_probe.py`, run against the simulator on the camera group (default) or, with `--group stationary`, on the non-camera groups (LiDAR, IMU, odometry and health: rate, period, latency and reliability per topic, the scan's `scan_time` and `time_increment`, and the IMU and odometry series' spread). The camera group measures: the cloud's rate, gaps, latency and worst gap, the depth image's rate and latency, and the depth image's valid and NaN fractions | The `step_measurements` records of `config/real_robot_contract.yaml` |
+| `measure_adapter_cost.py` | The camera adapter's CPU, the Gazebo server's, that of any node named with `--node`, the depth image's latency and rate, and the real-time factor, alternating two or more workspaces | Comparing a branch with `main` (#43 step 7, review item R5) |
 | `sim_run.py` | (library) cleanup, detached launch, stop | Both |
 
 ## What `sim_run.py` does, and why
@@ -66,6 +66,20 @@ longer applies stops the run, so a change upstream cannot silently change what i
 measured. To move the pin, change `PHYSICAL_PIN`, re-run
 `test/measurement_tools_test.py`, and re-measure.
 
+## Measuring the stationary sensors
+
+```bash
+python3 tools/measure_cloud_timing.py --group stationary --no-user-site \
+  --workspace ~/Documents/rosmaster_ws_step8 --output step8_stationary_gpu.json
+```
+
+It runs `--group lidar --group imu --group odom --group health --duration 40
+--per-message` three times in one launch with the same pinned, patched probe,
+and reports each topic on stamps (sim time). The probe exits 1 when a topic it
+asked for stayed silent, which the simulator's missing hardware topics
+(`/imu/mag`, `/vel_raw`, `/voltage`, `/diagnostics`, `/scan_filtered`) make
+normal: the harness takes that exit as a result and lists those topics as absent.
+
 ## Comparing a branch with main
 
 ```bash
@@ -73,6 +87,9 @@ python3 tools/measure_adapter_cost.py --render gpu --runs 5 --no-user-site \
   --variant main=~/Documents/rosmaster_ws \
   --variant step7=~/Documents/rosmaster_ws_step7
 ```
+
+Add `--node MARKER` (repeatable) to report the CPU of other processes by a
+substring of their command line, for example `--node wheel_state_odometry`.
 
 Variants are built workspaces, run alternately (A, B, A, B, ...) so a change in
 the machine's load touches both. The report gives n, the median and the range of

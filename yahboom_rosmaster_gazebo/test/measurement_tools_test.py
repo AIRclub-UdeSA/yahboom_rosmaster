@@ -76,6 +76,41 @@ class TestPooling(unittest.TestCase):
         self.assertAlmostEqual(depth["nan_fraction"], 0.75)
         self.assertEqual(depth["valid_fraction_range"], [0.2, 0.3])
 
+    def test_the_stationary_group_is_pooled_on_stamps(self):
+        stamps = [20.0 + 0.1 * index for index in range(41)]
+        scan = {
+            "topic": "/scan", "message_count": 41, "publisher_count": 1,
+            "publisher_qos": [{"reliability": "BEST_EFFORT"}],
+            "content": {"scan_time": 0.1343, "time_increment": 0.0},
+            "per_message": {"stamp_s": stamps, "latency_ms": [140.0] * 41},
+        }
+        imu = {
+            "topic": "/imu/data", "message_count": 41, "publisher_count": 1,
+            "publisher_qos": [{"reliability": "RELIABLE"}],
+            "series": {"gyro_x": {"count": 41, "stddev": 0.005}},
+            "per_message": {"stamp_s": stamps, "latency_ms": [3.0] * 41},
+        }
+        absent = {
+            "topic": "/imu/mag", "message_count": 0, "publisher_count": 0,
+            "publisher_qos": [],
+        }
+        result = {"topics": [scan, imu, absent]}
+        report = measure_cloud_timing.pooled_stationary([result, result])
+        self.assertEqual(report["/scan"]["rate_hz_on_stamps"], 10.0)
+        self.assertEqual(report["/scan"]["period_ms_median"], 100.0)
+        self.assertEqual(report["/scan"]["latency_ms_median"], 140.0)
+        self.assertEqual(report["/scan"]["reliability"], ["BEST_EFFORT"])
+        self.assertEqual(report["/scan"]["scan_time"], [0.1343])
+        self.assertEqual(report["/imu/data"]["series_stddev"], {"gyro_x": 0.005})
+        self.assertEqual(report["/imu/data"]["messages"], 82)
+        self.assertEqual(report["/imu/mag"], {"runs": 2, "messages": 0, "absent": True})
+
+    def test_the_stationary_group_runs_the_non_camera_probe_groups(self):
+        groups = measure_cloud_timing.GROUPS
+        self.assertEqual(
+            groups["stationary"]["probe_groups"], ("lidar", "imu", "odom", "health"))
+        self.assertNotIn("camera", groups["stationary"]["probe_groups"])
+
     def test_percentile_is_the_nearest_rank_at_or_above(self):
         values = list(range(1, 11))
         self.assertEqual(measure_cloud_timing.percentile(values, 0.95), 10)

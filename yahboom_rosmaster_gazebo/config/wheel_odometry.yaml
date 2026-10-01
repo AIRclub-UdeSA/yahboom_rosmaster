@@ -1,0 +1,21 @@
+# Covariance that wheel_state_odometry.py publishes on /odom (#43 step 8a). The
+# launch file passes this file to the node as its parameters. The values have no
+# default in the node, so a launch that forgets them fails instead of publishing
+# the wrong uncertainty. test/wheel_state_odometry_test.py ties them to
+# real_robot_contract.yaml.
+#
+# Source of every value below: physical_rosmaster 468662c,
+# yahboomcar_bringup/param/x3_odometry.yaml, `pose_covariance_*` and
+# `twist_covariance_*`, which the file marks "Provisional values: replace after
+# repeated ground-truth floor trials". They are what the robot publishes, so
+# they are what the simulator publishes. The robot fills only the x, y and yaw
+# diagonal entries (indices 0, 7 and 35, odometry.hpp make_odom_message); every
+# other covariance entry is zero.
+wheel_state_odometry:
+  ros__parameters:
+    pose_covariance_x: 0.001
+    pose_covariance_y: 0.001
+    pose_covariance_yaw: 0.001
+    twist_covariance_x: 0.0001
+    twist_covariance_y: 0.0001
+    twist_covariance_yaw: 0.0001

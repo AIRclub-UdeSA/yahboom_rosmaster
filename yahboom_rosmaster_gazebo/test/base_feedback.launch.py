@@ -32,6 +32,8 @@ def generate_test_description():
             "rviz": "false",
             "use_sim_time": "true",
             "render_sensors": "false",
+            # The probe checks the saturated command exactly, so no bias.
+            "motion_bias": "false",
             "world": os.path.join(package_share, "worlds", "empty.world"),
         }.items(),
     )
