@@ -73,6 +73,46 @@ file with its source and tied to the parity ledger by a test.
   turn rate, and its error on a changing command grows with the step, so a
   bound that depends on it follows the 100 ms step, not the 33 ms one.
 
+## LiDAR timing (implemented)
+
+The LiDAR runs at the robot's rate, arrives as late as the robot's scan does
+under the default `physical` profile, and reports the robot's `scan_time` (#43
+step 8b, decision D3). The numbers are in `config/sensor_profiles.yaml` (`lidar`),
+each with its source, and in the parity ledger.
+
+- **Rate.** The `gpu_lidar` has `update_rate` 7.17. Gazebo fires a sensor on
+  whole 1 ms physics steps, so it delivers every 139 ms (1 / 7.17 s is 139.5 ms),
+  7.194 Hz on stamps, against the robot's 7.17. The ledger keeps the configured
+  7.17 as its nominal, as it does for the camera's 30 Hz, and records the
+  measured rate; its contract range brackets both. The Classic ray sensor
+  shares the macro's `update_rate`, so it follows (not tested: Classic is the
+  macOS backend).
+- **Delay.** Under `physical` the robot's scan is stamped at the start of the
+  sweep and published when the revolution completes, 135.7 ms later. The
+  simulator publishes each scan when the next one arrives, one period (139 ms)
+  after its capture, keeping the capture stamp: `sensor_qos_relay.py`
+  holds `hold_scans` messages back (1 under `physical`, 0 under `ideal`). It
+  counts messages and subscribes to nothing but its input: an rclpy node on sim
+  time wakes on every tick of the 1 kHz `/clock` and costs about 40% of a core.
+  The simulator's own delivery latency adds to it (5 ms on the GPU, 18.5 on
+  llvmpipe, measured on main on this machine), so the scan reaches a consumer
+  143 ms after its stamp on the GPU and 157 ms on llvmpipe, against the robot's
+  135.7 (its 134.3 ms sweep plus about 1.4 ms). The ledger's tolerance of 8 ms
+  covers the 7.3 ms difference.
+- **Edges.** The first scan waits for the second, so the first one arrives about
+  a period later than the rest would: start-up probes already allow seconds. The
+  last scan before shutdown is never published, and nothing consumes it: the
+  launch pauses the world and stops the bridges first. A scan lost on the way
+  into the relay (the internal topic is Reliable, so rare) makes its predecessor
+  wait two periods, once, and a probe that required constant periods would see
+  the stamp gap, not a late message.
+- **`scan_time`.** 0.1343 s, the robot's one sweep, under both profiles: it
+  describes the sensor, and only the delay is a timing difference. The bridge
+  leaves it at 0, so the relay sets it. `time_increment` stays 0: `gpu_lidar` is
+  an instant snapshot, and the robot's 0.1245 ms would make consumers correct
+  for motion that never happened (up to about 7.7 degrees of smear at 1 rad/s).
+  Matching it would take a rolling-scan emulation, an optional follow-up.
+
 ## Render visibility masks
 
 Gazebo supports per-visual visibility flags and camera/LiDAR visibility masks.

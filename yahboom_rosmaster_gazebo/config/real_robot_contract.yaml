@@ -610,6 +610,37 @@ simulator:
           branch, alternating, five runs each on the host GPU with numpy 1.21.5:
           0.999 against 0.999; 3.27% (3.20-3.33) against 1.17% (1.17-1.23) of
           one core, and 1.77% against 1.80%.
+      - step: 8
+        part: b
+        commit: 46191b7aa4f7a44f942edda2cb763bd38875eba0
+        measured_on: "2026-10-01"
+        note: >
+          #43 step 8b (LiDAR timing), on the branch stacked on step 8a. The
+          simulator code under test is 216cc75 (the relay, the xacro, the scan
+          launch and the lidar profile); later commits change probes, the ledger
+          and documents.
+        keys:
+          - topics./scan.rate_hz
+          - topics./scan.latency_ms
+          - lidar.scan_time_s
+        method: >
+          tools/measure_cloud_timing.py --group stationary, which runs
+          physical_rosmaster's tools/sensor_capability_probe.py (with
+          physical_contract_probe.py, fetched at 468662c with git show and
+          patched to stamp receipt with the ROS clock on sim time) as --group
+          lidar --group imu --group odom --group health --duration 40
+          --per-message, three times in one launch, on empty.world, headless,
+          under sensor_profile:=physical with PYTHONNOUSERSITE=1 (numpy 1.21.5).
+          On the host GPU /scan came 139 ms apart (median and p95), 7.194 Hz on
+          stamps over 857 messages, 143 ms after its stamp (p95 148), with
+          scan_time 0.1343 and time_increment 0; on llvmpipe pinned to four CPUs
+          7.194 Hz and 157 ms (p95 173). Main on the same machine: 5.000 Hz, 4 ms
+          (p95 8) on the GPU and 18.5 ms (p95 34) on llvmpipe, so the hold adds one
+          139 ms period to a delivery latency of 4 to 5 ms (the old laptop's 38 and
+          120 ms do not hold here). The real-time factor and the CPU of the scan
+          relay, main against this branch, alternating, five runs each on the host
+          GPU with numpy 1.21.5: 0.999 (0.997-1.000) against 0.997 (0.996-0.999);
+          0.33% (0.27-0.37) against 0.50% (0.47-0.50) of one core.
   frames:
     base_footprint_to_base_link_z_m:
       nominal: 0.0714
@@ -1156,6 +1187,7 @@ simulator:
       matches_physical: true
     scan_time_s:
       nominal: 0.1343
+      measured: 0.1343
       matches_physical: true
       note: >
         #43 step 8b; was 0. The robot's value: one sweep, not the period. Both
