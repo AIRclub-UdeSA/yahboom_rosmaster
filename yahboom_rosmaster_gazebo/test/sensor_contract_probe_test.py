@@ -107,6 +107,35 @@ class TestScanLatency(unittest.TestCase):
         PROBE_MODULE.SensorContractProbe.validate_scan_latency(probe, errors)
         return errors
 
+    def test_the_lag_is_the_newest_clock_message_minus_the_scan_stamp(self):
+        # The probe node runs on wall time, so sim time is what /clock last said.
+        probe = SimpleNamespace(
+            first_arrivals={}, observed_dynamic_tf_edges=set(),
+            messages={"/clock": [], "/scan": []}, recent_tf_messages={},
+            required_counts={"/clock": 3, "/scan": 3}, performance_checks=True,
+            scan_lags=[], sim_now=None,
+            stamp_seconds=PROBE_MODULE.SensorContractProbe.stamp_seconds)
+        capture = PROBE_MODULE.SensorContractProbe.capture
+        scan = SimpleNamespace(header=SimpleNamespace(
+            stamp=SimpleNamespace(sec=10, nanosec=500_000_000)))
+        capture(probe, "/scan", scan)
+        capture(probe, "/clock", SimpleNamespace(
+            clock=SimpleNamespace(sec=10, nanosec=650_000_000)))
+        capture(probe, "/scan", scan)
+        self.assertIsNone(probe.scan_lags[0])
+        self.assertAlmostEqual(probe.scan_lags[1], 0.15)
+
+    def test_a_scan_seen_before_any_clock_message_is_not_graded(self):
+        scans = [SimpleNamespace(header=SimpleNamespace(stamp=SimpleNamespace(
+            sec=10, nanosec=n))) for n in (0, 140_000_000)]
+        probe = SimpleNamespace(
+            messages={"/scan": scans}, scan_lags=[None, 0.0],
+            sensor_profile="physical", performance_checks=True,
+            stamp_seconds=PROBE_MODULE.SensorContractProbe.stamp_seconds)
+        errors = []
+        PROBE_MODULE.SensorContractProbe.validate_scan_latency(probe, errors)
+        self.assertEqual(errors, [])
+
     def test_a_held_scan_passes_the_physical_profile(self):
         self.assertEqual(self.grade([0.145] * 5, "physical"), [])
 

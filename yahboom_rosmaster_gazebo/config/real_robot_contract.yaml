@@ -877,21 +877,24 @@ simulator:
       rate_hz:
         nominal: 7.17
         contract: [6.5, 7.8]
-        tolerance: 0.05
+        measured: 7.194
         matches_physical: true
         note: >
           #43 step 8b; was 5 Hz. Gazebo fires a sensor on whole 1 ms physics
-          steps, so the stamps come at the next whole step after 1 / 7.17 s.
-          The contract range brackets that period and the robot's 7.17 Hz.
+          steps, so the stamps come every 139 ms (1 / 7.17 s is 139.5 ms), 7.194
+          Hz, against the robot's 7.17. The contract range brackets both.
       latency_ms:
-        nominal: 140.0
-        tolerance: 5.0
+        nominal: 143.0
+        measured: {host_gpu: 143, llvmpipe_4cpu: 157}
+        tolerance: 8.0
         matches_physical: true
         note: >
-          #43 step 8b; was 38 ms on the GPU and 120 ms on llvmpipe. Under the
-          physical profile each scan is published when the next one arrives, one
-          scan period after its capture stamp, as the robot's scan is (#43
-          decision D3). Under ideal it is published at once.
+          #43 step 8b; was 5 ms on the GPU and 18.5 on llvmpipe (main, this
+          machine). Under the physical profile each scan is published when the
+          next one arrives: one scan period (139 ms) plus the simulator's own
+          delivery latency (about 4 ms on the GPU), where the robot's 135.7 ms is
+          its 134.3 ms sweep plus about 1.4 ms. The tolerance covers that
+          difference of 7.3 ms. Under ideal it is the delivery latency alone.
       reliability:
         nominal: best_effort
         matches_physical: true

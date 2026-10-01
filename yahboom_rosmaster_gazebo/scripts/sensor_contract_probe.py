@@ -171,6 +171,7 @@ class SensorContractProbe(Node):
         }
         self.messages = {topic: [] for topic in self.required_counts}
         self.scan_lags = []
+        self.sim_now = None
         # The odom -> base_footprint TF arrives once per /odom message, and tf2
         # does not extrapolate, so up to one /odom period of the newest camera
         # frames can be ahead of the latest transform. Keep that many more than
@@ -255,6 +256,9 @@ class SensorContractProbe(Node):
     def capture(self, topic, message):
         """Keep bounded samples and continuously track dynamic TF edges."""
         self.first_arrivals.setdefault(topic, time.monotonic())
+        if topic == "/clock":
+            self.sim_now = (
+                float(message.clock.sec) + float(message.clock.nanosec) * 1e-9)
         if topic == "/tf":
             self.observed_dynamic_tf_edges.update(
                 (
@@ -275,10 +279,11 @@ class SensorContractProbe(Node):
             self.messages[topic].append(message)
             if topic == "/scan":
                 # Sim time at receipt minus the capture stamp, aligned with the
-                # kept scans.
+                # kept scans. This node runs on wall time, so sim time is the
+                # newest /clock message.
                 self.scan_lags.append(
-                    self.get_clock().now().nanoseconds * 1e-9
-                    - self.stamp_seconds(message))
+                    None if self.sim_now is None
+                    else self.sim_now - self.stamp_seconds(message))
 
     def complete(self):
         """Return whether all topics have produced the required samples."""
@@ -430,6 +435,8 @@ class SensorContractProbe(Node):
         held = self.sensor_profile == "physical"
         for index, (stamp, following) in enumerate(zip(stamps, stamps[1:])):
             gap, lag = following - stamp, self.scan_lags[index]
+            if lag is None:
+                continue
             if held and lag < gap - CLOCK_SKEW_S:
                 errors.append(
                     f"/scan: scan {index} arrived {lag:.3f}s after its stamp, "

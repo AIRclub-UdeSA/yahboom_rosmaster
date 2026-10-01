@@ -21,6 +21,8 @@ EXPECTED_SAMPLES = 1080
 # The rate, period bounds and scan_time come from the parity ledger
 # (real_robot_contract.yaml), not from this file.
 SCAN_PERIOD_TOLERANCE_S = 0.02
+# scan_time is a float32 in LaserScan: 0.1343 reads back as 0.134299994.
+SCAN_TIME_TOLERANCE_S = 1e-7
 EXPECTED_RANGE_MIN = 0.05
 EXPECTED_RANGE_MAX = 12.0
 
@@ -223,7 +225,8 @@ class LidarGeometryProbe(Node):
         # scan_time is the robot's one sweep (the ledger's lidar.scan_time_s). The
         # GPU LiDAR renders one complete scan snapshot, so time_increment must
         # stay zero rather than claiming a rolling per-ray acquisition.
-        if not math.isclose(scan.scan_time, self.expected_scan_time, abs_tol=1e-9):
+        if not math.isclose(
+                scan.scan_time, self.expected_scan_time, abs_tol=SCAN_TIME_TOLERANCE_S):
             errors.append(
                 f"{label}: expected scan_time {self.expected_scan_time}, "
                 f"got {scan.scan_time:.9f}")
