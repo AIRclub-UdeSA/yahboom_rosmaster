@@ -6,19 +6,27 @@ import math
 import rclpy
 from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
+from rclpy.exceptions import ParameterUninitializedException
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from sensor_msgs.msg import JointState
 from tf2_ros import TransformBroadcaster
 
 
-POSE_COVARIANCE_DIAGONAL = (0.001, 0.001, 0.001, 0.001, 0.001, 0.01)
-TWIST_COVARIANCE_DIAGONAL = (0.001, 0.001, 0.001, 0.001, 0.001, 0.01)
+COVARIANCE_PARAMETERS = (
+    "pose_covariance_x", "pose_covariance_y", "pose_covariance_yaw",
+    "twist_covariance_x", "twist_covariance_y", "twist_covariance_yaw",
+)
+# The row-major 6x6 indices of x, y and yaw: the only entries the physical
+# robot's odometry.hpp fills.
+COVARIANCE_INDICES = (0, 7, 35)
 
 
-def diagonal_covariance(values):
+def planar_covariance(x, y, yaw):
+    """Return a 6x6 covariance with only the x, y and yaw variances set."""
     covariance = [0.0] * 36
-    for index, value in enumerate(values):
-        covariance[index * 6 + index] = value
+    for index, value in zip(COVARIANCE_INDICES, (x, y, yaw)):
+        covariance[index] = value
     return covariance
 
 
@@ -45,6 +53,9 @@ class WheelStateOdometry(Node):
         self.declare_parameter("max_wheel_position_jump", 2.0 * math.pi)
         self.declare_parameter("odom_frame_id", "odom")
         self.declare_parameter("base_frame_id", "base_footprint")
+        # config/wheel_odometry.yaml supplies these; they have no default.
+        for name in COVARIANCE_PARAMETERS:
+            self.declare_parameter(name, Parameter.Type.DOUBLE)
 
         self.front_left_joint = self.get_parameter("front_left_joint").value
         self.front_right_joint = self.get_parameter("front_right_joint").value
@@ -72,8 +83,16 @@ class WheelStateOdometry(Node):
         self.previous_positions = None
         self.previous_stamp = None
 
-        self.pose_covariance = diagonal_covariance(POSE_COVARIANCE_DIAGONAL)
-        self.twist_covariance = diagonal_covariance(TWIST_COVARIANCE_DIAGONAL)
+        try:
+            covariance = [
+                float(self.get_parameter(name).value)
+                for name in COVARIANCE_PARAMETERS]
+        except ParameterUninitializedException as error:
+            raise ValueError(
+                f"wheel_state_odometry is missing a required parameter "
+                f"(config/wheel_odometry.yaml): {error}") from error
+        self.pose_covariance = planar_covariance(*covariance[:3])
+        self.twist_covariance = planar_covariance(*covariance[3:])
 
         self.odom_publisher = self.create_publisher(Odometry, "/odom", 10)
         self.tf_broadcaster = TransformBroadcaster(self)

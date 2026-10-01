@@ -90,6 +90,18 @@ def validated_sample_count(value):
     return max(3, int(value))
 
 
+def tf_window_size(camera_hz, odom_hz):
+    """
+    Return how many recent frames of a topic the TF check keeps.
+
+    The check passes when any kept frame resolves. Frames newer than the latest
+    odom -> base_footprint transform cannot resolve, and up to one odom period of
+    them (``camera_hz / odom_hz``, rounded up, plus one for a stamp on the far
+    side of a period) can be. The three the check always kept come on top.
+    """
+    return 3 + 1 + math.ceil(camera_hz / odom_hz)
+
+
 class SensorContractProbe(Node):
     """Collect consecutive messages and validate their functional contract."""
 
@@ -154,8 +166,17 @@ class SensorContractProbe(Node):
             "/tf_static": 1,
         }
         self.messages = {topic: [] for topic in self.required_counts}
+        # The odom -> base_footprint TF arrives once per /odom message, and tf2
+        # does not extrapolate, so up to one /odom period of the newest camera
+        # frames can be ahead of the latest transform. Keep that many more than
+        # the three samples the check always had, so that three older ones are
+        # still in the window (#43 step 8a: 30 Hz TF became 10 Hz). One frame
+        # more covers a stamp that lands on the far side of a period.
+        self.tf_window = tf_window_size(
+            contract.nominal("topics./cam_1/color/image_raw.rate_hz"),
+            contract.nominal("topics./odom.rate_hz"))
         self.recent_tf_messages = {
-            topic: deque(maxlen=3) for topic in TIMESTAMPED_TF_TOPICS
+            topic: deque(maxlen=self.tf_window) for topic in TIMESTAMPED_TF_TOPICS
         }
         self.observed_dynamic_tf_edges = set()
         self.started_at = time.monotonic()

@@ -329,14 +329,18 @@ class TestRealRobotContract(unittest.TestCase):
                 self.assertIsNotNone(CONTRACT.physical(key))
 
     def test_joint_state_rate_matches_the_controller(self):
+        # joint_state_broadcaster has no publish_rate parameter; its rate is the
+        # controller's own update_rate, a whole division of the manager's loop.
         config = yaml.safe_load(
             (PACKAGE_DIR / "config" / "ros2_control.yaml").read_text(
                 encoding="utf-8"))
-        publish_rate = (
-            config["joint_state_broadcaster"]["ros__parameters"]["publish_rate"]
-        )
+        parameters = config["joint_state_broadcaster"]["ros__parameters"]
+        self.assertNotIn("publish_rate", parameters)
         self.assertEqual(
-            publish_rate, CONTRACT.nominal("topics./joint_states.rate_hz"))
+            parameters["update_rate"],
+            CONTRACT.nominal("topics./joint_states.rate_hz"))
+        loop = config["controller_manager"]["ros__parameters"]["update_rate"]
+        self.assertEqual(loop % parameters["update_rate"], 0)
 
     def test_default_path_resolves_to_a_ledger(self):
         self.assertTrue(default_path().is_file())

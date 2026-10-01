@@ -1,0 +1,31 @@
+# Limits on the velocity commands the base accepts, from the physical driver
+# (yahboom_rosmaster#43 step 8a). The launch file loads this file with
+# scripts/command_limits.py and passes the values to cmd_vel_watchdog.py, which
+# saturates each component of /cmd_vel to them before it applies any motion
+# bias. test/command_limits_test.py ties the values to
+# real_robot_contract.yaml, so a wrong value here is caught against the
+# physical measurement rather than agreeing with itself.
+#
+# Every value carries the source of its number.
+
+version: 1
+
+limits:
+  linear_x_mps:
+    value: 1.0
+    source: >
+      physical_rosmaster 468662c, yahboomcar_bringup/param/x3_driver.yaml
+      `xlinear_limit: 1.0`, applied by clamp_motion_command() in
+      yahboomcar_bringup/x3_driver_utils.py. The limit is inferred from the
+      driver's configuration: no run drove the robot past it (the ledger's
+      confidence for command.* is `inferred`).
+  linear_y_mps:
+    value: 1.0
+    source: >
+      physical_rosmaster 468662c, x3_driver.yaml `ylinear_limit: 1.0`; same
+      function as above.
+  angular_z_rad_s:
+    value: 5.0
+    source: >
+      physical_rosmaster 468662c, x3_driver.yaml `angular_limit: 5.0`; same
+      function as above.

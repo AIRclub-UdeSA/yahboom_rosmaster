@@ -41,6 +41,7 @@ install(
 install(
   FILES
     scripts/cloud_timing.py
+    scripts/command_limits.py
     scripts/depth_quality.py
     scripts/ground_truth_alignment.py
     scripts/real_robot_contract.py
@@ -107,6 +108,14 @@ if(BUILD_TESTING)
   add_test(
     NAME measurement_tools_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/measurement_tools_test.py
+  )
+  add_test(
+    NAME command_limits_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/command_limits_test.py
+  )
+  add_test(
+    NAME wheel_state_odometry_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/wheel_state_odometry_test.py
   )
   add_test(
     NAME real_robot_contract
