@@ -14,10 +14,13 @@ from rclpy.time import Time
 from sensor_msgs.msg import LaserScan
 from tf2_ros import Buffer, TransformListener
 
+from real_robot_contract import RealRobotContract
+
 
 EXPECTED_SAMPLES = 1080
-EXPECTED_RATE_HZ = 5.0
-EXPECTED_SCAN_PERIOD = 1.0 / EXPECTED_RATE_HZ
+# The rate, period bounds and scan_time come from the parity ledger
+# (real_robot_contract.yaml), not from this file.
+SCAN_PERIOD_TOLERANCE_S = 0.02
 EXPECTED_RANGE_MIN = 0.05
 EXPECTED_RANGE_MAX = 12.0
 
@@ -76,6 +79,10 @@ class LidarGeometryProbe(Node):
         self.declare_parameter("samples", 12)
         self.timeout = float(self.get_parameter("timeout").value)
         self.sample_count = max(10, int(self.get_parameter("samples").value))
+        contract = RealRobotContract.load()
+        self.rate_bounds = contract.rate_bounds("/scan")
+        self.nominal_rate_hz = contract.nominal("topics./scan.rate_hz")
+        self.expected_scan_time = contract.nominal("lidar.scan_time_s")
         self.scans = []
         self.arrival_times = []
         self.started_at = time.monotonic()
@@ -213,13 +220,13 @@ class LidarGeometryProbe(Node):
         if invalid_count == 0:
             errors.append(f"{label}: no invalid/no-return markers in the empty sectors")
 
-        # The current Fortress bridge leaves scan_time unspecified. The GPU
-        # LiDAR renders one complete scan snapshot, so time_increment must also
+        # scan_time is the robot's one sweep (the ledger's lidar.scan_time_s). The
+        # GPU LiDAR renders one complete scan snapshot, so time_increment must
         # stay zero rather than claiming a rolling per-ray acquisition.
-        if not math.isclose(scan.scan_time, 0.0, abs_tol=1e-12):
+        if not math.isclose(scan.scan_time, self.expected_scan_time, abs_tol=1e-9):
             errors.append(
-                f"{label}: current bridge contract expects unspecified "
-                f"scan_time=0, got {scan.scan_time:.9f}")
+                f"{label}: expected scan_time {self.expected_scan_time}, "
+                f"got {scan.scan_time:.9f}")
         if not math.isclose(scan.time_increment, 0.0, abs_tol=1e-12):
             errors.append(
                 f"{label}: snapshot acquisition requires time_increment=0, "
@@ -324,14 +331,17 @@ class LidarGeometryProbe(Node):
         if stamp_deltas:
             median_period = statistics.median(stamp_deltas)
             measured_rate = 1.0 / median_period if median_period > 0.0 else math.inf
-            if not 4.5 <= measured_rate <= 5.5:
+            minimum, maximum = self.rate_bounds
+            if not minimum <= measured_rate <= maximum:
                 errors.append(
-                    f"scan rate: expected about {EXPECTED_RATE_HZ:.1f}Hz, "
+                    f"scan rate: expected {minimum}..{maximum}Hz, "
                     f"measured {measured_rate:.3f}Hz from simulation stamps")
+            expected_period = 1.0 / self.nominal_rate_hz
             if not math.isclose(
-                    median_period, EXPECTED_SCAN_PERIOD, abs_tol=0.02):
+                    median_period, expected_period,
+                    abs_tol=SCAN_PERIOD_TOLERANCE_S):
                 errors.append(
-                    f"scan period: expected {EXPECTED_SCAN_PERIOD:.3f}s, "
+                    f"scan period: expected {expected_period:.3f}s, "
                     f"measured {median_period:.6f}s from simulation stamps")
             if max(abs(delta - median_period) for delta in stamp_deltas) > 0.025:
                 errors.append(
@@ -341,7 +351,7 @@ class LidarGeometryProbe(Node):
         if first_arrival > 5.0:
             errors.append(
                 f"first scan arrived {first_arrival:.3f}s after probe startup; "
-                "expected an already-running 5Hz sensor within 5s")
+                "expected an already-running sensor within 5s")
 
         self.validate_geometry(errors)
         self.validate_tf(errors)
@@ -401,11 +411,6 @@ def main():
             return 1
 
         node.get_logger().info("LiDAR geometry contract PASSED: " + summary)
-        if node.scans[-1].scan_time == 0.0:
-            node.get_logger().warning(
-                "Fortress leaves scan_time unspecified (zero); the 0.2s scan "
-                "period is validated from consecutive headers. time_increment=0 "
-                "correctly declares this simulator's snapshot acquisition")
         return 0
     finally:
         node.destroy_node()

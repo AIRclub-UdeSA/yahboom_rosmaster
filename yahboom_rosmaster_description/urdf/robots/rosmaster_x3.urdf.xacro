@@ -140,7 +140,7 @@
     rpy_offset="0 0 ${M_PI}"
     mesh_xyz_offset="0 0 ${chassis_origin_z}"
     min_range="${0.25 if backend == 'classic' else 0.05}"
-    update_rate="5"
+    update_rate="7.17"
     topic_name="scan"
     enable_gz_sensor="${backend == 'fortress' and '$(arg render_sensors)' in ['true', 'True', '1']}"
     classic_sensor="${backend == 'classic'}"

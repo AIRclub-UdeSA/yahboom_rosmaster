@@ -71,6 +71,51 @@ class TestSensorContractBuffering(unittest.TestCase):
         self.assertEqual(PROBE_MODULE.validated_sample_count(10), 10)
 
 
+class TestScanLatency(unittest.TestCase):
+    """Held and immediate scans are told apart by when each arrives."""
+
+    PERIOD = 0.14
+
+    def grade(self, lags, profile, performance_checks=True):
+        """Run the probe's scan-latency grading on scans PERIOD apart."""
+        scans = [
+            SimpleNamespace(header=SimpleNamespace(stamp=SimpleNamespace(
+                sec=10, nanosec=int(1e9 * index * self.PERIOD))))
+            for index in range(len(lags))]
+        probe = SimpleNamespace(
+            messages={"/scan": scans}, scan_lags=lags, sensor_profile=profile,
+            performance_checks=performance_checks,
+            stamp_seconds=PROBE_MODULE.SensorContractProbe.stamp_seconds)
+        errors = []
+        PROBE_MODULE.SensorContractProbe.validate_scan_latency(probe, errors)
+        return errors
+
+    def test_a_held_scan_passes_the_physical_profile(self):
+        self.assertEqual(self.grade([0.145] * 5, "physical"), [])
+
+    def test_an_immediate_scan_fails_the_physical_profile_on_any_machine(self):
+        for performance_checks in (True, False):
+            with self.subTest(performance_checks=performance_checks):
+                errors = self.grade([0.005] * 5, "physical", performance_checks)
+                self.assertEqual(len(errors), 1)
+                self.assertIn("before the next scan was captured", errors[0])
+
+    def test_a_loaded_machine_only_adds_delay_to_a_held_scan(self):
+        self.assertEqual(self.grade([0.4] * 5, "physical", performance_checks=False), [])
+        self.assertEqual(len(self.grade([0.4] * 5, "physical")), 1)
+
+    def test_a_held_scan_fails_the_ideal_profile(self):
+        errors = self.grade([0.145] * 5, "ideal")
+        self.assertEqual(len(errors), 1)
+        self.assertIn("publishes it at once", errors[0])
+
+    def test_an_immediate_scan_passes_the_ideal_profile(self):
+        self.assertEqual(self.grade([0.005] * 5, "ideal"), [])
+
+    def test_the_ideal_profile_is_not_graded_without_performance_checks(self):
+        self.assertEqual(self.grade([0.145] * 5, "ideal", performance_checks=False), [])
+
+
 class TestRateGrading(unittest.TestCase):
     """The cloud's rate is its mean over the window; the others' is the median."""
 

@@ -11,12 +11,14 @@ import yaml
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_DIR / "scripts"))
 
+from real_robot_contract import RealRobotContract  # noqa: E402
 from sensor_profiles import (  # noqa: E402
     PROFILE_NAMES,
     SENSOR_KEYS,
     SOURCE_PATH,
     default_path,
     depth_parameters,
+    lidar_parameters,
     load_sensor_profile,
     point_cloud_parameters,
 )
@@ -158,6 +160,57 @@ class TestDepthProfiles(unittest.TestCase):
                 lambda profile: profile["min_range_m"].update(source=""), sensor="depth")
 
 
+class TestLidarProfiles(unittest.TestCase):
+    """The LiDAR profiles hold the scan for one period, and share the sensor's scan_time."""
+
+    def test_the_physical_profile_publishes_each_scan_one_scan_late(self):
+        profile = load_sensor_profile(SOURCE_PATH, "lidar", "physical")
+        self.assertEqual(profile["hold_scans"], 1)
+
+    def test_the_ideal_profile_publishes_at_once(self):
+        profile = load_sensor_profile(SOURCE_PATH, "lidar", "ideal")
+        self.assertEqual(profile["hold_scans"], 0)
+
+    def test_scan_time_is_the_robots_under_both_profiles(self):
+        ledger = RealRobotContract.load()
+        for name in PROFILE_NAMES:
+            with self.subTest(profile=name):
+                scan_time = load_sensor_profile(SOURCE_PATH, "lidar", name)["scan_time_s"]
+                self.assertEqual(scan_time, ledger.physical("lidar.scan_time_s"))
+                self.assertEqual(scan_time, ledger.nominal("lidar.scan_time_s"))
+
+    def test_the_delay_sources_cite_the_robots_latency_and_the_decision(self):
+        record = document()["lidar"]["physical"]["hold_scans"]
+        for text in ("135.7", "D3", "468662c"):
+            self.assertIn(text, record["source"])
+
+    def test_the_node_parameters_carry_both_values(self):
+        profile = load_sensor_profile(SOURCE_PATH, "lidar", "physical")
+        self.assertEqual(
+            lidar_parameters(profile), {"hold_scans": 1, "scan_time": 0.1343})
+
+    def test_invalid_lidar_values_are_rejected(self):
+        def load(key, value):
+            return load_edited(
+                lambda profile: profile[key].update(value=value), sensor="lidar")
+
+        for value in (2, -1, 0.5, True, "1"):
+            with self.subTest(hold_scans=value):
+                with self.assertRaisesRegex(RuntimeError, "must be 0 or 1"):
+                    load("hold_scans", value)
+        with self.assertRaisesRegex(RuntimeError, "greater than 0.0"):
+            load("scan_time_s", 0.0)
+        with self.assertRaisesRegex(RuntimeError, "must be numeric"):
+            load("scan_time_s", "0.13")
+
+    def test_a_lidar_profile_needs_its_keys_and_sources(self):
+        with self.assertRaisesRegex(RuntimeError, "missing=\\['scan_time_s'\\]"):
+            load_edited(lambda profile: profile.pop("scan_time_s"), sensor="lidar")
+        with self.assertRaisesRegex(RuntimeError, "needs a source"):
+            load_edited(
+                lambda profile: profile["hold_scans"].update(source=""), sensor="lidar")
+
+
 class TestValidation(unittest.TestCase):
     """A malformed profile stops the launch instead of running wrong."""
 
@@ -166,8 +219,8 @@ class TestValidation(unittest.TestCase):
             load_sensor_profile(SOURCE_PATH, "point_cloud", "noisy")
 
     def test_an_unknown_sensor_is_rejected(self):
-        with self.assertRaisesRegex(RuntimeError, "Unknown sensor 'lidar'"):
-            load_sensor_profile(SOURCE_PATH, "lidar", "physical")
+        with self.assertRaisesRegex(RuntimeError, "Unknown sensor 'radar'"):
+            load_sensor_profile(SOURCE_PATH, "radar", "physical")
         with self.assertRaisesRegex(RuntimeError, "Unknown sensor profile 'noisy'"):
             load_sensor_profile(SOURCE_PATH, "depth", "noisy")
 

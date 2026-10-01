@@ -11,12 +11,13 @@ FILE_NAME = "sensor_profiles.yaml"
 SOURCE_PATH = Path(__file__).resolve().parents[1] / "config" / FILE_NAME
 PROFILE_NAMES = ("ideal", "physical")
 # The keys every profile of a sensor must carry. Step 8 of #43 adds the LiDAR
-# and IMU sensors here.
+# (8b) and the IMU (8c) here.
 SENSOR_KEYS = {
     "point_cloud": ("frame_period_s", "latency_s", "gap_frames"),
     "depth": (
         "scale_error", "noise_sigma_floor_m", "noise_sigma_coefficient",
         "noise_sigma_exponent", "min_range_m"),
+    "lidar": ("hold_scans", "scan_time_s"),
 }
 # The published gap probabilities carry four decimals and sum to 0.9998.
 PROBABILITY_SUM_TOLERANCE = 1e-3
@@ -60,7 +61,19 @@ def _gap_frames(sensor, profile, key, value):
     return dict(sorted(gaps.items()))
 
 
+def _hold_scans(sensor, profile, key, value):
+    """Return how many scans the relay holds back: none, or one."""
+    where = f"sensor profile {sensor}.{profile}.{key}"
+    if isinstance(value, bool) or not isinstance(value, int) or value not in (0, 1):
+        raise RuntimeError(f"{where} must be 0 or 1, got {value!r}")
+    return value
+
+
 def _validated_value(sensor, profile, key, value):
+    if key == "hold_scans":
+        return _hold_scans(sensor, profile, key, value)
+    if key == "scan_time_s":
+        return _number(sensor, profile, key, value, 0.0, exclusive=True)
     if key == "gap_frames":
         return _gap_frames(sensor, profile, key, value)
     if key in ("frame_period_s", "noise_sigma_exponent"):
@@ -142,4 +155,12 @@ def depth_parameters(profile):
         "depth_noise_coefficient": profile["noise_sigma_coefficient"],
         "depth_noise_exponent": profile["noise_sigma_exponent"],
         "depth_min_range_m": profile["min_range_m"],
+    }
+
+
+def lidar_parameters(profile):
+    """Return the scan relay's node parameters for a lidar profile."""
+    return {
+        "hold_scans": profile["hold_scans"],
+        "scan_time": profile["scan_time_s"],
     }

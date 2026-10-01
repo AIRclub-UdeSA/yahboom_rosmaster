@@ -836,15 +836,23 @@ simulator:
         nominal: laser_link
         matches_physical: true
       rate_hz:
-        nominal: 5.0
-        contract: [4.5, 5.5]
-        measured: 4.99
-        matches_physical: false
-        closes_in_step: 8
+        nominal: 7.17
+        contract: [6.5, 7.8]
+        tolerance: 0.05
+        matches_physical: true
+        note: >
+          #43 step 8b; was 5 Hz. Gazebo fires a sensor on whole 1 ms physics
+          steps, so the stamps come at the next whole step after 1 / 7.17 s.
+          The contract range brackets that period and the robot's 7.17 Hz.
       latency_ms:
-        measured: {host_gpu: 38, llvmpipe_4cpu: 120}
-        matches_physical: false
-        closes_in_step: 8
+        nominal: 140.0
+        tolerance: 5.0
+        matches_physical: true
+        note: >
+          #43 step 8b; was 38 ms on the GPU and 120 ms on llvmpipe. Under the
+          physical profile each scan is published when the next one arrives, one
+          scan period after its capture stamp, as the robot's scan is (#43
+          decision D3). Under ideal it is published at once.
       reliability:
         nominal: best_effort
         matches_physical: true
@@ -1100,17 +1108,20 @@ simulator:
       nominal: 12.0
       matches_physical: true
     scan_time_s:
-      measured: 0.0
-      matches_physical: false
-      closes_in_step: 8
+      nominal: 0.1343
+      matches_physical: true
+      note: >
+        #43 step 8b; was 0. The robot's value: one sweep, not the period. Both
+        sensor profiles carry it (config/sensor_profiles.yaml).
     time_increment_s:
       measured: 0.0
       matches_physical: false
       closes_in_step: out_of_scope
       note: >
-        #43 decision D3 (proposed; confirm before step 8) keeps it at 0:
-        gpu_lidar is an instant snapshot, so a non-zero value would make
-        consumers correct for motion that never happened.
+        #43 decision D3 (confirmed 2026-10-01) keeps it at 0: gpu_lidar is an
+        instant snapshot, so a non-zero value would make consumers correct for
+        motion that never happened. Matching it would take a rolling-scan
+        emulation, an optional follow-up.
     ray_dropout:
       nominal: none
       matches_physical: false
