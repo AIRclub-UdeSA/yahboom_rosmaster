@@ -89,8 +89,8 @@ class WheelStateOdometry(Node):
                 for name in COVARIANCE_PARAMETERS]
         except ParameterUninitializedException as error:
             raise ValueError(
-                f"wheel_state_odometry needs the parameter {error.args[0]} "
-                "(config/wheel_odometry.yaml)") from error
+                f"wheel_state_odometry is missing a required parameter "
+                f"(config/wheel_odometry.yaml): {error}") from error
         self.pose_covariance = planar_covariance(*covariance[:3])
         self.twist_covariance = planar_covariance(*covariance[3:])
 

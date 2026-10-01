@@ -23,8 +23,14 @@ from shutdown_asserts import assert_clean_shutdown  # noqa: E402
 def generate_test_description():
     package_share = get_package_share_directory("yahboom_rosmaster_gazebo")
     odometry = ExecuteProcess(
-        cmd=["python3", os.path.join(
-            package_share, "scripts", "wheel_state_odometry.py")],
+        cmd=[
+            "python3", os.path.join(
+                package_share, "scripts", "wheel_state_odometry.py"),
+            # The covariance has no default in the node; the launch file passes
+            # the same file.
+            "--ros-args", "--params-file", os.path.join(
+                package_share, "config", "wheel_odometry.yaml"),
+        ],
         output="screen",
     )
     probe = Node(

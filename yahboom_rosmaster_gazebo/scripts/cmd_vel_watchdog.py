@@ -48,8 +48,8 @@ class CmdVelWatchdog(Node):
                 float(self.get_parameter(name).value) for name in LIMIT_PARAMETERS)
         except ParameterUninitializedException as error:
             raise ValueError(
-                f"cmd_vel_watchdog needs the parameter {error.args[0]} "
-                "(config/command_limits.yaml)") from error
+                f"cmd_vel_watchdog is missing a required parameter "
+                f"(config/command_limits.yaml): {error}") from error
 
         # Load biases from YAML and randomly sample them once for this session
         self.biases = {}
