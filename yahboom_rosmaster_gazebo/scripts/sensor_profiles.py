@@ -18,6 +18,7 @@ SENSOR_KEYS = {
         "scale_error", "noise_sigma_floor_m", "noise_sigma_coefficient",
         "noise_sigma_exponent", "min_range_m"),
     "lidar": ("hold_scans", "scan_time_s"),
+    "imu": ("gyro_noise_stddev_rad_s", "accel_noise_stddev_mps2"),
 }
 # The published gap probabilities carry four decimals and sum to 0.9998.
 PROBABILITY_SUM_TOLERANCE = 1e-3
@@ -69,7 +70,19 @@ def _hold_scans(sensor, profile, key, value):
     return value
 
 
+def _per_axis(sensor, profile, key, value):
+    """Return three finite, non-negative standard deviations, for x, y and z."""
+    where = f"sensor profile {sensor}.{profile}.{key}"
+    if not isinstance(value, list) or len(value) != 3:
+        raise RuntimeError(f"{where} must be a list of three numbers (x, y, z)")
+    return [
+        _number(sensor, profile, f"{key}[{index}]", item, 0.0)
+        for index, item in enumerate(value)]
+
+
 def _validated_value(sensor, profile, key, value):
+    if key in ("gyro_noise_stddev_rad_s", "accel_noise_stddev_mps2"):
+        return _per_axis(sensor, profile, key, value)
     if key == "hold_scans":
         return _hold_scans(sensor, profile, key, value)
     if key == "scan_time_s":
@@ -164,3 +177,19 @@ def lidar_parameters(profile):
         "hold_scans": profile["hold_scans"],
         "scan_time": profile["scan_time_s"],
     }
+
+
+def imu_xacro_arguments(profile):
+    """
+    Return the xacro arguments that set the IMU's per-axis noise, as name:=value.
+
+    The launch file passes them when it expands the description, the way it passes
+    the wheel-contact profile, so the description package reads no gazebo config.
+    """
+    arguments = {}
+    for prefix, key in (
+            ("imu_gyro_noise_stddev", "gyro_noise_stddev_rad_s"),
+            ("imu_accel_noise_stddev", "accel_noise_stddev_mps2")):
+        for axis, value in zip("xyz", profile[key]):
+            arguments[f"{prefix}_{axis}"] = value
+    return arguments

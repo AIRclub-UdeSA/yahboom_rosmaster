@@ -113,6 +113,49 @@ each with its source, and in the parity ledger.
   for motion that never happened (up to about 7.7 degrees of smear at 1 rad/s).
   Matching it would take a rolling-scan emulation, an optional follow-up.
 
+## IMU noise and orientation (implemented)
+
+The IMU follows the physical robot's noise and publishes the robot's two IMU
+topics (#43 step 8c). Every number is in `config/sensor_profiles.yaml` (`imu`)
+or `config/imu_filter_madgwick.yaml`, with its source, and tied to the parity
+ledger by a test.
+
+- **Noise per profile.** Gazebo fixes an IMU's noise in the SDF when it loads
+  the sensor, so the profile cannot change at runtime. `_launch_robot` reads the
+  selected `imu` profile and passes the six per-axis standard deviations to the
+  description as xacro arguments, as it passes the wheel-contact profile; the
+  description package reads no gazebo config. The xacro defaults are the physical
+  values, so a standalone render and the description synced to other repositories
+  are the `physical` profile, and `robot_description_contract_test.py` keeps the
+  defaults equal to `sensor_profiles.yaml` and renders both profiles. Under
+  `ideal` the arguments are zero and the xacro drops the noise element. `ideal`
+  has none because the geometry and motion tests need the sensor's own reading:
+  the accelerometer's noise grew from 0.00175 to as much as 0.135 m/s².
+- **`/imu/data_raw`.** The bridge delivers Gazebo's IMU on a private topic and
+  `imu_raw_relay.py` republishes the header, the acceleration and the angular
+  velocity as the robot's driver does (`Mcnamu_driver_X3.py` `publish_data`): the
+  identity quaternion as orientation, all three covariances zero, Reliable with
+  depth 100. Gazebo's own orientation is not passed on.
+- **`/imu/data`.** The stock `imu_filter_madgwick` node, with exactly the five
+  parameters of the robot's `imu_filter_param.yaml` (`fixed_frame: base_link`,
+  `use_mag: false`, `publish_tf: false`, `world_frame: enu`,
+  `orientation_stddev: 0.05`) and the package defaults for the rest, under both
+  profiles. It takes `dt` from the message stamps, so it never subscribes to
+  `/clock`. 2.1.5 names its node `imu_filter_madgwick`, which is the key of the
+  config file.
+- **What the estimate looks like.** The filter starts from the first
+  accelerometer sample, so roll and pitch are right within the noise at once and
+  there is no settling. `imu_link` is mounted upside down, so its roll sits at ±π
+  and wraps; the yaw it starts at is an arbitrary function of that first sample
+  (-0.32 rad in one run, 2.08 in another) and drifts with gyro noise (0.007 rad
+  over 38 s). Without a magnetometer the robot's estimate does the same. Probes
+  express the orientation in `base_link` through TF and judge yaw only as a
+  change.
+- **QoS.** `/imu/data` is Reliable, the stock node's, which is the robot's by
+  construction; `sensors_stationary.json` has no publisher on `/imu/data`, so it
+  was not measured. `/imu/data_raw` is Reliable as the driver's is. The filter's
+  own subscription is Best Effort.
+
 ## Render visibility masks
 
 Gazebo supports per-visual visibility flags and camera/LiDAR visibility masks.

@@ -18,6 +18,7 @@ from sensor_profiles import (  # noqa: E402
     SOURCE_PATH,
     default_path,
     depth_parameters,
+    imu_xacro_arguments,
     lidar_parameters,
     load_sensor_profile,
     point_cloud_parameters,
@@ -209,6 +210,62 @@ class TestLidarProfiles(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "needs a source"):
             load_edited(
                 lambda profile: profile["hold_scans"].update(source=""), sensor="lidar")
+
+
+class TestImuProfiles(unittest.TestCase):
+    """The IMU profiles are the stationary capture's noise, and ideal has none."""
+
+    def test_the_physical_noise_is_the_ledgers_per_axis(self):
+        ledger = RealRobotContract.load()
+        profile = load_sensor_profile(SOURCE_PATH, "imu", "physical")
+        self.assertEqual(
+            profile["gyro_noise_stddev_rad_s"],
+            ledger.physical("imu.gyro_noise_stddev_rad_s"))
+        self.assertEqual(
+            profile["accel_noise_stddev_mps2"],
+            ledger.physical("imu.accel_noise_stddev_mps2"))
+        self.assertEqual(
+            profile["gyro_noise_stddev_rad_s"],
+            ledger.nominal("imu.gyro_noise_stddev_rad_s"))
+        self.assertEqual(
+            profile["accel_noise_stddev_mps2"],
+            ledger.nominal("imu.accel_noise_stddev_mps2"))
+
+    def test_the_ideal_profile_has_no_noise(self):
+        profile = load_sensor_profile(SOURCE_PATH, "imu", "ideal")
+        self.assertEqual(profile["gyro_noise_stddev_rad_s"], [0.0] * 3)
+        self.assertEqual(profile["accel_noise_stddev_mps2"], [0.0] * 3)
+
+    def test_the_sources_cite_the_capture(self):
+        data = document()["imu"]["physical"]
+        for text in ("sensors_stationary.json", "468662c", "IMU noise floor"):
+            self.assertIn(text, data["gyro_noise_stddev_rad_s"]["source"])
+        self.assertIn("same capture", data["accel_noise_stddev_mps2"]["source"])
+
+    def test_the_xacro_arguments_are_per_axis(self):
+        profile = load_sensor_profile(SOURCE_PATH, "imu", "physical")
+        self.assertEqual(imu_xacro_arguments(profile), {
+            "imu_gyro_noise_stddev_x": 0.0054,
+            "imu_gyro_noise_stddev_y": 0.0051,
+            "imu_gyro_noise_stddev_z": 0.0052,
+            "imu_accel_noise_stddev_x": 0.135,
+            "imu_accel_noise_stddev_y": 0.131,
+            "imu_accel_noise_stddev_z": 0.102,
+        })
+
+    def test_invalid_imu_values_are_rejected(self):
+        def load(key, value):
+            return load_edited(
+                lambda profile: profile[key].update(value=value), sensor="imu")
+
+        for value in ([0.1, 0.1], [0.1, 0.1, 0.1, 0.1], 0.1, "x"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(RuntimeError, "list of three"):
+                    load("gyro_noise_stddev_rad_s", value)
+        with self.assertRaisesRegex(RuntimeError, "at least 0.0"):
+            load("accel_noise_stddev_mps2", [0.1, -0.1, 0.1])
+        with self.assertRaisesRegex(RuntimeError, "must be numeric"):
+            load("accel_noise_stddev_mps2", [0.1, "0.1", 0.1])
 
 
 class TestValidation(unittest.TestCase):

@@ -147,6 +147,19 @@ def _launch_robot(context, xacro_path, profile_config, after_spawn):
         f"use_ros2_control:={LaunchConfiguration('use_ros2_control').perform(context)}",
     ]
     command.extend(f"{key}:={profile[key]}" for key in MOTION_PROFILE_KEYS)
+
+    # The IMU's per-axis noise is fixed in the SDF when Gazebo loads the sensor,
+    # so the sensor profile reaches it as xacro arguments, as the motion profile
+    # does: zeros under `ideal`, the physical capture under `physical`.
+    pkg_gz = get_package_share_directory("yahboom_rosmaster_gazebo")
+    sys.path.insert(0, os.path.join(pkg_gz, "scripts"))
+    from sensor_profiles import imu_xacro_arguments, load_sensor_profile
+    sensor_profile_name = LaunchConfiguration("sensor_profile").perform(context)
+    imu_profile = load_sensor_profile(
+        os.path.join(pkg_gz, "config", "sensor_profiles.yaml"), "imu",
+        sensor_profile_name)
+    command.extend(
+        f"{name}:={value}" for name, value in imu_xacro_arguments(imu_profile).items())
     robot_description = subprocess.check_output(command, text=True)
 
     get_logger("rosmaster_gazebo_motion_profile").info(
@@ -793,6 +806,24 @@ def generate_launch_description():
         "/internal/cam_1/depth/camera_info", "/cam_1/depth/camera_info")
     # The /scan relay is started by _scan_relay, which applies the sensor profile.
 
+    # /imu/data_raw carries what the physical driver publishes there, and the
+    # stock imu_filter_madgwick node, with the robot's parameters, estimates the
+    # orientation of /imu/data from it. Both run under either sensor profile. The
+    # filter takes its time from the message stamps (dt from the headers), so it
+    # needs no use_sim_time and never subscribes to /clock.
+    imu_raw_relay = Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="imu_raw_relay.py",
+        name="imu_raw_relay",
+        output="screen",
+    )
+    imu_filter = Node(
+        package="imu_filter_madgwick",
+        executable="imu_filter_madgwick_node",
+        output="screen",
+        parameters=[os.path.join(pkg_gz, "config", "imu_filter_madgwick.yaml")],
+    )
+
     # Load and activate the read-only joint state broadcaster. The spawner waits
     # longer than `ros2 control load_controller`, which helps GUI starts on busy
     # machines where the controller manager is late to answer service calls.
@@ -966,6 +997,8 @@ def generate_launch_description():
             color_camera_info_qos_relay,
             depth_camera_info_qos_relay,
             OpaqueFunction(function=_scan_relay, args=[pkg_gz]),
+            imu_raw_relay,
+            imu_filter,
             joint_state_bridge,
             joint_state_throttle,
             cmd_vel_watchdog,

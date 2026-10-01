@@ -2,6 +2,14 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
     <xacro:property name="M_PI" value="3.1415926535897931" />
 
+    <xacro:macro name="imu_noise" params="axis stddev">
+        <xacro:if value="${float(stddev) > 0.0}">
+            <xacro:element xacro:name="${axis}">
+                <noise type="gaussian"><mean>0</mean><stddev>${stddev}</stddev></noise>
+            </xacro:element>
+        </xacro:if>
+    </xacro:macro>
+
     <xacro:macro name="imu_sensor" params="
         prefix:=''
         parent:='base_link'
@@ -20,8 +28,12 @@
         gazebo_material_diffuse:='0.1 0.1 0.1 1'
         gazebo_material_specular:='0.1 0.1 0.1 1'
         update_rate:='10.0'
-        gyro_noise_stddev:='0.00873'
-        accel_noise_stddev:='0.00175'
+        gyro_noise_stddev_x:='0.0054'
+        gyro_noise_stddev_y:='0.0051'
+        gyro_noise_stddev_z:='0.0052'
+        accel_noise_stddev_x:='0.135'
+        accel_noise_stddev_y:='0.131'
+        accel_noise_stddev_z:='0.102'
         topic_name:='imu/data'
         always_on:=true
         visualize:=false">
@@ -73,15 +85,18 @@
                  sensor_msgs/Imu). gz_ros2_control also reads this sensor through the ECS. -->
             <sensor name="${prefix}imu_sensor" type="imu">
                 <imu>
+                    <!-- Per-axis Gaussian noise, as the physical robot's stationary
+                         capture measured it. A zero standard deviation (sensor_profile
+                         ideal) drops the noise element instead of writing one. -->
                     <angular_velocity>
-                        <x><noise type="gaussian"><mean>0</mean><stddev>${gyro_noise_stddev}</stddev></noise></x>
-                        <y><noise type="gaussian"><mean>0</mean><stddev>${gyro_noise_stddev}</stddev></noise></y>
-                        <z><noise type="gaussian"><mean>0</mean><stddev>${gyro_noise_stddev}</stddev></noise></z>
+                        <xacro:imu_noise axis="x" stddev="${gyro_noise_stddev_x}"/>
+                        <xacro:imu_noise axis="y" stddev="${gyro_noise_stddev_y}"/>
+                        <xacro:imu_noise axis="z" stddev="${gyro_noise_stddev_z}"/>
                     </angular_velocity>
                     <linear_acceleration>
-                        <x><noise type="gaussian"><mean>0</mean><stddev>${accel_noise_stddev}</stddev></noise></x>
-                        <y><noise type="gaussian"><mean>0</mean><stddev>${accel_noise_stddev}</stddev></noise></y>
-                        <z><noise type="gaussian"><mean>0</mean><stddev>${accel_noise_stddev}</stddev></noise></z>
+                        <xacro:imu_noise axis="x" stddev="${accel_noise_stddev_x}"/>
+                        <xacro:imu_noise axis="y" stddev="${accel_noise_stddev_y}"/>
+                        <xacro:imu_noise axis="z" stddev="${accel_noise_stddev_z}"/>
                     </linear_acceleration>
                 </imu>
                 <update_rate>${update_rate}</update_rate>

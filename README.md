@@ -513,7 +513,8 @@ a physical ROSMASTER X3. See
 | `/tf` | `tf2_msgs/msg/TFMessage` | — | Dynamic transforms |
 | `/tf_static` | `tf2_msgs/msg/TFMessage` | — | Static robot transforms |
 | `/scan` | `sensor_msgs/msg/LaserScan` | `laser_link` / about 7.2 Hz (stamps 139 ms apart) | 1080-sample 2D LiDAR scan with `scan_time` 0.1343 s. Under `physical` (the default) each scan arrives about 143 ms after its stamp, one period late as on the robot; under `ideal` it arrives at once |
-| `/imu/data` | `sensor_msgs/msg/Imu` | `imu_link` / 10 Hz | Simulated IMU data |
+| `/imu/data` | `sensor_msgs/msg/Imu` | `imu_link` / 10 Hz | IMU data with an orientation estimated by `imu_filter_madgwick` (covariance `0.0025` on the diagonal), Reliable |
+| `/imu/data_raw` | `sensor_msgs/msg/Imu` | `imu_link` / 10 Hz | The IMU's acceleration and angular velocity with the noise of the physical robot's (per axis, under `physical`; none under `ideal`), the identity quaternion as orientation and all covariances zero, exactly as the robot's driver publishes it. Reliable, depth 100. Input of the filter above |
 | `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | `cam_1_color_optical_frame` / 30 Hz | 320x240 `rgb8` image |
 | `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | `cam_1_color_optical_frame` / 30 Hz | 320x240 `32FC1` depth in metres, registered to color. A pixel with no return is NaN. Under `physical` (the default) depth reads 1.1858% short, carries noise of `max(0.002, 0.0019·d^2.36)` m and is NaN below 0.6 m; under `ideal` it is the render, unchanged |
 | `/cam_1/color/camera_info` | `sensor_msgs/msg/CameraInfo` | `cam_1_color_optical_frame` / 30 Hz | fx = fy = 271.809, (cx, cy) = (159.5, 119.5), `plumb_bob` with zero distortion |
@@ -590,7 +591,7 @@ physical robot -- receives no data from a Reliable-only publisher, so this
 keeps one consumer working against both environments without remaps or
 per-environment QoS overrides. `sensor_contract_probe.py` asserts this on
 every launch test via `validate_qos`. `/joint_states`, `/odom`, and
-`/imu/data` remain Reliable, also matching the physical robot.
+`/imu/data` and `/imu/data_raw` remain Reliable, also matching the physical robot (the filter is the same stock `imu_filter_madgwick` node, so its Reliable `/imu/data` matches by construction; the robot's `/imu/data` QoS was not measured).
 
 The camera frames match the physical X3. `cam_1_link` and
 `cam_1_depth_frame` sit at its camera mount,
@@ -675,7 +676,7 @@ ideal-versus-stress motion-profile contract:
 
 ```bash
 colcon test --packages-select yahboom_rosmaster_gazebo \
-  --ctest-args -R '^(sensor_contract_(probe_contract|empty|empty_ideal|cafe)|cloud_timing_(physical|ideal)|depth_geometry|ground_truth_contract|motion_profile_.*|lidar_geometry|imu_motion|base_feedback|wheel_odometry_resilience)$' \
+  --ctest-args -R '^(sensor_contract_(probe_contract|empty|empty_ideal|cafe)|cloud_timing_(physical|ideal)|depth_geometry|ground_truth_contract|motion_profile_.*|lidar_geometry|imu_(motion|noise|motion_physical)|base_feedback|wheel_odometry_resilience)$' \
   --output-on-failure
 colcon test-result --verbose
 ```
@@ -915,6 +916,25 @@ consumers such as Nav2's laser projection correct for motion that never
 happened. The first scan waits for the second and the last one before shutdown
 is never published.
 
+**The IMU changed in #43 step 8c.** `/imu/data`'s orientation is no longer
+Gazebo's: `imu_filter_madgwick`, with the robot's parameters
+(`config/imu_filter_madgwick.yaml`), estimates it from the new `/imu/data_raw`.
+As on the robot, the estimate is of `imu_link`, which is mounted upside down, so
+its roll sits near ±π (wrapping between the two) and its yaw is arbitrary: the
+filter starts from the first accelerometer sample, and with no magnetometer the
+yaw it starts at is not the world's, then drifts with gyro noise. Express it in
+`base_link` through TF before reading roll and pitch, and use yaw only as a
+change. Roll and pitch are within about 0.03 rad from the first message; there
+is no settling to wait for. The orientation covariance is `0.0025` on the
+diagonal, the angular velocity and acceleration covariances are zero as on the
+robot. Under the default `physical` profile the gyro and accelerometer noise are
+the robot's, per axis (gyro `[0.0054, 0.0051, 0.0052]` rad/s, accelerometer
+`[0.135, 0.131, 0.102]` m/s², from the stationary capture; the accelerometer's
+was 0.00175 on every axis, 75 times too small on x); under `sensor_profile:=ideal`
+there is none, so geometry and motion tests see the sensor's own reading. The
+filter runs under both profiles. `/imu/data_raw` is new and carries the robot's
+content: no Gazebo orientation, zero covariances.
+
 The following simulator limitations remain:
 
 - The default drivetrain stress profile is deterministic but uncalibrated. It
@@ -928,9 +948,8 @@ The following simulator limitations remain:
   minimum range (#43 step 7). The noise fit is extrapolated beyond the 3.6 m it
   was calibrated to. The physical sensor's floor dropout, its close-range wedge
   and the fraction of pixels that return, which depends on the scene, are not
-  modelled (#59). The LiDAR's rate, delay and `scan_time` follow the robot (#43 step 8b); the IMU
-  model has not been calibrated against measurements from the physical robot
-  (#43 step 8).
+  modelled (#59). The LiDAR's rate, delay and `scan_time` follow the robot (#43 step 8b), and so
+  do the IMU's noise and orientation filter (#43 step 8c).
 - The 30 Hz camera is the heaviest sensor to render. With a GPU the simulator
   runs at about 0.95x real time. Under software rendering (llvmpipe, as on CI
   runners), it drops to about 0.4x with 4 CPUs. The sensors keep their rates
@@ -940,9 +959,10 @@ The following simulator limitations remain:
   the robot's is 0.1245 ms; matching it would need a rolling-scan emulation
   (#43 decision D3, an optional follow-up). The robot's roughly 25% ray dropout
   is not modelled either.
-- IMU covariance arrays are all zero, which ROS defines as covariance unknown;
-  the configured nominal noise is not yet communicated to consumers as a
-  measured covariance.
+- The IMU has white Gaussian noise only, as the robot's stationary capture
+  measured it. Its bias, drift, temperature behaviour and the angular velocity
+  and acceleration covariances (zero on the robot, from the legacy bags, never
+  re-measured on the current driver) are not modelled.
 - `simple_room.world` and `willowgarage.world` are retained migration assets;
   they are deliberately not supported Fortress worlds and are excluded from
   automated coverage, unlike the twelve maze worlds below.

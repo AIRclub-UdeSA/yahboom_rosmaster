@@ -88,6 +88,34 @@ class TestSensorContractBuffering(unittest.TestCase):
         self.assertEqual(PROBE_MODULE.validated_sample_count(10), 10)
 
 
+class TestImuOrientationCovariance(unittest.TestCase):
+    """The filter's covariance is the ledger's diagonal, nothing more."""
+
+    DIAGONAL = CONTRACT.nominal("imu.orientation_covariance_diag")
+
+    def errors(self, covariance):
+        return PROBE_MODULE.orientation_covariance_errors(covariance, self.DIAGONAL)
+
+    def test_the_ledger_diagonal_passes(self):
+        covariance = [0.0] * 9
+        for index, value in enumerate(self.DIAGONAL):
+            covariance[index * 4] = value
+        self.assertEqual(self.errors(covariance), [])
+
+    def test_an_unknown_all_zero_matrix_fails(self):
+        self.assertEqual(len(self.errors([0.0] * 9)), 1)
+
+    def test_a_filled_off_diagonal_fails(self):
+        covariance = [0.0] * 9
+        for index, value in enumerate(self.DIAGONAL):
+            covariance[index * 4] = value
+        covariance[1] = 0.001
+        self.assertEqual(len(self.errors(covariance)), 1)
+
+    def test_a_wrong_length_fails(self):
+        self.assertEqual(len(self.errors([0.0025] * 3)), 1)
+
+
 class TestScanLatency(unittest.TestCase):
     """Held and immediate scans are told apart by when each arrives."""
 

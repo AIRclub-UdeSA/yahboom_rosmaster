@@ -239,6 +239,18 @@ physical:
       rate_hz: 10.00
       period_p95_ms: 102.1
       latency_ms: 3.0
+    /imu/data_raw:
+      type: sensor_msgs/msg/Imu
+      frame_id: imu_link
+      rate_hz: 10.00
+      period_p95_ms: 102.2
+      latency_ms: 2.5
+      reliability: reliable
+      # sensors_stationary.json: one publisher, driver_node, Reliable. The driver
+      # fills only the header, acceleration and angular velocity of the message
+      # and publishes it with depth 100 (Mcnamu_driver_X3.py publish_data).
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+      covariances: all_zero
     /odom:
       type: nav_msgs/msg/Odometry
       frame_id: odom
@@ -352,7 +364,7 @@ physical:
     accel_noise_stddev_mps2: [0.135, 0.131, 0.102]
     gravity_magnitude_mps2: 9.7554
     orientation_source: imu_filter_madgwick
-    madgwick: {use_mag: false, publish_tf: false, world_frame: enu, orientation_stddev: 0.05}
+    madgwick: {fixed_frame: base_link, use_mag: false, publish_tf: false, world_frame: enu, orientation_stddev: 0.05}
     orientation_covariance_diag: [0.0025, 0.0025, 0.0025]
     raw_topic: /imu/data_raw
     covariance_note: >
@@ -390,11 +402,12 @@ physical:
     angular_z_limit_rad_s: 5.0
 
   # Published only by hardware drivers. The simulator does not replicate them
-  # (#43 decision D2); /imu/data_raw arrives with the Madgwick filter in step 8.
+  # (#43 decision D2). /imu/data_raw is not among them any more: it is the
+  # Madgwick filter's input, and step 8c publishes it (topics above).
   hardware_extensions:
     confidence: inferred
     source: config/robot_contract.yaml
-    topics: [/diagnostics, /imu/data_raw, /imu/mag, /vel_raw, /voltage, /edition, /Buzzer, /RGBLight, /scan_filtered]
+    topics: [/diagnostics, /imu/mag, /vel_raw, /voltage, /edition, /Buzzer, /RGBLight, /scan_filtered]
 
 simulator:
   provenance:
@@ -938,6 +951,28 @@ simulator:
         contract: [8.0, 12.0]
         measured: 9.97
         matches_physical: true
+    /imu/data_raw:
+      frame_id:
+        nominal: imu_link
+        matches_physical: true
+      rate_hz:
+        nominal: 10.0
+        contract: [8.0, 12.0]
+        tolerance: 0.1
+        matches_physical: true
+        note: '#43 step 8c; the topic is new. One message per IMU sample.'
+      reliability:
+        nominal: reliable
+        matches_physical: true
+      orientation:
+        nominal: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+        matches_physical: true
+        note: >
+          #43 step 8c. The identity quaternion the driver leaves in it, not
+          Gazebo's orientation.
+      covariances:
+        nominal: all_zero
+        matches_physical: true
     /odom:
       frame_id:
         nominal: odom
@@ -1209,27 +1244,32 @@ simulator:
 
   imu:
     gyro_noise_stddev_rad_s:
-      nominal: [0.00873, 0.00873, 0.00873]
-      measured: [0.0088, 0.0088, 0.0086]
-      matches_physical: false
-      closes_in_step: 8
+      nominal: [0.0054, 0.0051, 0.0052]
+      matches_physical: true
+      note: >
+        #43 step 8c; was [0.00873, 0.00873, 0.00873]. Per axis, from the
+        `physical` sensor profile; under `ideal` there is none.
     accel_noise_stddev_mps2:
-      nominal: [0.00175, 0.00175, 0.00175]
-      measured: [0.0018, 0.0018, 0.0017]
-      matches_physical: false
-      closes_in_step: 8
+      nominal: [0.135, 0.131, 0.102]
+      matches_physical: true
+      note: >
+        #43 step 8c; was [0.00175, 0.00175, 0.00175], 75 times too small on
+        x. Per axis, from the `physical` sensor profile.
     orientation_source:
-      nominal: gazebo
-      matches_physical: false
-      closes_in_step: 8
+      nominal: imu_filter_madgwick
+      matches_physical: true
+      note: >
+        #43 step 8c; was gazebo. The stock imu_filter_madgwick node with the
+        robot's parameters (config/imu_filter_madgwick.yaml), under both profiles.
     orientation_covariance_diag:
-      nominal: [0.0, 0.0, 0.0]
-      matches_physical: false
-      closes_in_step: 8
+      nominal: [0.0025, 0.0025, 0.0025]
+      tolerance: 1.0e-9
+      matches_physical: true
+      note: '#43 step 8c; was [0, 0, 0]. orientation_stddev 0.05 squared.'
     raw_topic:
-      nominal: none
-      matches_physical: false
-      closes_in_step: 8
+      nominal: /imu/data_raw
+      matches_physical: true
+      note: '#43 step 8c; was none.'
     angular_velocity_covariance_diag:
       nominal: [0.0, 0.0, 0.0]
       matches_physical: true

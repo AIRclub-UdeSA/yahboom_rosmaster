@@ -94,6 +94,25 @@ def validated_sample_count(value):
     return max(3, int(value))
 
 
+def orientation_covariance_errors(covariance, diagonal):
+    """
+    Return the problems with /imu/data's orientation covariance.
+
+    imu_filter_madgwick fills the diagonal with orientation_stddev squared and
+    leaves the rest zero, as the robot's does; the ledger holds the diagonal.
+    """
+    expected = [0.0] * 9
+    for index, value in enumerate(diagonal):
+        expected[index * 4] = value
+    if len(covariance) != 9 or any(
+            abs(float(value) - want) > 1e-12
+            for value, want in zip(covariance, expected)):
+        return [
+            f"imu: orientation covariance {list(map(float, covariance))}, "
+            f"expected the diagonal {list(diagonal)}"]
+    return []
+
+
 def tf_window_size(camera_hz, odom_hz):
     """
     Return how many recent frames of a topic the TF check keeps.
@@ -154,6 +173,8 @@ class SensorContractProbe(Node):
         self.expected_odom_child_frame = contract.nominal(
             "topics./odom.child_frame_id")
         self.expected_depth = expectations_from_ledger(contract)
+        self.imu_orientation_variance = contract.nominal(
+            "imu.orientation_covariance_diag")
 
         self.required_counts = {
             "/clock": self.samples,
@@ -635,6 +656,8 @@ class SensorContractProbe(Node):
         )
         if not self.finite(imu_values):
             errors.append("imu: motion values contain non-finite values")
+        errors.extend(orientation_covariance_errors(
+            imu.orientation_covariance, self.imu_orientation_variance))
         gravity = math.sqrt(
             imu.linear_acceleration.x ** 2 +
             imu.linear_acceleration.y ** 2 +

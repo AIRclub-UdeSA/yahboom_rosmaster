@@ -1,0 +1,20 @@
+# imu_filter_madgwick's parameters, the physical robot's own (#43 step 8c). The
+# launch file passes this file to the stock imu_filter_madgwick node, which
+# estimates /imu/data's orientation from /imu/data_raw as it does on the robot.
+# test/imu_filter_config_test.py ties these values to the parity ledger.
+#
+# Source of every value: physical_rosmaster 468662c,
+# yahboomcar_bringup/param/imu_filter_param.yaml, started by
+# yahboomcar_bringup/launch/yahboomcar_bringup_X3_launch.py with no remaps and no
+# further parameters. The file sets exactly these five; the filter's other
+# parameters keep the package's defaults (gain 0.1, zeta 0.0, constant_dt 0.0,
+# stateless false, remove_gravity_vector false), on the robot and here.
+#
+# The node's name is imu_filter_madgwick in 2.1.5, which is the key below.
+imu_filter_madgwick:
+  ros__parameters:
+    fixed_frame: base_link
+    use_mag: false
+    publish_tf: false
+    world_frame: enu
+    orientation_stddev: 0.05

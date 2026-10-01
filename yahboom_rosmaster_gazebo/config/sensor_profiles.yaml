@@ -189,3 +189,33 @@ lidar:
       source: >
         The same sensor description as the physical profile: a profile changes
         quality and timing, never the interface (#43 step 8b, review item R4).
+
+imu:
+  physical:
+    gyro_noise_stddev_rad_s:
+      value: [0.0054, 0.0051, 0.0052]
+      source: >
+        physical_rosmaster 468662c, robot_artifacts/x3c_sensor_capability_2026-09-17/
+        sensors_stationary.json (`/imu/data` series gyro_x, gyro_y, gyro_z stddev:
+        0.005359, 0.005137, 0.005234 rad/s; `/imu/data_raw`'s are 0.00537, 0.00518,
+        0.00523, the same to the document's two figures) and docs/sensor_capabilities.md
+        "IMU noise floor": a controlled stationary capture, 400 samples over 40 s on
+        x3-c, rounded to the document's figures 0.0054 / 0.0051 / 0.0052. Per axis,
+        in imu_link, which is the frame Gazebo's sensor noise acts in.
+    accel_noise_stddev_mps2:
+      value: [0.135, 0.131, 0.102]
+      source: >
+        The same capture: `/imu/data` accel_x, accel_y, accel_z stddev 0.13498,
+        0.13062, 0.10219 m/s^2 (`/imu/data_raw`: 0.13483, 0.13096, 0.10229), rounded
+        to the document's 0.135 / 0.131 / 0.102.
+        Per axis, in imu_link.
+
+  ideal:
+    gyro_noise_stddev_rad_s:
+      value: [0.0, 0.0, 0.0]
+      source: >
+        By definition (#43 decision D1): the sensor's reading, undegraded. The
+        xacro drops the noise element for a zero standard deviation.
+    accel_noise_stddev_mps2:
+      value: [0.0, 0.0, 0.0]
+      source: By definition (#43 decision D1), as the gyro.
