@@ -63,6 +63,23 @@ class TestSensorContractBuffering(unittest.TestCase):
                 self.assertEqual(
                     list(probe.recent_tf_messages["/odom"]), [2, 3, 4])
 
+    def test_the_tf_window_covers_one_odom_period_of_camera_frames(self):
+        # The transform arrives once per /odom message, and tf2 does not
+        # extrapolate, so the newest frames can be ahead of it; the window keeps
+        # the three samples the check always had behind them.
+        window = PROBE_MODULE.tf_window_size
+        self.assertEqual(window(30.0, 10.0), 7)
+        self.assertEqual(window(30.0, 30.0), 5)
+        # A frame period is 33 ms and an odom period 102 ms: at most four
+        # frames are newer than the latest transform, and three older remain.
+        self.assertGreaterEqual(window(30.0, 10.0) - 4, 3)
+        ledger = CONTRACT
+        self.assertEqual(
+            window(
+                ledger.nominal("topics./cam_1/color/image_raw.rate_hz"),
+                ledger.nominal("topics./odom.rate_hz")),
+            7)
+
     def test_sample_count_is_at_least_three(self):
         """Requested counts below three must be clamped to three."""
         self.assertEqual(PROBE_MODULE.validated_sample_count(0), 3)
