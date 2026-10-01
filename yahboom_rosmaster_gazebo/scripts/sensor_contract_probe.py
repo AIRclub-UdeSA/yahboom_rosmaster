@@ -50,6 +50,10 @@ RATE_GRADED_TOPICS = (
 MEAN_RATE_TOPICS = ("/cam_1/depth/color/points",)
 # camera_info must reproduce the ledger's intrinsics to this many pixels.
 INTRINSICS_TOLERANCE = 1e-3
+# How far the probe's own /clock may trail a message, in sim seconds, and how
+# much beyond the one-period hold the physical profile's scan may arrive.
+CLOCK_SKEW_S = 0.02
+SCAN_LATE_MARGIN_S = 0.1
 REQUIRED_DYNAMIC_TF_EDGE = ("odom", "base_footprint")
 TIMESTAMPED_TF_TOPICS = (
     "/scan",
@@ -166,6 +170,8 @@ class SensorContractProbe(Node):
             "/tf_static": 1,
         }
         self.messages = {topic: [] for topic in self.required_counts}
+        self.scan_lags = []
+        self.sim_now = None
         # The odom -> base_footprint TF arrives once per /odom message, and tf2
         # does not extrapolate, so up to one /odom period of the newest camera
         # frames can be ahead of the latest transform. Keep that many more than
@@ -250,6 +256,9 @@ class SensorContractProbe(Node):
     def capture(self, topic, message):
         """Keep bounded samples and continuously track dynamic TF edges."""
         self.first_arrivals.setdefault(topic, time.monotonic())
+        if topic == "/clock":
+            self.sim_now = (
+                float(message.clock.sec) + float(message.clock.nanosec) * 1e-9)
         if topic == "/tf":
             self.observed_dynamic_tf_edges.update(
                 (
@@ -268,6 +277,13 @@ class SensorContractProbe(Node):
             self.recent_tf_messages[topic].append(message)
         if len(self.messages[topic]) < self.required_counts[topic]:
             self.messages[topic].append(message)
+            if topic == "/scan":
+                # Sim time at receipt minus the capture stamp, aligned with the
+                # kept scans. This node runs on wall time, so sim time is the
+                # newest /clock message.
+                self.scan_lags.append(
+                    None if self.sim_now is None
+                    else self.sim_now - self.stamp_seconds(message))
 
     def complete(self):
         """Return whether all topics have produced the required samples."""
@@ -402,6 +418,45 @@ class SensorContractProbe(Node):
                 f"{topic}: measured {rate:.3f} Hz outside "
                 f"{minimum:.1f}..{maximum:.1f} Hz")
 
+    def validate_scan_latency(self, errors):
+        """
+        Grade how late each scan arrives against the sensor profile.
+
+        Under ``physical`` a scan is published when the next one arrives, so it
+        cannot be received before the next scan was captured: its lag is at
+        least the gap to the next stamp. That holds on any machine, since load
+        only adds delay. Under ``ideal`` it is published at once, so with the
+        machine keeping up (``performance_checks``) it arrives before the next
+        scan is even captured. A margin of CLOCK_SKEW_S covers the probe's
+        /clock arriving a little behind the scan.
+        """
+        scans = self.messages["/scan"]
+        stamps = [self.stamp_seconds(scan) for scan in scans]
+        held = self.sensor_profile == "physical"
+        for index, (stamp, following) in enumerate(zip(stamps, stamps[1:])):
+            gap, lag = following - stamp, self.scan_lags[index]
+            if lag is None:
+                continue
+            if held and lag < gap - CLOCK_SKEW_S:
+                errors.append(
+                    f"/scan: scan {index} arrived {lag:.3f}s after its stamp, "
+                    f"before the next scan was captured ({gap:.3f}s later); the "
+                    "physical profile publishes it when the next one arrives")
+                return
+            if held and self.performance_checks and lag > gap + SCAN_LATE_MARGIN_S:
+                errors.append(
+                    f"/scan: scan {index} arrived {lag:.3f}s after its stamp, "
+                    f"more than {SCAN_LATE_MARGIN_S}s beyond the {gap:.3f}s the "
+                    "physical profile holds it")
+                return
+            if (not held and self.performance_checks
+                    and lag >= gap - CLOCK_SKEW_S):
+                errors.append(
+                    f"/scan: scan {index} arrived {lag:.3f}s after its stamp, "
+                    f"a whole scan period ({gap:.3f}s) late; the ideal profile "
+                    "publishes it at once")
+                return
+
     def validate_timestamped_tf(self, errors):
         """
         Require representative sensor frames to resolve at message time.
@@ -467,6 +522,8 @@ class SensorContractProbe(Node):
 
         for topic in BEST_EFFORT_TOPICS:
             self.validate_qos(topic, errors)
+
+        self.validate_scan_latency(errors)
 
         if self.performance_checks:
             for topic, (minimum, maximum) in self.rate_contracts.items():

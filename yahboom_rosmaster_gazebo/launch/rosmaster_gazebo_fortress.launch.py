@@ -248,6 +248,28 @@ def _camera_adapter(context, pkg_gz):
     return [camera_adapter]
 
 
+def _scan_relay(context, pkg_gz):
+    """Start the /scan relay with the selected LiDAR profile: its delay and scan_time."""
+    sys.path.insert(0, os.path.join(pkg_gz, "scripts"))
+    from sensor_profiles import lidar_parameters, load_sensor_profile
+
+    profile = load_sensor_profile(
+        os.path.join(pkg_gz, "config", "sensor_profiles.yaml"), "lidar",
+        LaunchConfiguration("sensor_profile").perform(context))
+    return [Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="sensor_qos_relay.py",
+        name="scan_qos_relay",
+        output="screen",
+        parameters=[{
+            "msg_type": "LaserScan",
+            "input_topic": "/internal/scan",
+            "output_topic": "/scan",
+            **lidar_parameters(profile),
+        }],
+    )]
+
+
 def _rviz_config_for_platform(default_rviz):
     """
     Return an RViz config the host can actually open.
@@ -769,8 +791,7 @@ def generate_launch_description():
     depth_camera_info_qos_relay = _sensor_qos_relay(
         "depth_camera_info_qos_relay", "CameraInfo",
         "/internal/cam_1/depth/camera_info", "/cam_1/depth/camera_info")
-    scan_qos_relay = _sensor_qos_relay(
-        "scan_qos_relay", "LaserScan", "/internal/scan", "/scan")
+    # The /scan relay is started by _scan_relay, which applies the sensor profile.
 
     # Load and activate the read-only joint state broadcaster. The spawner waits
     # longer than `ros2 control load_controller`, which helps GUI starts on busy
@@ -944,7 +965,7 @@ def generate_launch_description():
             color_image_qos_relay,
             color_camera_info_qos_relay,
             depth_camera_info_qos_relay,
-            scan_qos_relay,
+            OpaqueFunction(function=_scan_relay, args=[pkg_gz]),
             joint_state_bridge,
             joint_state_throttle,
             cmd_vel_watchdog,

@@ -512,7 +512,7 @@ a physical ROSMASTER X3. See
 | `/ground_truth/odom` | `nav_msgs/msg/Odometry` | `world` -> `base_footprint` / 50 Hz | Measurement-only Gazebo ground truth; not TF |
 | `/tf` | `tf2_msgs/msg/TFMessage` | — | Dynamic transforms |
 | `/tf_static` | `tf2_msgs/msg/TFMessage` | — | Static robot transforms |
-| `/scan` | `sensor_msgs/msg/LaserScan` | `laser_link` / 5 Hz | 1080-sample 2D LiDAR scan |
+| `/scan` | `sensor_msgs/msg/LaserScan` | `laser_link` / about 7.2 Hz (stamps 139 ms apart) | 1080-sample 2D LiDAR scan with `scan_time` 0.1343 s. Under `physical` (the default) each scan arrives about 143 ms after its stamp, one period late as on the robot; under `ideal` it arrives at once |
 | `/imu/data` | `sensor_msgs/msg/Imu` | `imu_link` / 10 Hz | Simulated IMU data |
 | `/cam_1/color/image_raw` | `sensor_msgs/msg/Image` | `cam_1_color_optical_frame` / 30 Hz | 320x240 `rgb8` image |
 | `/cam_1/depth/image_raw` | `sensor_msgs/msg/Image` | `cam_1_color_optical_frame` / 30 Hz | 320x240 `32FC1` depth in metres, registered to color. A pixel with no return is NaN. Under `physical` (the default) depth reads 1.1858% short, carries noise of `max(0.002, 0.0019·d^2.36)` m and is NaN below 0.6 m; under `ideal` it is the render, unchanged |
@@ -902,6 +902,19 @@ configuration and the covariance is marked provisional upstream
 (`x3_odometry.yaml`); both are as the physical repository records them. The
 rates, the limits and the covariance are the same under both sensor profiles.
 
+**The LiDAR changed in #43 step 8b.** `/scan` runs at about 7.2 Hz (stamps 139 ms
+apart, 7.194 Hz) instead of 5 Hz, as the robot's 7.17 Hz, and under the default
+`physical` sensor profile each scan arrives about 143 ms after the stamp it
+keeps, because it is published when the next scan arrives (the robot's scan
+comes 135.7 ms after its stamp). A consumer that waits for a scan at its
+stamp's time, or looks up TF at "now" for it, must allow for that; under
+`sensor_profile:=ideal` the scan arrives at once, at 7.2 Hz. `scan_time` is the
+robot's 0.1343 s (one sweep) under both profiles; it was 0. `time_increment`
+stays 0: the GPU LiDAR is a snapshot, and the robot's 0.1245 ms would make
+consumers such as Nav2's laser projection correct for motion that never
+happened. The first scan waits for the second and the last one before shutdown
+is never published.
+
 The following simulator limitations remain:
 
 - The default drivetrain stress profile is deterministic but uncalibrated. It
@@ -915,18 +928,18 @@ The following simulator limitations remain:
   minimum range (#43 step 7). The noise fit is extrapolated beyond the 3.6 m it
   was calibrated to. The physical sensor's floor dropout, its close-range wedge
   and the fraction of pixels that return, which depends on the scene, are not
-  modelled (#59). The LiDAR and IMU models have not been calibrated against
-  measurements from the physical robot (#43 step 8).
+  modelled (#59). The LiDAR's rate, delay and `scan_time` follow the robot (#43 step 8b); the IMU
+  model has not been calibrated against measurements from the physical robot
+  (#43 step 8).
 - The 30 Hz camera is the heaviest sensor to render. With a GPU the simulator
   runs at about 0.95x real time. Under software rendering (llvmpipe, as on CI
   runners), it drops to about 0.4x with 4 CPUs. The sensors keep their rates
   in simulation time, but everything takes about 2.5 times longer in wall
   time.
-- The Fortress bridge leaves LiDAR `scan_time` unspecified at zero. The GPU
-  LiDAR is an instantaneous snapshot model, so `time_increment=0` is
-  intentional. Tests verify the 0.2-second period from consecutive simulation
-  timestamps; rolling acquisition is deferred until the installed LiDAR is
-  identified.
+- The LiDAR is an instantaneous snapshot model, so `time_increment` is 0 where
+  the robot's is 0.1245 ms; matching it would need a rolling-scan emulation
+  (#43 decision D3, an optional follow-up). The robot's roughly 25% ray dropout
+  is not modelled either.
 - IMU covariance arrays are all zero, which ROS defines as covariance unknown;
   the configured nominal noise is not yet communicated to consumers as a
   measured covariance.

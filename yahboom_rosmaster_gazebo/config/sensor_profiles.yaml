@@ -7,7 +7,7 @@
 # interface: topics, frames and layouts are the same under both.
 #
 # The file is organized by sensor. Step 7 of #43 added `depth`; step 8 adds
-# `lidar` and `imu`. Every value is a mapping with the value and the source of its
+# `lidar` (8b) and `imu` (8c). Every value is a mapping with the value and the source of its
 # measurement, so a number can be traced back to the capture behind it.
 # scripts/sensor_profiles.py loads and validates it; test/sensor_profiles_test.py
 # checks the values against the physical measurement.
@@ -155,3 +155,37 @@ depth:
         By definition (#43 decision D1): no cutoff beyond the camera's own near
         clip. Every finite pixel is published bit for bit; only the non-finite
         ones become NaN, in both profiles.
+
+lidar:
+  physical:
+    hold_scans:
+      value: 1
+      source: >
+        #43 decision D3 (confirmed 2026-10-01), from physical_rosmaster 468662c
+        docs/sensor_capabilities.md "Rates and latency": `/scan` latency is
+        135.7 ms median, "one full scan period by construction: the stamp marks
+        scan start and the message is published after the revolution completes".
+        The simulator reproduces it by publishing each scan when the next one
+        arrives, one scan period (about 140 ms: the 7.17 Hz period rounded up to
+        whole 1 ms physics steps) after its capture, with the capture stamp
+        kept. Counting scans, not seconds, needs no subscription to the 1 kHz
+        /clock.
+    scan_time_s:
+      value: 0.1343
+      source: >
+        physical_rosmaster 468662c docs/sensor_capabilities.md "LiDAR": the
+        robot's `scan_time` is 0.1343 s, one sweep (1,080 rays x 0.1245 ms), not
+        the 0.1395 s period. #43 decision D3 sets the simulator to the same
+        value. It describes the sensor, so both profiles carry it.
+
+  ideal:
+    hold_scans:
+      value: 0
+      source: >
+        By definition (#43 decision D1): every scan is published as soon as
+        Gazebo produces it.
+    scan_time_s:
+      value: 0.1343
+      source: >
+        The same sensor description as the physical profile: a profile changes
+        quality and timing, never the interface (#43 step 8b, review item R4).

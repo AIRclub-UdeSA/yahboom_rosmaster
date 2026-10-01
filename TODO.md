@@ -50,6 +50,9 @@ these items.
   was calibrated to.
 - [x] Clamp `/cmd_vel` to the physical driver's limits, publish `/joint_states`
   and `/odom` at 10 Hz and give `/odom` the robot's covariance (#43 step 8a).
+- [x] Run the LiDAR at the robot's 7.17 Hz, publish each scan one period late
+  under `sensor_profile:=physical` and set `scan_time` to its 0.1343 s (#43 step
+  8b). A rolling-scan `time_increment` is an optional follow-up.
 - [ ] Depth floor dropout and the close-range wedge of the physical sensor: both
   need an incidence-angle model (#59). The fraction of valid pixels depends on
   the scene, and is not a parity check.

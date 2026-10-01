@@ -110,6 +110,10 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/measurement_tools_test.py
   )
   add_test(
+    NAME sensor_qos_relay_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/sensor_qos_relay_test.py
+  )
+  add_test(
     NAME command_limits_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/command_limits_test.py
   )
