@@ -865,21 +865,24 @@ simulator:
         nominal: base_footprint
         matches_physical: true
       rate_hz:
-        nominal: 30.0
-        contract: [20.0, 40.0]
-        measured: 29.32
-        matches_physical: false
-        closes_in_step: 8
+        nominal: 10.0
+        contract: [8.0, 12.0]
+        tolerance: 0.3
+        matches_physical: true
+        note: >
+          #43 step 8a; was 30. Follows /joint_states, one message each.
       reliability:
         nominal: reliable
         matches_physical: true
     /joint_states:
       rate_hz:
-        nominal: 30.0
-        contract: [20.0, 40.0]
-        measured: 29.32
-        matches_physical: false
-        closes_in_step: 8
+        nominal: 10.0
+        contract: [8.0, 12.0]
+        tolerance: 0.3
+        matches_physical: true
+        note: >
+          #43 step 8a; was 30. joint_state_broadcaster's own update_rate of 10
+          under the controller manager's 30 Hz loop.
 
   camera:
     width:
@@ -1149,13 +1152,17 @@ simulator:
 
   odometry:
     pose_covariance_x_y_yaw:
-      nominal: [0.001, 0.001, 0.01]
-      matches_physical: false
-      closes_in_step: 8
+      nominal: [0.001, 0.001, 0.001]
+      matches_physical: true
+      note: >
+        #43 step 8a; was [0.001, 0.001, 0.01]. The simulator now fills only the
+        x, y and yaw diagonal entries (indices 0, 7, 35), as the robot does;
+        z, roll and pitch used to carry 0.001 and are now zero.
     twist_covariance_x_y_yaw:
-      nominal: [0.001, 0.001, 0.01]
-      matches_physical: false
-      closes_in_step: 8
+      nominal: [0.0001, 0.0001, 0.0001]
+      matches_physical: true
+      note: >
+        #43 step 8a; was [0.001, 0.001, 0.01]. Same layout as the pose.
 
   joint_states:
     names:
@@ -1173,17 +1180,26 @@ simulator:
       nominal: 0.5
       matches_physical: true
     linear_x_limit_mps:
-      nominal: unclamped
-      matches_physical: false
-      closes_in_step: 8
+      nominal: 1.0
+      matches_physical: true
+      note: >
+        #43 step 8a; was unclamped. cmd_vel_watchdog.py saturates the component
+        before it applies any motion bias, as the driver's
+        clamp_motion_command does (config/command_limits.yaml).
     linear_y_limit_mps:
-      nominal: unclamped
-      matches_physical: false
-      closes_in_step: 8
+      nominal: 1.0
+      matches_physical: true
+      note: >
+        #43 step 8a; was unclamped. cmd_vel_watchdog.py saturates the component
+        before it applies any motion bias, as the driver's
+        clamp_motion_command does (config/command_limits.yaml).
     angular_z_limit_rad_s:
-      nominal: unclamped
-      matches_physical: false
-      closes_in_step: 8
+      nominal: 5.0
+      matches_physical: true
+      note: >
+        #43 step 8a; was unclamped. cmd_vel_watchdog.py saturates the component
+        before it applies any motion bias, as the driver's
+        clamp_motion_command does (config/command_limits.yaml).
 
 legacy_bag_audit:
   confidence: measured

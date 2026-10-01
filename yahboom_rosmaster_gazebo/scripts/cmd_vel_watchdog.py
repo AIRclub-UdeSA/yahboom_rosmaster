@@ -2,13 +2,24 @@
 """Watch /cmd_vel and feed native Gazebo MecanumDrive with a timeout and YAML-driven biases."""
 
 import copy
-import time
-import yaml
+import os
 import random
+import sys
+import time
+
+import yaml
 
 import rclpy
 from geometry_msgs.msg import Twist
+from rclpy.exceptions import ParameterUninitializedException
 from rclpy.node import Node
+from rclpy.parameter import Parameter
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from command_limits import clamp_command  # noqa: E402
+
+LIMIT_PARAMETERS = ("linear_x_limit", "linear_y_limit", "angular_z_limit")
 
 
 class CmdVelWatchdog(Node):
@@ -21,12 +32,24 @@ class CmdVelWatchdog(Node):
         self.declare_parameter("publish_rate", 30.0)
 
         self.declare_parameter("motion_bias_file", "")
+        # The physical driver's limits (config/command_limits.yaml). The launch
+        # file passes them. They have no default: a watchdog that silently
+        # stopped clamping would hide the omission.
+        for name in LIMIT_PARAMETERS:
+            self.declare_parameter(name, Parameter.Type.DOUBLE)
 
         self.input_topic = self.get_parameter("input_topic").value
         self.output_topic = self.get_parameter("output_topic").value
         self.timeout = float(self.get_parameter("timeout").value)
         publish_rate = float(self.get_parameter("publish_rate").value)
         bias_file = self.get_parameter("motion_bias_file").value
+        try:
+            self.limits = tuple(
+                float(self.get_parameter(name).value) for name in LIMIT_PARAMETERS)
+        except ParameterUninitializedException as error:
+            raise ValueError(
+                f"cmd_vel_watchdog needs the parameter {error.args[0]} "
+                "(config/command_limits.yaml)") from error
 
         # Load biases from YAML and randomly sample them once for this session
         self.biases = {}
@@ -73,11 +96,15 @@ class CmdVelWatchdog(Node):
         return self.biases.get(category, {}).get(axis, default)
 
     def cmd_vel_callback(self, msg):
+        # The physical driver saturates the command first and hands the result
+        # to the motor controller, so the biases below, which model the
+        # drivetrain, act on the clamped command (#43 step 8a).
+        vx, vy, w = clamp_command(
+            msg.linear.x, msg.linear.y, msg.angular.z, *self.limits)
         cmd = copy.deepcopy(msg)
-
-        vx = msg.linear.x
-        vy = msg.linear.y
-        w = msg.angular.z
+        cmd.linear.x = vx
+        cmd.linear.y = vy
+        cmd.angular.z = w
 
         if self.biases:
             # 1. Apply sampled static biases based on the primary inputs

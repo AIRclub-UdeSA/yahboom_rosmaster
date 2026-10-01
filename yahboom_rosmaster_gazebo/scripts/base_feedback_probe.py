@@ -2,6 +2,7 @@
 """Exercise mecanum commands and validate wheel-state odometry and TF feedback."""
 
 import math
+import os
 import statistics
 import sys
 import time
@@ -13,6 +14,26 @@ from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from tf2_msgs.msg import TFMessage
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from real_robot_contract import RealRobotContract  # noqa: E402
+
+# Phase lengths are in simulation time, read from the joint-state stamps, so the
+# number of samples a phase collects does not depend on the real-time factor.
+# /joint_states and /odom arrive at 10 Hz (#43 step 8a): settling 0.55 s then
+# collecting 1.95 s gives 19 or 20 messages in the settled window, against the 10
+# the checks require and the 18 the window is sized for. A wall-clock guard
+# stops a phase if the simulation stalls.
+SETTLE_S = 0.55
+PHASE_S = 2.5
+OVERSPEED_PHASE_S = 1.6
+STOP_S = 0.8
+WALL_GUARD_S = 40.0
+
+# An over-limit command: x and yaw far above the limits, y below its own.
+OVERSPEED_X = 3.0
+OVERSPEED_Y = 0.5
+OVERSPEED_Z = 9.0
 
 WHEEL_NAMES = (
     "front_left_wheel_joint",
@@ -25,6 +46,11 @@ WHEEL_NAMES = (
 def stamp_key(stamp):
     """Return an exact, hashable ROS timestamp."""
     return (int(stamp.sec), int(stamp.nanosec))
+
+
+def stamp_seconds(stamp):
+    """Return a ROS timestamp as seconds."""
+    return int(stamp.sec) + int(stamp.nanosec) * 1e-9
 
 
 def finite(values):
@@ -44,9 +70,14 @@ class BaseFeedbackProbe(Node):
             Odometry, "/odom", self.capture_odometry, 30)
         self.tf_subscription = self.create_subscription(
             TFMessage, "/tf", self.capture_tf, 50)
+        # What the watchdog hands to Gazebo, to see the clamp on the wire.
+        self.gz_subscription = self.create_subscription(
+            Twist, "/cmd_vel_gz", self.capture_gz_command, 50)
+        self.gz_commands = []
 
         self.current_phase = None
         self.phase_started = 0.0
+        self.sim_now = None
         self.joint_messages = []
         self.odom_messages = []
         self.transforms = {}
@@ -55,6 +86,7 @@ class BaseFeedbackProbe(Node):
 
     def capture_joint_state(self, message):
         """Capture joint feedback globally and after each command settles."""
+        self.sim_now = stamp_seconds(message.header.stamp)
         self.joint_messages.append(message)
         if self._phase_is_settled():
             self.phase_joints.setdefault(self.current_phase, []).append(message)
@@ -64,6 +96,11 @@ class BaseFeedbackProbe(Node):
         self.odom_messages.append(message)
         if self._phase_is_settled():
             self.phase_odometry.setdefault(self.current_phase, []).append(message)
+
+    def capture_gz_command(self, message):
+        """Capture the commands Gazebo receives while the current phase settles."""
+        if self._phase_is_settled():
+            self.gz_commands.append((self.current_phase, message))
 
     def capture_tf(self, message):
         """Index odom-to-base transforms by their exact source timestamp."""
@@ -75,7 +112,9 @@ class BaseFeedbackProbe(Node):
     def _phase_is_settled(self):
         return (
             self.current_phase is not None and
-            time.monotonic() - self.phase_started >= 0.55
+            self.phase_started is not None and
+            self.sim_now is not None and
+            self.sim_now - self.phase_started >= SETTLE_S
         )
 
     def ready(self):
@@ -85,15 +124,22 @@ class BaseFeedbackProbe(Node):
             self.joint_messages and self.odom_messages and self.transforms
         )
 
-    def publish_for(self, phase, command, duration=1.8):
-        """Publish a command continuously while callbacks collect feedback."""
+    def sim_elapsed(self, since):
+        """Return the simulation time passed since ``since``, 0 before any stamp."""
+        if since is None or self.sim_now is None:
+            return 0.0
+        return self.sim_now - since
+
+    def publish_for(self, phase, command, duration=PHASE_S):
+        """Publish a command for ``duration`` of simulation time, collecting feedback."""
         self.current_phase = phase
-        self.phase_started = time.monotonic()
+        self.phase_started = self.sim_now
         self.phase_joints[phase] = []
         self.phase_odometry[phase] = []
-        deadline = time.monotonic() + duration
+        guard = time.monotonic() + WALL_GUARD_S
         next_publish = 0.0
-        while rclpy.ok() and time.monotonic() < deadline:
+        while (rclpy.ok() and time.monotonic() < guard and
+               self.sim_elapsed(self.phase_started) < duration):
             now = time.monotonic()
             if now >= next_publish:
                 self.command_publisher.publish(command)
@@ -101,13 +147,15 @@ class BaseFeedbackProbe(Node):
             rclpy.spin_once(self, timeout_sec=0.02)
 
         self.current_phase = None
-        self.stop_for(0.8)
+        self.stop_for(STOP_S)
 
-    def stop_for(self, duration):
-        """Continuously publish zero long enough to separate command phases."""
+    def stop_for(self, duration, guard_s=WALL_GUARD_S):
+        """Publish zero for ``duration`` of simulation time to separate phases."""
         stop = Twist()
-        deadline = time.monotonic() + duration
-        while rclpy.ok() and time.monotonic() < deadline:
+        started = self.sim_now
+        guard = time.monotonic() + guard_s
+        while (rclpy.ok() and time.monotonic() < guard and
+               self.sim_elapsed(started) < duration):
             self.command_publisher.publish(stop)
             rclpy.spin_once(self, timeout_sec=0.04)
 
@@ -227,6 +275,37 @@ class BaseFeedbackProbe(Node):
                 errors.append("odometry: pose or planar twist contains non-finite data")
                 break
 
+    def validate_command_limits(self, errors):
+        """Require an over-limit command to reach Gazebo saturated per component."""
+        contract = RealRobotContract.load()
+        x_limit = contract.physical("command.linear_x_limit_mps")
+        z_limit = contract.physical("command.angular_z_limit_rad_s")
+        received = [
+            message for phase, message in self.gz_commands if phase == "overspeed"]
+        if len(received) < 5:
+            errors.append(f"command limits: only {len(received)} settled commands")
+            return
+        # The command was (OVERSPEED_X, OVERSPEED_Y, OVERSPEED_Z), over the x and
+        # yaw limits and under the y limit: x and yaw saturate, y is untouched,
+        # which a vector scaling would not do.
+        for label, values, expected in (
+                ("linear x", [m.linear.x for m in received], x_limit),
+                ("linear y", [m.linear.y for m in received], OVERSPEED_Y),
+                ("angular z", [m.angular.z for m in received], z_limit)):
+            if any(abs(value - expected) > 1e-9 for value in values):
+                errors.append(
+                    f"command limits: {label} reached Gazebo as "
+                    f"{min(values):.6f}..{max(values):.6f}, expected {expected}")
+        speeds = [
+            message.twist.twist.linear.x
+            for message in self.phase_odometry.get("overspeed", [])
+            if math.isfinite(message.twist.twist.linear.x)]
+        if not speeds or statistics.median(speeds) > 1.1 * x_limit:
+            errors.append(
+                f"command limits: median odometry speed "
+                f"{statistics.median(speeds) if speeds else math.nan:.3f} m/s "
+                f"exceeds {x_limit} m/s")
+
     def validate(self):
         errors = []
         if len(self.joint_messages) < 20:
@@ -245,6 +324,7 @@ class BaseFeedbackProbe(Node):
         self.validate_phase("left", (-1, 1, 1, -1), "linear_y", errors)
         self.validate_phase("yaw", (-1, 1, -1, 1), "angular_z", errors)
         self.validate_feedback_chain(errors)
+        self.validate_command_limits(errors)
         return errors
 
 
@@ -271,17 +351,20 @@ def main():
         node.publish_for("forward", command(linear_x=0.16))
         node.publish_for("left", command(linear_y=0.16))
         node.publish_for("yaw", command(angular_z=0.45))
+        node.publish_for(
+            "overspeed", command(OVERSPEED_X, OVERSPEED_Y, OVERSPEED_Z),
+            duration=OVERSPEED_PHASE_S)
         errors = node.validate()
         if errors:
             node.get_logger().error("Base feedback FAILED: " + "; ".join(errors))
             return 1
         node.get_logger().info(
             "Base feedback PASSED: positive x/y/yaw wheel signs, odometry, "
-            "timestamps, and odom->base_footprint TF agree")
+            "timestamps, odom->base_footprint TF and command limits agree")
         return 0
     finally:
         if rclpy.ok():
-            node.stop_for(0.25)
+            node.stop_for(0.25, guard_s=2.0)
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

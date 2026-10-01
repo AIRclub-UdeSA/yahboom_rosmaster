@@ -464,8 +464,12 @@ Gazebo's native `MecanumDrive` system calculates the four wheel targets.
 `gz_ros2_control` is kept read-only for wheel and IMU state, and only
 `joint_state_broadcaster` is loaded.
 
-The watchdog republishes the latest command to the internal `/cmd_vel_gz` topic
-and publishes zero when `/cmd_vel` has been silent for 0.5 seconds.
+The watchdog saturates each component of the command to the physical driver's
+limits (±1.0 m/s on x and y, ±5.0 rad/s on yaw; `config/command_limits.yaml`),
+then adds the optional motion bias, republishes the result to the internal
+`/cmd_vel_gz` topic, and publishes zero when `/cmd_vel` has been silent for 0.5
+seconds. A component over its limit is clamped on its own, the others are not
+scaled, and a non-finite command becomes a full stop, as in the robot's driver.
 
 Wheel contact parameters come from
 `yahboom_rosmaster_gazebo/config/motion_profiles.yaml`. The default `stress`
@@ -478,9 +482,14 @@ a physical ROSMASTER X3. See
 - `base_footprint` lies on the floor and `base_link` sits 71.4 mm above it,
   with the wheel axles 38.9 mm below `base_link`, matching the physical
   ROSMASTER X3's description.
-- `/joint_states` is published by `joint_state_broadcaster`.
+- `/joint_states` is published by `joint_state_broadcaster` at 10 Hz, the
+  physical driver's rate: the controller manager's loop runs at 30 Hz and the
+  broadcaster publishes every third cycle (about 102 ms on the simulator's
+  34 ms controller steps).
 - `/odom` is integrated from wheel joint positions by
-  `wheel_state_odometry.py`.
+  `wheel_state_odometry.py`, once per `/joint_states` message, so it is also
+  10 Hz. Its covariance is the robot's: pose `0.001` and twist `0.0001` on x, y
+  and yaw only, and zero elsewhere.
 - `odom -> base_footprint` is published by `wheel_state_odometry.py`.
 - `/ground_truth/odom` is the timestamped Gazebo world pose of the simulated
   chassis. It is measurement-only and does not publish a TF edge.
@@ -498,8 +507,8 @@ a physical ROSMASTER X3. See
 | `/clock` | `rosgraph_msgs/msg/Clock` | — | Gazebo simulation clock |
 | `/cmd_vel` | `geometry_msgs/msg/Twist` | — | Public velocity-command input |
 | `/cmd_vel_gz` | `geometry_msgs/msg/Twist` | — | Internal watchdog output bridged to Gazebo |
-| `/joint_states` | `sensor_msgs/msg/JointState` | `base_link` / 30 Hz | Wheel joint positions and velocities |
-| `/odom` | `nav_msgs/msg/Odometry` | `odom` -> `base_footprint` / 30 Hz | Wheel-state odometry |
+| `/joint_states` | `sensor_msgs/msg/JointState` | `base_link` / 10 Hz | Wheel joint positions and velocities |
+| `/odom` | `nav_msgs/msg/Odometry` | `odom` -> `base_footprint` / 10 Hz | Wheel-state odometry, covariance as on the robot |
 | `/ground_truth/odom` | `nav_msgs/msg/Odometry` | `world` -> `base_footprint` / 50 Hz | Measurement-only Gazebo ground truth; not TF |
 | `/tf` | `tf2_msgs/msg/TFMessage` | — | Dynamic transforms |
 | `/tf_static` | `tf2_msgs/msg/TFMessage` | — | Static robot transforms |
@@ -878,6 +887,20 @@ Work to match the remaining sensors to the physical robot is tracked in #43.
 robot's measurements, the simulator's current values, and the #43 step that
 closes each difference. The sensor contract probes read their expected values
 from it; see `yahboom_rosmaster_gazebo/doc/real_robot_contract.md`.
+
+**The base changed in #43 step 8a.** `/joint_states` and `/odom` (and with it the
+`odom` -> `base_footprint` TF) now arrive at 10 Hz instead of 30 Hz, as on the
+robot, so a consumer that timed out on a gap of 50 ms or assumed a sample every
+33 ms must allow 100 ms. `/cmd_vel` is clamped to ±1.0 m/s on x and y and
+±5.0 rad/s on yaw before it reaches the drivetrain: a faster command now moves
+the robot at the limit, as the physical driver would. `/odom`'s covariance is
+the robot's, `[0.001, 0.001, 0.001]` for the pose (the yaw was 0.01) and
+`[0.0001, 0.0001, 0.0001]` for the twist (it was 0.001, 0.001, 0.01), and only
+the x, y and yaw entries are set; the z, roll and pitch variances, which were
+0.001, are now zero as on the robot. The limits are inferred from the driver's
+configuration and the covariance is marked provisional upstream
+(`x3_odometry.yaml`); both are as the physical repository records them. The
+rates, the limits and the covariance are the same under both sensor profiles.
 
 The following simulator limitations remain:
 
