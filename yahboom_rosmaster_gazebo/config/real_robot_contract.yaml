@@ -656,13 +656,15 @@ simulator:
           0.33% (0.27-0.37) against 0.50% (0.47-0.50) of one core.
       - step: 8
         part: c
-        commit: 30375de5015451bc63e7c5963cb7044b94d29af3
+        commit: 64d6925697005c7053f5de78cc6aa98a2c71052e
         measured_on: "2026-10-01"
         note: >
-          #43 step 8c (IMU), on the branch stacked on step 8b. The simulator code
-          under test is this commit's: the xacro, the bridge, imu_raw_relay.py,
-          the filter's config and the launch. Later commits change only the
-          ledger.
+          Measured at 30375de5015451bc63e7c5963cb7044b94d29af3. GitHub's
+          stacked-PR update rewrote it as this commit when #62 merged, with an
+          identical tree. #43 step 8c (IMU), on the branch stacked on step 8b. The
+          simulator code under test is this commit's: the xacro, the bridge,
+          imu_raw_relay.py, the filter's config and the launch. Later commits
+          change only the ledger.
         keys:
           - topics./imu/data_raw.rate_hz
           - imu.gyro_noise_stddev_rad_s
