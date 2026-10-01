@@ -30,10 +30,17 @@ OVERSPEED_PHASE_S = 1.6
 STOP_S = 0.8
 WALL_GUARD_S = 40.0
 
-# An over-limit command: x and yaw far above the limits, y below its own.
-OVERSPEED_X = 3.0
-OVERSPEED_Y = 0.5
-OVERSPEED_Z = 9.0
+# Over-limit commands, each with one axis under its own limit, so that a
+# saturated axis and an untouched one show on the same message. The first goes
+# over x and yaw, the second over y. Per command: the phase name, the command,
+# and the ledger key of the limit each axis must meet, or None for an axis that
+# must pass through unchanged.
+OVERSPEED_CASES = (
+    ("overspeed_xz", (3.0, 0.5, 9.0), (
+        "command.linear_x_limit_mps", None, "command.angular_z_limit_rad_s")),
+    ("overspeed_y", (0.5, -3.0, 0.2), (
+        None, "command.linear_y_limit_mps", None)),
+)
 
 WHEEL_NAMES = (
     "front_left_wheel_joint",
@@ -276,29 +283,35 @@ class BaseFeedbackProbe(Node):
                 break
 
     def validate_command_limits(self, errors):
-        """Require an over-limit command to reach Gazebo saturated per component."""
+        """Require over-limit commands to reach Gazebo saturated per component."""
         contract = RealRobotContract.load()
-        x_limit = contract.physical("command.linear_x_limit_mps")
-        z_limit = contract.physical("command.angular_z_limit_rad_s")
-        received = [
-            message for phase, message in self.gz_commands if phase == "overspeed"]
-        if len(received) < 5:
-            errors.append(f"command limits: only {len(received)} settled commands")
-            return
-        # The command was (OVERSPEED_X, OVERSPEED_Y, OVERSPEED_Z), over the x and
-        # yaw limits and under the y limit: x and yaw saturate, y is untouched,
-        # which a vector scaling would not do.
-        for label, values, expected in (
-                ("linear x", [m.linear.x for m in received], x_limit),
-                ("linear y", [m.linear.y for m in received], OVERSPEED_Y),
-                ("angular z", [m.angular.z for m in received], z_limit)):
-            if any(abs(value - expected) > 1e-9 for value in values):
+        for phase, command_values, limit_keys in OVERSPEED_CASES:
+            received = [
+                message for name, message in self.gz_commands if name == phase]
+            if len(received) < 5:
                 errors.append(
-                    f"command limits: {label} reached Gazebo as "
-                    f"{min(values):.6f}..{max(values):.6f}, expected {expected}")
+                    f"command limits ({phase}): only {len(received)} settled commands")
+                continue
+            for label, values, sent, key in zip(
+                    ("linear x", "linear y", "angular z"),
+                    ([m.linear.x for m in received],
+                     [m.linear.y for m in received],
+                     [m.angular.z for m in received]),
+                    command_values, limit_keys):
+                # An axis over its limit meets it, with the sign it was sent
+                # with; an axis under its own limit is untouched, which a vector
+                # scaling would not leave it.
+                expected = (
+                    sent if key is None
+                    else math.copysign(contract.physical(key), sent))
+                if any(abs(value - expected) > 1e-9 for value in values):
+                    errors.append(
+                        f"command limits ({phase}): {label} reached Gazebo as "
+                        f"{min(values):.6f}..{max(values):.6f}, expected {expected}")
+        x_limit = contract.physical("command.linear_x_limit_mps")
         speeds = [
             message.twist.twist.linear.x
-            for message in self.phase_odometry.get("overspeed", [])
+            for message in self.phase_odometry.get("overspeed_xz", [])
             if math.isfinite(message.twist.twist.linear.x)]
         if not speeds or statistics.median(speeds) > 1.1 * x_limit:
             errors.append(
@@ -351,9 +364,9 @@ def main():
         node.publish_for("forward", command(linear_x=0.16))
         node.publish_for("left", command(linear_y=0.16))
         node.publish_for("yaw", command(angular_z=0.45))
-        node.publish_for(
-            "overspeed", command(OVERSPEED_X, OVERSPEED_Y, OVERSPEED_Z),
-            duration=OVERSPEED_PHASE_S)
+        for phase, values, _ in OVERSPEED_CASES:
+            node.publish_for(
+                phase, command(*values), duration=OVERSPEED_PHASE_S)
         errors = node.validate()
         if errors:
             node.get_logger().error("Base feedback FAILED: " + "; ".join(errors))
