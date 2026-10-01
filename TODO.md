@@ -53,6 +53,9 @@ these items.
 - [x] Run the LiDAR at the robot's 7.17 Hz, publish each scan one period late
   under `sensor_profile:=physical` and set `scan_time` to its 0.1343 s (#43 step
   8b). A rolling-scan `time_increment` is an optional follow-up.
+- [x] Give the IMU the robot's per-axis noise under `sensor_profile:=physical`,
+  publish `/imu/data_raw` as its driver does and estimate `/imu/data` with
+  `imu_filter_madgwick` and the robot's parameters (#43 step 8c).
 - [ ] Depth floor dropout and the close-range wedge of the physical sensor: both
   need an incidence-angle model (#59). The fraction of valid pixels depends on
   the scene, and is not a parity check.

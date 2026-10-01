@@ -18,6 +18,11 @@ GAZEBO_DIR = PACKAGE_DIR.parent / "yahboom_rosmaster_gazebo"
 sys.path.insert(0, str(GAZEBO_DIR / "scripts"))
 
 from real_robot_contract import RealRobotContract  # noqa: E402
+from sensor_profiles import (  # noqa: E402
+    SOURCE_PATH as PROFILES_PATH,
+    imu_xacro_arguments,
+    load_sensor_profile,
+)
 
 CONTRACT = RealRobotContract.load(
     GAZEBO_DIR / "config" / "real_robot_contract.yaml"
@@ -129,8 +134,8 @@ def max_vertex_x(filename):
         )
 
 
-def expand(backend):
-    """Expand one simulator variant to an ElementTree root."""
+def expand(backend, *arguments):
+    """Expand one simulator variant, with extra xacro arguments, to a root."""
     result = subprocess.run(
         [
             "xacro",
@@ -139,6 +144,7 @@ def expand(backend):
             "robot_name:=rosmaster_x3",
             "prefix:=",
             f"sim_backend:={backend}",
+            *arguments,
         ],
         check=True,
         capture_output=True,
@@ -396,6 +402,52 @@ class TestRobotDescriptionContract(unittest.TestCase):
                 self.assertAlmostEqual(
                     float(sensor.findtext(path)), expected_value
                 )
+
+    def imu_noise(self, robot):
+        """Return {(field, axis): stddev or None} of the Fortress IMU sensor."""
+        imu = robot.find("./gazebo/sensor[@type='imu']")
+        noise = {}
+        for field in ("angular_velocity", "linear_acceleration"):
+            for axis in "xyz":
+                text = imu.findtext(f"imu/{field}/{axis}/noise/stddev")
+                noise[(field, axis)] = None if text is None else float(text)
+        return noise
+
+    def profile_arguments(self, name):
+        profile = load_sensor_profile(PROFILES_PATH, "imu", name)
+        return [f"{key}:={value}" for key, value in imu_xacro_arguments(profile).items()]
+
+    def test_the_default_render_is_the_physical_sensor_profile(self):
+        """The xacro defaults equal sensor_profiles.yaml's physical IMU values."""
+        profile = load_sensor_profile(PROFILES_PATH, "imu", "physical")
+        expected = {}
+        for field, key in (
+                ("angular_velocity", "gyro_noise_stddev_rad_s"),
+                ("linear_acceleration", "accel_noise_stddev_mps2")):
+            for axis, value in zip("xyz", profile[key]):
+                expected[(field, axis)] = value
+        self.assertEqual(self.imu_noise(self.robots["fortress"]), expected)
+        # Rendering the physical profile's arguments changes nothing.
+        explicit = expand("fortress", *self.profile_arguments("physical"))
+        self.assertEqual(self.imu_noise(explicit), expected)
+
+    def test_the_ideal_profile_renders_no_imu_noise(self):
+        robot = expand("fortress", *self.profile_arguments("ideal"))
+        self.assertEqual(
+            self.imu_noise(robot), {
+                (field, axis): None
+                for field in ("angular_velocity", "linear_acceleration")
+                for axis in "xyz"})
+
+    def test_a_zero_axis_drops_only_its_own_noise_element(self):
+        robot = expand(
+            "fortress", "imu_gyro_noise_stddev_y:=0.0",
+            "imu_accel_noise_stddev_z:=0.0")
+        noise = self.imu_noise(robot)
+        self.assertIsNone(noise[("angular_velocity", "y")])
+        self.assertIsNone(noise[("linear_acceleration", "z")])
+        self.assertIsNotNone(noise[("angular_velocity", "x")])
+        self.assertIsNotNone(noise[("linear_acceleration", "x")])
 
     def test_only_generated_installed_visuals_are_referenced(self):
         for backend, robot in self.robots.items():

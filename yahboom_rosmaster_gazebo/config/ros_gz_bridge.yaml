@@ -39,8 +39,10 @@
   direction: GZ_TO_ROS
   lazy: false
 
-# IMU configuration
-- ros_topic_name: "imu/data"
+# IMU. Bridged privately: imu_raw_relay.py turns it into /imu/data_raw with
+# exactly the content the physical driver publishes there (no orientation, no
+# covariances), and imu_filter_madgwick produces /imu/data from that.
+- ros_topic_name: "/internal/imu/data_raw"
   gz_topic_name: "imu/data"
   ros_type_name: "sensor_msgs/msg/Imu"
   gz_type_name: "gz.msgs.IMU"

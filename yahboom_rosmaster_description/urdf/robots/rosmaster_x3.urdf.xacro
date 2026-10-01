@@ -40,6 +40,18 @@
   <xacro:arg name="back_left_slip1" default="0.0"/>
   <xacro:arg name="back_right_slip1" default="0.0"/>
 
+  <!-- Per-axis IMU noise, in imu_link. The defaults are the physical robot's
+       stationary capture, so a standalone render (and the description synced to
+       other repositories) is the `physical` sensor profile. The simulator launch
+       passes the selected profile's values from config/sensor_profiles.yaml,
+       zeros for `ideal`; a test keeps these defaults equal to that file. -->
+  <xacro:arg name="imu_gyro_noise_stddev_x" default="0.0054"/>
+  <xacro:arg name="imu_gyro_noise_stddev_y" default="0.0051"/>
+  <xacro:arg name="imu_gyro_noise_stddev_z" default="0.0052"/>
+  <xacro:arg name="imu_accel_noise_stddev_x" default="0.135"/>
+  <xacro:arg name="imu_accel_noise_stddev_y" default="0.131"/>
+  <xacro:arg name="imu_accel_noise_stddev_z" default="0.102"/>
+
   <xacro:include filename="$(find yahboom_rosmaster_description)/urdf/mech/rosmaster_x3_base.urdf.xacro"/>
   <xacro:include filename="$(find yahboom_rosmaster_description)/urdf/mech/mecanum_wheel.urdf.xacro"/>
   <xacro:include filename="$(find yahboom_rosmaster_description)/urdf/sensors/rgbd_camera.urdf.xacro"/>
@@ -153,6 +165,12 @@
     xyz_offset="-0.06 0.01 0.01"
     rpy_offset="0 3.1415 1.5707"
     update_rate="10.0"
+    gyro_noise_stddev_x="$(arg imu_gyro_noise_stddev_x)"
+    gyro_noise_stddev_y="$(arg imu_gyro_noise_stddev_y)"
+    gyro_noise_stddev_z="$(arg imu_gyro_noise_stddev_z)"
+    accel_noise_stddev_x="$(arg imu_accel_noise_stddev_x)"
+    accel_noise_stddev_y="$(arg imu_accel_noise_stddev_y)"
+    accel_noise_stddev_z="$(arg imu_accel_noise_stddev_z)"
     topic_name="imu/data"/>
 
   <!-- Gazebo Fortress simulation plugins. gz_ros2_control is read-only for

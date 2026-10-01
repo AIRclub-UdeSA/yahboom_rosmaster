@@ -23,6 +23,7 @@ install(
     scripts/ground_truth_contract_probe.py
     scripts/ground_truth_display_probe.py
     scripts/imu_motion_probe.py
+    scripts/imu_raw_relay.py
     scripts/lidar_geometry_probe.py
     scripts/motion_profile_divergence_probe.py
     scripts/real_robot_bag_analyzer.py
@@ -120,6 +121,14 @@ if(BUILD_TESTING)
   add_test(
     NAME wheel_state_odometry_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/wheel_state_odometry_test.py
+  )
+  add_test(
+    NAME imu_raw_relay_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/imu_raw_relay_test.py
+  )
+  add_test(
+    NAME imu_filter_config_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/imu_filter_config_test.py
   )
   add_test(
     NAME real_robot_contract
@@ -235,10 +244,27 @@ if(BUILD_TESTING)
     TARGET lidar_geometry
     TIMEOUT 90
   )
+  # The ideal profile has no IMU noise, so the motion checks run on the sensor's
+  # own readings, and the stationary raw stream must show none.
   add_launch_test(
     test/imu_motion.launch.py
     TARGET imu_motion
     TIMEOUT 90
+    ARGS "sensor_profile:=ideal" "noise_samples:=100"
+  )
+  # The physical profile's per-axis noise, graded on 200 stationary raw samples.
+  add_launch_test(
+    test/imu_motion.launch.py
+    TARGET imu_noise
+    TIMEOUT 90
+    ARGS "sensor_profile:=physical" "noise_samples:=200" "skip_motion:=true"
+  )
+  # The motion semantics must also hold through the physical noise and the filter.
+  add_launch_test(
+    test/imu_motion.launch.py
+    TARGET imu_motion_physical
+    TIMEOUT 90
+    ARGS "sensor_profile:=physical"
   )
   add_launch_test(
     test/wheel_odometry_resilience.launch.py
