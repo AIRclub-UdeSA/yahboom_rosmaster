@@ -55,11 +55,27 @@ When you're done, `./run stop`.
 | `/scan` | LiDAR, 1080 beams over 360°, 0.25–12 m |
 | `/odom` | position and velocity estimate |
 | `/tf`, `/tf_static` | coordinate frames |
-| `/cmd_vel` | velocity commands (publish here to drive it) |
+| `/cmd_vel` | velocity commands (publish here to drive it). Clamped to ±1.0 m/s on x and y and ±5.0 rad/s, and the robot stops 0.5 s after the last message, with `motion_bias` on or off |
 | `/clock` | simulation time |
 
 Inspect them with `cd .. && pixi run -e classic bash`, then ordinary
 `ros2 topic list`, `ros2 topic echo /scan`, and so on.
+
+## Differences from the Linux simulation
+
+**No IMU topic.** The Linux simulation publishes `/imu/data_raw` and an
+orientation estimated into `/imu/data`. This backend publishes neither: the
+model's IMU sensor is declared for Fortress, and the Classic launch has no
+plugin or bridge that turns it into a ROS topic. Its SDF still carries the
+physical robot's noise (gyro about 0.005 rad/s, accelerometer about 0.1 to
+0.14 m/s², the xacro defaults, because this launch has no `sensor_profile`
+argument), but nothing reads it.
+
+**Commands are limited and time out.** The watchdog that clamps `/cmd_vel` to
+the physical driver's limits and zeroes it after 0.5 s of silence runs whether
+or not `motion_bias` is on. A one-shot `ros2 topic pub --once /cmd_vel` moves
+the robot for about half a second, so publish at a steady rate (for example
+`--rate 10`) to keep it moving. `motion_bias:=false` only removes the drift.
 
 ## Two things this simulation does not do
 

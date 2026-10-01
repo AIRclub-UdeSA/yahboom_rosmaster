@@ -295,6 +295,8 @@ cd .. && pixi run -e classic ros2 launch \
 ```
 
 The amounts live in `../yahboom_rosmaster_gazebo/config/motion_bias.yaml`.
+`motion_bias:=false` only removes the drift: commands are still clamped to
+1 m/s (5 rad/s) and the robot still stops 0.5 s after the last message.
 
 **The wheels do not spin, and walls do not stop the robot.** The plugin that
 gives the robot its sideways motion drives the body directly rather than turning
