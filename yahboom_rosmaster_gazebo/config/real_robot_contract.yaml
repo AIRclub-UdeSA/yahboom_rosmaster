@@ -654,6 +654,45 @@ simulator:
           relay, main against this branch, alternating, five runs each on the host
           GPU with numpy 1.21.5: 0.999 (0.997-1.000) against 0.997 (0.996-0.999);
           0.33% (0.27-0.37) against 0.50% (0.47-0.50) of one core.
+      - step: 8
+        part: c
+        commit: 30375de5015451bc63e7c5963cb7044b94d29af3
+        measured_on: "2026-10-01"
+        note: >
+          #43 step 8c (IMU), on the branch stacked on step 8b. The simulator code
+          under test is this commit's: the xacro, the bridge, imu_raw_relay.py,
+          the filter's config and the launch. Later commits change only the
+          ledger.
+        keys:
+          - topics./imu/data_raw.rate_hz
+          - imu.gyro_noise_stddev_rad_s
+          - imu.accel_noise_stddev_mps2
+          - imu.orientation_source
+          - imu.orientation_covariance_diag
+          - imu.raw_topic
+        method: >
+          tools/measure_cloud_timing.py --group stationary, which runs
+          physical_rosmaster's tools/sensor_capability_probe.py (with
+          physical_contract_probe.py, fetched at 468662c with git show and
+          patched to stamp receipt with the ROS clock on sim time) as --group
+          lidar --group imu --group odom --group health --duration 40
+          --per-message, three times in one launch, on empty.world, headless,
+          under sensor_profile:=physical with PYTHONNOUSERSITE=1 (numpy 1.21.5).
+          On the host GPU /imu/data_raw (1,180 messages) and /imu/data (1,156)
+          came at 10.0 Hz on stamps, 100 ms apart, and the standard deviations of
+          /imu/data_raw were gyro 0.00548, 0.00505, 0.00517 rad/s and accel 0.13725,
+          0.13185, 0.10115 m/s^2 (llvmpipe: 0.00539, 0.00493, 0.00546 and 0.13156,
+          0.12528, 0.10156); main gave about 0.0087 (gyro) and 0.0017 (accel) on every axis.
+          imu_motion_probe, on 200 stationary raw samples, graded the noise within
+          four standard errors (20%) of the ledger: 0.0051, 0.0052, 0.0050 and
+          0.1368, 0.1349, 0.0953. The probe also read the filter's publisher node
+          (imu_filter_madgwick), its orientation covariance (0.0025 on the
+          diagonal, zero elsewhere) and the raw topic's content (the identity
+          quaternion, all covariances zero, Reliable). The real-time factor and the
+          CPU of imu_raw_relay.py and imu_filter_madgwick, main against this
+          branch, alternating, five runs each on the host GPU with numpy 1.21.5:
+          0.999 (0.998-1.000) against 0.999 (0.997-0.999); 0.73% (0.70-0.77) and
+          0.17% (0.13-0.20) of one core, neither process existing on main.
   frames:
     base_footprint_to_base_link_z_m:
       nominal: 0.0714
@@ -958,6 +997,7 @@ simulator:
       rate_hz:
         nominal: 10.0
         contract: [8.0, 12.0]
+        measured: 10.0
         tolerance: 0.1
         matches_physical: true
         note: '#43 step 8c; the topic is new. One message per IMU sample.'
@@ -1245,29 +1285,34 @@ simulator:
   imu:
     gyro_noise_stddev_rad_s:
       nominal: [0.0054, 0.0051, 0.0052]
+      measured: [0.0055, 0.0050, 0.0052]
       matches_physical: true
       note: >
         #43 step 8c; was [0.00873, 0.00873, 0.00873]. Per axis, from the
         `physical` sensor profile; under `ideal` there is none.
     accel_noise_stddev_mps2:
       nominal: [0.135, 0.131, 0.102]
+      measured: [0.137, 0.132, 0.101]
       matches_physical: true
       note: >
         #43 step 8c; was [0.00175, 0.00175, 0.00175], 75 times too small on
         x. Per axis, from the `physical` sensor profile.
     orientation_source:
       nominal: imu_filter_madgwick
+      measured: imu_filter_madgwick
       matches_physical: true
       note: >
         #43 step 8c; was gazebo. The stock imu_filter_madgwick node with the
         robot's parameters (config/imu_filter_madgwick.yaml), under both profiles.
     orientation_covariance_diag:
       nominal: [0.0025, 0.0025, 0.0025]
+      measured: [0.0025, 0.0025, 0.0025]
       tolerance: 1.0e-9
       matches_physical: true
       note: '#43 step 8c; was [0, 0, 0]. orientation_stddev 0.05 squared.'
     raw_topic:
       nominal: /imu/data_raw
+      measured: /imu/data_raw
       matches_physical: true
       note: '#43 step 8c; was none.'
     angular_velocity_covariance_diag:
