@@ -571,6 +571,45 @@ simulator:
           the published depth with the render of the same stamp: a scale error
           of -0.01179 (standard error 0.00005) on empty.world and -0.01185 on
           cafe.world, and the lowest finite depth 0.600003 m.
+      - step: 8
+        part: a
+        commit: 2ffb7b33d8da2b0f9e79916edcd60f4fc9416fdf
+        measured_on: "2026-10-01"
+        note: >
+          #43 step 8a (commands and odometry). The simulator code under test is
+          d737590; the commits after it change only the measurement tools and
+          base_feedback_probe.py. The rates were measured at 8306b8a, before
+          that probe change, with the same simulator code.
+        keys:
+          - topics./odom.rate_hz
+          - topics./joint_states.rate_hz
+          - command.linear_x_limit_mps
+          - command.linear_y_limit_mps
+          - command.angular_z_limit_rad_s
+          - odometry.pose_covariance_x_y_yaw
+          - odometry.twist_covariance_x_y_yaw
+        method: >
+          The rates: tools/measure_cloud_timing.py --group stationary, which runs
+          physical_rosmaster's tools/sensor_capability_probe.py (with
+          physical_contract_probe.py, fetched at 468662c with git show and
+          patched to stamp receipt with the ROS clock on sim time) as --group
+          lidar --group imu --group odom --group health --duration 40
+          --per-message, three times in one launch, on empty.world, headless,
+          under sensor_profile:=physical with PYTHONNOUSERSITE=1 (numpy 1.21.5):
+          /odom (1,167 messages) and /joint_states (1,155) at 9.804 Hz on stamps,
+          102 ms apart (median and p95), on the host GPU, and 9.804 Hz on
+          llvmpipe pinned to four CPUs; main gave 29.412 Hz (34 ms). The
+          limits: base_feedback_probe publishes (3.0, 0.5, 9.0) and then
+          (0.5, -3.0, 0.2) and reads /cmd_vel_gz, which carries exactly
+          (1.0, 0.5, 5.0) and (0.5, -1.0, 0.2), each component saturated on its
+          own and the others untouched. The covariance: ros2 topic echo /odom, which
+          shows 0.001 at indices 0, 7 and 35 of the pose and 0.0001 at 0 and 7 of
+          the twist, zero elsewhere (35 of the twist is covered by
+          test/wheel_state_odometry_test.py). The real-time factor and the CPU of
+          wheel_state_odometry.py and cmd_vel_watchdog.py, main against this
+          branch, alternating, five runs each on the host GPU with numpy 1.21.5:
+          0.999 against 0.999; 3.27% (3.20-3.33) against 1.17% (1.17-1.23) of
+          one core, and 1.77% against 1.80%.
   frames:
     base_footprint_to_base_link_z_m:
       nominal: 0.0714
@@ -867,10 +906,11 @@ simulator:
       rate_hz:
         nominal: 10.0
         contract: [8.0, 12.0]
+        measured: 9.804
         tolerance: 0.3
         matches_physical: true
         note: >
-          #43 step 8a; was 30. Follows /joint_states, one message each.
+          #43 step 8a; was 30 (29.41 on stamps). Follows /joint_states, one message each.
       reliability:
         nominal: reliable
         matches_physical: true
@@ -878,10 +918,11 @@ simulator:
       rate_hz:
         nominal: 10.0
         contract: [8.0, 12.0]
+        measured: 9.804
         tolerance: 0.3
         matches_physical: true
         note: >
-          #43 step 8a; was 30. joint_state_broadcaster's own update_rate of 10
+          #43 step 8a; was 30 (29.41 on stamps). Stamps come 102 ms apart: three 34 ms controller steps. joint_state_broadcaster's own update_rate of 10
           under the controller manager's 30 Hz loop.
 
   camera:
@@ -1153,6 +1194,7 @@ simulator:
   odometry:
     pose_covariance_x_y_yaw:
       nominal: [0.001, 0.001, 0.001]
+      measured: [0.001, 0.001, 0.001]
       matches_physical: true
       note: >
         #43 step 8a; was [0.001, 0.001, 0.01]. The simulator now fills only the
@@ -1160,6 +1202,7 @@ simulator:
         z, roll and pitch used to carry 0.001 and are now zero.
     twist_covariance_x_y_yaw:
       nominal: [0.0001, 0.0001, 0.0001]
+      measured: [0.0001, 0.0001, 0.0001]
       matches_physical: true
       note: >
         #43 step 8a; was [0.001, 0.001, 0.01]. Same layout as the pose.
@@ -1181,6 +1224,7 @@ simulator:
       matches_physical: true
     linear_x_limit_mps:
       nominal: 1.0
+      measured: 1.0
       matches_physical: true
       note: >
         #43 step 8a; was unclamped. cmd_vel_watchdog.py saturates the component
@@ -1188,6 +1232,7 @@ simulator:
         clamp_motion_command does (config/command_limits.yaml).
     linear_y_limit_mps:
       nominal: 1.0
+      measured: 1.0
       matches_physical: true
       note: >
         #43 step 8a; was unclamped. cmd_vel_watchdog.py saturates the component
@@ -1195,6 +1240,7 @@ simulator:
         clamp_motion_command does (config/command_limits.yaml).
     angular_z_limit_rad_s:
       nominal: 5.0
+      measured: 5.0
       matches_physical: true
       note: >
         #43 step 8a; was unclamped. cmd_vel_watchdog.py saturates the component
