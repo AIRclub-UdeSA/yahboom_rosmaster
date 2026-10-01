@@ -44,16 +44,44 @@ def _is_true(value):
     return value.lower() in ("true", "1", "yes")
 
 
+# planar_move reads the watchdog's output, never /cmd_vel, so the clamp and the
+# timeout apply whether or not the drift is on (#43 step 8a does the same on
+# Fortress). With the bias off the watchdog relays unmodified.
+CMD_VEL_PLANAR_MOVE_TOPIC = "cmd_vel_classic"
+
+
+def _cmd_vel_watchdog(context):
+    """Start the watchdog that clamps /cmd_vel and zeroes it on silence."""
+    pkg_gz = get_package_share_directory("yahboom_rosmaster_gazebo")
+    sys.path.insert(0, os.path.join(pkg_gz, "scripts"))
+    from command_limits import load_command_limits
+    x_limit, y_limit, angular_limit = load_command_limits(
+        os.path.join(pkg_gz, "config", "command_limits.yaml"))
+
+    # Same drift model the Fortress backend uses. An empty path is how the
+    # watchdog is told to relay without drift.
+    motion_bias = _is_true(LaunchConfiguration("motion_bias").perform(context))
+    bias_file = os.path.join(pkg_gz, "config", "motion_bias.yaml") if motion_bias else ""
+    return [Node(
+        package="yahboom_rosmaster_gazebo",
+        executable="cmd_vel_watchdog.py",
+        output="screen",
+        parameters=[{
+            "input_topic": "/cmd_vel",
+            "output_topic": "/" + CMD_VEL_PLANAR_MOVE_TOPIC,
+            "motion_bias_file": bias_file,
+            "linear_x_limit": x_limit,
+            "linear_y_limit": y_limit,
+            "angular_z_limit": angular_limit,
+        }],
+    )]
+
+
 def _robot_description(context):
     """Expand the xacro with the Gazebo Classic plugin set."""
     pkg_desc = get_package_share_directory("yahboom_rosmaster_description")
     xacro_path = os.path.join(pkg_desc, "urdf", "robots", "rosmaster_x3.urdf.xacro")
     use_sim_time = LaunchConfiguration("use_sim_time").perform(context)
-
-    # With the bias on, planar_move must read the watchdog's output instead of
-    # /cmd_vel, or the drift would be computed and then bypassed.
-    motion_bias = _is_true(LaunchConfiguration("motion_bias").perform(context))
-    cmd_vel_topic = "cmd_vel_classic" if motion_bias else "cmd_vel"
 
     description = Command([
         "xacro ", xacro_path,
@@ -62,7 +90,7 @@ def _robot_description(context):
         " robot_name:=rosmaster_x3",
         " prefix:=",
         f" plugin_ext:={PLUGIN_EXT}",
-        f" cmd_vel_topic:={cmd_vel_topic}",
+        f" cmd_vel_topic:={CMD_VEL_PLANAR_MOVE_TOPIC}",
     ])
 
     return [Node(
@@ -93,7 +121,8 @@ def generate_launch_description():
     declare_rviz = DeclareLaunchArgument("rviz", default_value="true")
     declare_motion_bias = DeclareLaunchArgument(
         "motion_bias", default_value="true",
-        description="Add the per-direction drift of an uncalibrated mecanum base")
+        description="Add the per-direction drift of an uncalibrated mecanum base. "
+                    "Commands are clamped and time out either way")
     declare_spawn_x = DeclareLaunchArgument(
         "spawn_x", default_value="0.0",
         description="Robot start x in the Gazebo world frame, in meters")
@@ -103,29 +132,6 @@ def generate_launch_description():
     declare_spawn_yaw = DeclareLaunchArgument(
         "spawn_yaw", default_value="0.0",
         description="Robot start heading in the Gazebo world frame, in radians")
-
-    # Same drift model the Fortress backend uses. planar_move has no command
-    # timeout either, so the watchdog's zero-on-silence also stops the robot
-    # when a teleop terminal is closed mid-command.
-    pkg_gz = get_package_share_directory("yahboom_rosmaster_gazebo")
-    sys.path.insert(0, os.path.join(pkg_gz, "scripts"))
-    from command_limits import load_command_limits
-    x_limit, y_limit, angular_limit = load_command_limits(
-        os.path.join(pkg_gz, "config", "command_limits.yaml"))
-    cmd_vel_watchdog = Node(
-        package="yahboom_rosmaster_gazebo",
-        executable="cmd_vel_watchdog.py",
-        output="screen",
-        parameters=[{
-            "input_topic": "/cmd_vel",
-            "output_topic": "/cmd_vel_classic",
-            "motion_bias_file": os.path.join(pkg_gz, "config", "motion_bias.yaml"),
-            "linear_x_limit": x_limit,
-            "linear_y_limit": y_limit,
-            "angular_z_limit": angular_limit,
-        }],
-        condition=IfCondition(LaunchConfiguration("motion_bias")),
-    )
 
     # libgazebo_ros_init provides /clock, libgazebo_ros_factory provides
     # /spawn_entity, libgazebo_ros_force_system provides the wrench services.
@@ -189,7 +195,9 @@ def generate_launch_description():
         declare_spawn_yaw,
         gzserver,
         gzclient,
-        cmd_vel_watchdog,
+        # planar_move has no command timeout or limit of its own, so the watchdog
+        # also stops the robot when a teleop terminal is closed mid-command.
+        OpaqueFunction(function=_cmd_vel_watchdog),
         OpaqueFunction(function=_robot_description),
         # gzserver needs a moment to advertise /spawn_entity.
         TimerAction(period=7.0, actions=[spawn]),
