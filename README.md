@@ -939,8 +939,9 @@ content: no Gazebo orientation, zero covariances.
 starts it unconditionally, and a missing package aborts the whole simulator
 launch with "package 'imu_filter_madgwick' not found". After pulling, run
 `rosdep install --from-paths src --ignore-src -r -y --rosdistro humble` or
-`sudo apt install ros-humble-imu-filter-madgwick`. A fresh setup already gets it
-from the Build section's `rosdep` command.
+`sudo apt install ros-humble-imu-filter-madgwick`; on a Mac, run `pixi install`
+(`pixi.toml` now lists it). A fresh setup already gets it from the Build
+section's `rosdep` command.
 
 **The macOS (Gazebo Classic) backend now limits commands with `motion_bias:=false`
 too.** Its watchdog always runs: `/cmd_vel` is clamped to ±1.0 m/s and ±5.0 rad/s
