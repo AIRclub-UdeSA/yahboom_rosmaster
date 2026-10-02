@@ -935,6 +935,20 @@ there is none, so geometry and motion tests see the sensor's own reading. The
 filter runs under both profiles. `/imu/data_raw` is new and carries the robot's
 content: no Gazebo orientation, zero covariances.
 
+**Existing workspaces need `imu_filter_madgwick` (#43 step 8c).** The launch now
+starts it unconditionally, and a missing package aborts the whole simulator
+launch with "package 'imu_filter_madgwick' not found". After pulling, run
+`rosdep install --from-paths src --ignore-src -r -y --rosdistro humble` or
+`sudo apt install ros-humble-imu-filter-madgwick`. A fresh setup already gets it
+from the Build section's `rosdep` command.
+
+**The macOS (Gazebo Classic) backend now limits commands with `motion_bias:=false`
+too.** Its watchdog always runs: `/cmd_vel` is clamped to ±1.0 m/s and ±5.0 rad/s
+and the robot stops 0.5 s after the last message, as on Fortress. Before, only
+`motion_bias:=true` had either. Code on the Mac that published a single
+`/cmd_vel` message and expected the robot to keep moving must publish at a rate.
+That backend publishes no IMU topic; see its README.
+
 The following simulator limitations remain:
 
 - The default drivetrain stress profile is deterministic but uncalibrated. It
