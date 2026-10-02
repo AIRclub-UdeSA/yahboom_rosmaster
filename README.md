@@ -288,6 +288,12 @@ ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
   world:=cafe.world
 ```
 
+The cafe world ships a matching occupancy map at `maps/cafe.yaml`:
+
+| World | Occupancy map |
+|-------|---------------|
+| <img src="docs/media/maps/cafe.png" height="160"> | <img src="docs/media/maps/cafe_occupancy.png" height="160"> |
+
 ### Maze Worlds
 
 The repository also ships twelve maze worlds for practice and competition
