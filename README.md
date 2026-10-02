@@ -304,7 +304,7 @@ ros2 launch yahboom_rosmaster_bringup rosmaster_x3_sim.launch.py \
 |-------|-------------|---------------------|
 | `laberinto_simple.world` | Small 6x6 m maze with three internal partition walls -- ships a matching occupancy map at `maps/laberinto_simple.yaml` | `world_smoke_laberinto_simple` |
 | `laberinto_simple_victimas.world` | `laberinto_simple.world` layout plus three color-marker obstacle cubes (two red, one blue; 0.25x0.25x0.3 m, with collision) for camera/LiDAR color-detection workshops | `world_smoke_laberinto_simple_victimas` |
-| `laberinto_1.world` | Larger, more convoluted maze exported from Gazebo's Building Editor | `world_smoke_laberinto_1` |
+| `laberinto_1.world` | Larger, more convoluted maze exported from Gazebo's Building Editor -- ships a matching occupancy map at `maps/laberinto_1.yaml` | `world_smoke_laberinto_1` |
 | `laberinto_1_victimas.world` | `laberinto_1.world` layout plus four color-marker obstacle cubes (three red, one blue; 0.25x0.25x0.3 m, one shrunk to 0.15x0.15x0.3 m to fit a ~0.31 m gap between two walls) tucked into narrow passages -- diagonal column corridor, small side room, stub-wall zigzag, and a wall gap -- so the robot has to enter a corridor before it can see and identify the color | `world_smoke_laberinto_1_victimas` |
 | `maze_1_6x5.world` | plywood_mazes maze 1, 6x5 m -- ships a matching occupancy map at `maps/maze_1_6x5.yaml` | `world_smoke_maze_1` |
 | `maze_1_6x5_victimas.world` | `maze_1_6x5.world` layout plus four color-marker obstacle cubes (two red, two blue; 0.25x0.25x0.3 m) tucked into narrow passages for camera/LiDAR color-detection workshops | `world_smoke_maze_1_victimas` |
@@ -324,7 +324,7 @@ centered on the same world-frame bounding box (generate or refresh them with
 | Maze | World | Victimas | Occupancy map |
 |------|-------|----------|---------------|
 | `laberinto_simple` | <img src="docs/media/maps/laberinto_simple.png" height="160"> | <img src="docs/media/maps/laberinto_simple_victimas.png" height="160"> | <img src="docs/media/maps/laberinto_simple_occupancy.png" height="160"> |
-| `laberinto_1` | pending -- see [#15](https://github.com/AIRclub-UdeSA/yahboom_rosmaster/issues/15) | pending | no map yet |
+| `laberinto_1` | <img src="docs/media/maps/laberinto_1.png" height="160"> | <img src="docs/media/maps/laberinto_1_victimas.png" height="160"> | <img src="docs/media/maps/laberinto_1_occupancy.png" height="160"> |
 | `maze_1_6x5` | <img src="docs/media/maps/maze_1_6x5.png" height="160"> | <img src="docs/media/maps/maze_1_6x5_victimas.png" height="160"> | <img src="docs/media/maps/maze_1_6x5_occupancy.png" height="160"> |
 | `maze_2_6x5` | <img src="docs/media/maps/maze_2_6x5.png" height="160"> | <img src="docs/media/maps/maze_2_6x5_victimas.png" height="160"> | <img src="docs/media/maps/maze_2_6x5_occupancy.png" height="160"> |
 | `maze_3_6x6` | <img src="docs/media/maps/maze_3_6x6.png" height="160"> | <img src="docs/media/maps/maze_3_6x6_victimas.png" height="160"> | <img src="docs/media/maps/maze_3_6x6_occupancy.png" height="160"> |
@@ -989,11 +989,12 @@ The following simulator limitations remain:
   a `world_smoke_*` launch test (spawn validity, no initial collision, a
   forward-motion check, core topics) but not the full rate/message-shape
   contract that the empty and cafe worlds get -- see the "Maze Worlds"
-  section above. `laberinto_simple.world`, `maze_1_6x5.world`,
-  `maze_2_6x5.world`, `maze_3_6x6.world`, and `maze_4_metal_6x6.world` ship
-  a matching occupancy map (`maps/laberinto_simple.yaml`, `maps/maze_1_6x5.yaml`,
+  section above. `laberinto_simple.world`, `laberinto_1.world`,
+  `maze_1_6x5.world`, `maze_2_6x5.world`, `maze_3_6x6.world`, and
+  `maze_4_metal_6x6.world` ship a matching occupancy map
+  (`maps/laberinto_simple.yaml`, `maps/laberinto_1.yaml`, `maps/maze_1_6x5.yaml`,
   `maps/maze_2_6x5.yaml`, `maps/maze_3_6x6.yaml`, and `maps/maze_4_metal_6x6.yaml`
-  respectively); `laberinto_1.world` has no pre-built map. The obstacle cubes
+  respectively). The obstacle cubes
   in `laberinto_simple_victimas.world`, `laberinto_1_victimas.world`,
   `maze_1_6x5_victimas.world`, `maze_2_6x5_victimas.world`,
   `maze_3_6x6_victimas.world`, and `maze_4_metal_6x6_victimas.world` have
