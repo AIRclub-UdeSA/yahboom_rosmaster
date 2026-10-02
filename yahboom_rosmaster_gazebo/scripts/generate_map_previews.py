@@ -32,14 +32,11 @@ OUT_DIR = os.path.join(REPO, "docs", "media", "maps")
 
 # Map basenames that don't match their world file 1:1 -- extend this if a
 # future map/world pair is named differently.
-WORLD_NAME_OVERRIDES = {
-    "cafe_world_map": "cafe",
-}
+WORLD_NAME_OVERRIDES = {}
 
-# cafe_world_map.pgm's current capture is too noisy to preview as-is;
-# recapture it (see the README/CONTRIBUTING note asking for a fresh one)
-# before removing it from this list.
-SKIP_MAPS = {"cafe_world_map"}
+# cafe is not one of the maze worlds this script's fixed camera height
+# (CAMERA_Z) is framed for, so it has a map but no preview.
+SKIP_MAPS = {"cafe"}
 
 CAMERA_Z = 6.0
 SETTLE_SECONDS = 12.0
