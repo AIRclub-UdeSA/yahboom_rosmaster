@@ -324,7 +324,7 @@ centered on the same world-frame bounding box (generate or refresh them with
 | Maze | World | Victimas | Occupancy map |
 |------|-------|----------|---------------|
 | `laberinto_simple` | <img src="docs/media/maps/laberinto_simple.png" height="160"> | <img src="docs/media/maps/laberinto_simple_victimas.png" height="160"> | <img src="docs/media/maps/laberinto_simple_occupancy.png" height="160"> |
-| `laberinto_1` | pending -- see [#15](https://github.com/AIRclub-UdeSA/yahboom_rosmaster/issues/15) | pending | <img src="docs/media/maps/laberinto_1_occupancy.png" height="160"> |
+| `laberinto_1` | <img src="docs/media/maps/laberinto_1.png" height="160"> | <img src="docs/media/maps/laberinto_1_victimas.png" height="160"> | <img src="docs/media/maps/laberinto_1_occupancy.png" height="160"> |
 | `maze_1_6x5` | <img src="docs/media/maps/maze_1_6x5.png" height="160"> | <img src="docs/media/maps/maze_1_6x5_victimas.png" height="160"> | <img src="docs/media/maps/maze_1_6x5_occupancy.png" height="160"> |
 | `maze_2_6x5` | <img src="docs/media/maps/maze_2_6x5.png" height="160"> | <img src="docs/media/maps/maze_2_6x5_victimas.png" height="160"> | <img src="docs/media/maps/maze_2_6x5_occupancy.png" height="160"> |
 | `maze_3_6x6` | <img src="docs/media/maps/maze_3_6x6.png" height="160"> | <img src="docs/media/maps/maze_3_6x6_victimas.png" height="160"> | <img src="docs/media/maps/maze_3_6x6_occupancy.png" height="160"> |
