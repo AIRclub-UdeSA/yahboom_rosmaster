@@ -45,6 +45,7 @@ cmake = "3.*"
 make = "*"
 ninja = "*"
 pkg-config = "*"
+ros-humble-imu-filter-madgwick = ">=2.1.5,<3"
 
 [tasks]
 # Python_FIND_VIRTUALENV=ONLY keeps CMake's FindPython inside the conda env;

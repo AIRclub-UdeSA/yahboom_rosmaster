@@ -1189,6 +1189,7 @@ environments:
       - conda: https://prefix.dev/robostack-humble/osx-arm64/ros-humble-image-geometry-3.2.1-np126py311h3f06965_13.conda
       - conda: https://prefix.dev/robostack-humble/osx-arm64/ros-humble-image-tools-0.20.5-np126py311h3f06965_13.conda
       - conda: https://prefix.dev/robostack-humble/osx-arm64/ros-humble-image-transport-3.1.12-np126py311h2a51a2c_13.conda
+      - conda: https://prefix.dev/robostack-humble/osx-arm64/ros-humble-imu-filter-madgwick-2.1.5-np126py311h2a51a2c_13.conda
       - conda: https://prefix.dev/robostack-humble/osx-arm64/ros-humble-imu-sensor-broadcaster-2.48.0-np126py311h2a51a2c_13.conda
       - conda: https://prefix.dev/robostack-humble/osx-arm64/ros-humble-interactive-markers-2.3.2-np126py311h2a51a2c_13.conda
       - conda: https://prefix.dev/robostack-humble/osx-arm64/ros-humble-intra-process-demo-0.20.5-np126py311h3f06965_13.conda
@@ -14320,6 +14321,32 @@ packages:
   run_exports: {}
   size: 389207
   timestamp: 1778995475751
+- conda: https://prefix.dev/robostack-humble/osx-arm64/ros-humble-imu-filter-madgwick-2.1.5-np126py311h2a51a2c_13.conda
+  sha256: 3385e890ba1c1b4b4534d1791e453573797262f92c8b9080f5f5cc32acadf497
+  md5: 7f7fe12f9e148d76d32248a9a8ca3463
+  depends:
+  - python
+  - ros-humble-builtin-interfaces
+  - ros-humble-geometry-msgs
+  - ros-humble-nav-msgs
+  - ros-humble-rclcpp
+  - ros-humble-rclcpp-action
+  - ros-humble-rclcpp-lifecycle
+  - ros-humble-ros-workspace
+  - ros-humble-sensor-msgs
+  - ros-humble-tf2-geometry-msgs
+  - ros-humble-tf2-ros
+  - ros-humble-visualization-msgs
+  - ros2-distro-mutex 0.7.* humble_*
+  - __osx >=11.0
+  - libcxx >=18
+  - ros2-distro-mutex >=0.7.0,<0.8.0a0
+  - numpy >=1.26.4,<2.0a0
+  - python_abi 3.11.* *_cp311
+  license: BSD-3-Clause
+  run_exports: {}
+  size: 271520
+  timestamp: 1753776334406
 - conda: https://prefix.dev/robostack-humble/osx-arm64/ros-humble-imu-sensor-broadcaster-2.48.0-np126py311h2a51a2c_13.conda
   sha256: 9cc3bc6404676638a991fad4467f4a3701a585db955db5da197a50ebd26bfdfc
   md5: 5c092475b434f3f832c33ca46f4f39e9
