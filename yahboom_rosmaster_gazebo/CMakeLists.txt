@@ -75,6 +75,10 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/ground_truth_alignment_test.py
   )
   add_test(
+    NAME map_assets_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/map_assets_test.py
+  )
+  add_test(
     NAME practice_world_probe_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/world_smoke_probe_test.py
   )

@@ -34,11 +34,16 @@ OUT_DIR = os.path.join(REPO, "docs", "media", "maps")
 # future map/world pair is named differently.
 WORLD_NAME_OVERRIDES = {}
 
-# cafe is not one of the maze worlds this script's fixed camera height
-# (CAMERA_Z) is framed for, so it has a map but no preview.
-SKIP_MAPS = {"cafe"}
+# Maps to leave out of the preview run -- add one here if its world can't
+# be screenshotted yet.
+SKIP_MAPS = set()
 
+# Default camera height frames the ~6x6 m mazes; larger worlds override it
+# so the whole map fits in the screenshot.
 CAMERA_Z = 6.0
+CAMERA_Z_OVERRIDES = {
+    "cafe": 14.0,
+}
 SETTLE_SECONDS = 12.0
 SERVICE_TIMEOUT_MS = 5000
 IGN = shutil.which("ign")
@@ -78,7 +83,7 @@ def ign_service(args, env, timeout=5):
                    capture_output=True, timeout=timeout, check=False)
 
 
-def screenshot_world(world_file, center_x, center_y, out_png):
+def screenshot_world(world_file, center_x, center_y, camera_z, out_png):
     env = run_env()
     world_path = os.path.join(WORLDS_DIR, world_file)
     proc = subprocess.Popen(
@@ -88,7 +93,7 @@ def screenshot_world(world_file, center_x, center_y, out_png):
     try:
         time.sleep(SETTLE_SECONDS)
         pose = (f"pose: {{position: {{x: {center_x}, y: {center_y}, "
-                f"z: {CAMERA_Z}}} orientation: {{x: 0, y: 0.7071, z: 0, "
+                f"z: {camera_z}}} orientation: {{x: 0, y: 0.7071, z: 0, "
                 f"w: 0.7071}}}}")
         ign_service(
             ["-s", "/gui/move_to/pose", "--reqtype", "ignition.msgs.GUICamera",
@@ -151,6 +156,7 @@ def main():
         print(f"== {map_name} ==")
 
         center_x, center_y = bounding_box_center(yaml_path)
+        camera_z = CAMERA_Z_OVERRIDES.get(map_name, CAMERA_Z)
         print(f"  bounding-box center: ({center_x:.3f}, {center_y:.3f})")
 
         pgm_path = os.path.join(MAPS_DIR, yaml.safe_load(
@@ -162,7 +168,7 @@ def main():
         base_world_file = f"{world_name}.world"
         if os.path.exists(os.path.join(WORLDS_DIR, base_world_file)):
             ok = screenshot_world(
-                base_world_file, center_x, center_y,
+                base_world_file, center_x, center_y, camera_z,
                 os.path.join(OUT_DIR, f"{world_name}.png"))
             print(f"  base world screenshot: {'done' if ok else 'FAILED'}")
         else:
@@ -171,7 +177,7 @@ def main():
         victimas_world_file = f"{world_name}_victimas.world"
         if os.path.exists(os.path.join(WORLDS_DIR, victimas_world_file)):
             ok = screenshot_world(
-                victimas_world_file, center_x, center_y,
+                victimas_world_file, center_x, center_y, camera_z,
                 os.path.join(OUT_DIR, f"{world_name}_victimas.png"))
             print(f"  victimas world screenshot: {'done' if ok else 'FAILED'}")
         else:
