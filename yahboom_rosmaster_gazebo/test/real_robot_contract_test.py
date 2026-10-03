@@ -26,8 +26,10 @@ from sensor_profiles import load_sensor_profile  # noqa: E402
 
 CONTRACT = RealRobotContract.load(SOURCE_PATH)
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
-# physical_rosmaster main after #44 and #45 merged; the commit #43 step 7 re-pinned to.
-PHYSICAL_PIN = "468662ca25a52515a218dd944fc031ca85266244"
+# physical_rosmaster main after #47 (the contract probe's `target` parameter)
+# merged; the commit #43 step 9 re-pinned to. Bumping the ledger's pin means
+# bumping this too, on purpose: tools/ and CI read the ledger's own.
+PHYSICAL_PIN = "fa56a87beb186fab7545e650265eb43792acf827"
 CAMERA_TOPICS = (
     "/cam_1/color/image_raw",
     "/cam_1/depth/image_raw",
@@ -172,7 +174,7 @@ class TestRealRobotContract(unittest.TestCase):
         simulator = CONTRACT.data["simulator"]["provenance"]
         self.assertRegex(physical["commit"], COMMIT)
         self.assertEqual(physical["commit"], PHYSICAL_PIN)
-        self.assertEqual(physical["read_on"], "2026-09-29")
+        self.assertEqual(physical["read_on"], "2026-10-03")
         self.assertRegex(simulator["measured_commit"], COMMIT)
         self.assertIn("issuecomment", simulator["measurement"])
         for record in simulator.get("step_measurements", []):
@@ -341,6 +343,20 @@ class TestRealRobotContract(unittest.TestCase):
             CONTRACT.nominal("topics./joint_states.rate_hz"))
         loop = config["controller_manager"]["ros__parameters"]["update_rate"]
         self.assertEqual(loop % parameters["update_rate"], 0)
+
+    def test_joint_state_frame_matches_the_robot(self):
+        """The broadcaster's frame_id is the robot driver's, and the ledger says so."""
+        config = yaml.safe_load(
+            (PACKAGE_DIR / "config" / "ros2_control.yaml").read_text(
+                encoding="utf-8"))
+        parameters = config["joint_state_broadcaster"]["ros__parameters"]
+        self.assertEqual(parameters["frame_id"], "joint_states")
+        self.assertEqual(
+            parameters["frame_id"],
+            CONTRACT.nominal("topics./joint_states.frame_id"))
+        self.assertEqual(
+            parameters["frame_id"],
+            CONTRACT.physical("topics./joint_states.frame_id"))
 
     def test_default_path_resolves_to_a_ledger(self):
         self.assertTrue(default_path().is_file())

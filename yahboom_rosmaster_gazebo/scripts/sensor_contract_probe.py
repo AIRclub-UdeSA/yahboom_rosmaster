@@ -167,6 +167,7 @@ class SensorContractProbe(Node):
                 "/cam_1/depth/color/points",
                 "/scan",
                 "/imu/data",
+                "/joint_states",
                 "/odom",
             )
         }
@@ -666,6 +667,10 @@ class SensorContractProbe(Node):
             errors.append(f"imu: stationary acceleration magnitude is {gravity:.3f}")
 
         joints = self.messages["/joint_states"][-1]
+        if joints.header.frame_id != self.expected_frames["/joint_states"]:
+            errors.append(
+                f"joint states: expected frame {self.expected_frames['/joint_states']}, "
+                f"got {joints.header.frame_id}")
         if not EXPECTED_WHEEL_JOINTS.issubset(set(joints.name)):
             errors.append(f"joint states: missing wheel joints from {joints.name}")
         if len(joints.position) < len(joints.name):
