@@ -715,6 +715,31 @@ simulator:
           branch, alternating, five runs each on the host GPU with numpy 1.21.5:
           0.999 (0.998-1.000) against 0.999 (0.997-0.999); 0.73% (0.70-0.77) and
           0.17% (0.13-0.20) of one core, neither process existing on main.
+      - step: 9
+        commit: 158420900105678cea336d82994e3059d366e3c8
+        measured_on: "2026-10-03"
+        note: >
+          #43 step 9 (parity check in CI). The simulator code under test is
+          1584209; the commits after it change only the harness (a CLI warning
+          filter) and this record.
+        keys:
+          - topics./joint_states.frame_id
+        method: >
+          tools/measure_physical_probe.py, 30 fresh simulator launches on the host
+          GPU (empty.world, headless, sensor_profile:=physical, sensor_seed 101 to
+          130, PYTHONNOUSERSITE=1), each reading one /joint_states message with
+          `ros2 topic echo --once --field header.frame_id` 15 s after the cloud
+          appeared: joint_states in 29 runs (the 30th printed a CLI notice that
+          the topic was not yet published, and no message); main gave base_link.
+          The same runs ran physical_rosmaster's tools/physical_contract_probe.py at
+          fa56a87 (git blob 02d4e5c, target:=simulator, use_sim_time, samples:=10):
+          30 of 30 passed on the GPU (real-time factor 0.996, 0.936-1.067; the
+          probe took 3.4 s, 2.5-5.6 s). On the CI gate's llvmpipe recipe it
+          passed in 5 of 5 fresh launches, and in the gate itself, five runs
+          alternating with main, it added 3.1 s to a median of 164.5 s (range
+          163.0-167.6 to 166.1-169.3). The full suite on the GPU, five
+          sequential passes, ran the probe in each of the four sensor_contract_*
+          targets, 20 of 20 passed.
   frames:
     base_footprint_to_base_link_z_m:
       nominal: 0.0714
@@ -1056,6 +1081,7 @@ simulator:
     /joint_states:
       frame_id:
         nominal: joint_states
+        measured: joint_states
         matches_physical: true
         note: >
           #43 step 9; was base_link, joint_state_broadcaster's default. Set with
