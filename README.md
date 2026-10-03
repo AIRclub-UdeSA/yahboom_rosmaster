@@ -485,7 +485,8 @@ a physical ROSMASTER X3. See
 - `/joint_states` is published by `joint_state_broadcaster` at 10 Hz, the
   physical driver's rate: the controller manager's loop runs at 30 Hz and the
   broadcaster publishes every third cycle (about 102 ms on the simulator's
-  34 ms controller steps).
+  34 ms controller steps). Its `header.frame_id` is `joint_states`, as the
+  robot's driver sets it (it was `base_link`, the broadcaster's default).
 - `/odom` is integrated from wheel joint positions by
   `wheel_state_odometry.py`, once per `/joint_states` message, so it is also
   10 Hz. Its covariance is the robot's: pose `0.001` and twist `0.0001` on x, y
@@ -507,7 +508,7 @@ a physical ROSMASTER X3. See
 | `/clock` | `rosgraph_msgs/msg/Clock` | — | Gazebo simulation clock |
 | `/cmd_vel` | `geometry_msgs/msg/Twist` | — | Public velocity-command input |
 | `/cmd_vel_gz` | `geometry_msgs/msg/Twist` | — | Internal watchdog output bridged to Gazebo |
-| `/joint_states` | `sensor_msgs/msg/JointState` | `base_link` / 10 Hz | Wheel joint positions and velocities |
+| `/joint_states` | `sensor_msgs/msg/JointState` | `joint_states` / 10 Hz | Wheel joint positions and velocities |
 | `/odom` | `nav_msgs/msg/Odometry` | `odom` -> `base_footprint` / 10 Hz | Wheel-state odometry, covariance as on the robot |
 | `/ground_truth/odom` | `nav_msgs/msg/Odometry` | `world` -> `base_footprint` / 50 Hz | Measurement-only Gazebo ground truth; not TF |
 | `/tf` | `tf2_msgs/msg/TFMessage` | — | Dynamic transforms |
@@ -746,6 +747,14 @@ colcon test-result --verbose --all
 rosdep check --from-paths src --ignore-src --rosdistro humble
 ```
 
+The `sensor_contract_*` launch tests also run physical_rosmaster's contract
+probe against the simulator (#43 step 9). They read it with `git show` from a
+physical_rosmaster checkout at the commit pinned in
+`yahboom_rosmaster_gazebo/config/real_robot_contract.yaml`; point
+`PHYSICAL_ROSMASTER_REPO` at one (default
+`~/Documents/air-club/physical_rosmaster`, after `git fetch`). Without it they
+fail rather than skip.
+
 ## Troubleshooting
 
 ### Package or Launch File Not Found
@@ -934,6 +943,23 @@ was 0.00175 on every axis, 75 times too small on x); under `sensor_profile:=idea
 there is none, so geometry and motion tests see the sensor's own reading. The
 filter runs under both profiles. `/imu/data_raw` is new and carries the robot's
 content: no Gazebo orientation, zero covariances.
+
+**⚠️ `/joint_states` `header.frame_id` changed in #43 step 9** from `base_link` to
+`joint_states`, as on the robot (the driver sets it in `Mcnamu_driver_X3.py`).
+Nothing in this repository reads it, and `robot_state_publisher` and
+`wheel_state_odometry.py` ignore it. Code that compared it with `base_link` must
+accept `joint_states`.
+
+**The simulator is checked against the robot's own contract probe in CI (#43
+step 9).** physical_rosmaster's `tools/physical_contract_probe.py` runs against
+the simulator in every `sensor_contract_*` launch test, with `target:=simulator`
+(no `/diagnostics` checks, and one `/tf_static` message instead of two; everything
+else, including topics, types, frames, QoS and rate limits, is graded as on the
+robot). CI fetches it at the commit the parity ledger pins
+(`physical.provenance.commit`). To run the launch tests locally you need a
+physical_rosmaster checkout that has that commit: set `PHYSICAL_ROSMASTER_REPO`
+to it, or keep it at `~/Documents/air-club/physical_rosmaster`. A missing
+checkout fails the test; it does not skip it.
 
 **Existing workspaces need `imu_filter_madgwick` (#43 step 8c).** The launch now
 starts it unconditionally, and a missing package aborts the whole simulator

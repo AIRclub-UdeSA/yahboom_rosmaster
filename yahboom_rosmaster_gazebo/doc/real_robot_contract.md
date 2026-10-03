@@ -95,6 +95,8 @@ shared loader.
 | `test/sensor_profiles_test.py`, `test/sensor_qos_relay_test.py` | The LiDAR profile's `scan_time_s` against `lidar.scan_time_s` (physical value and simulator nominal), and the relay's hold-back and `scan_time`. `scripts/lidar_geometry_probe.py` reads the scan's rate bounds and `scan_time` from the ledger, and `scripts/sensor_contract_probe.py` grades each scan's arrival against the profile |
 | `test/command_limits_test.py`, `test/wheel_state_odometry_test.py` | `command.*_limit_*` against `config/command_limits.yaml`, and `odometry.*_covariance_x_y_yaw` against `config/wheel_odometry.yaml`, both as physical values and as simulator nominals. `scripts/base_feedback_probe.py` reads the limits from the ledger and checks them on `/cmd_vel_gz` |
 | `test/sensor_contract_probe_test.py` | Every rate the probe grades has a contract; the probe's Best Effort topics and wheel joint names match the ledger |
+| `tools/physical_probe.py`, `.github/workflows/simulator-contracts.yml`, `test/sensor_contract.launch.py` | `physical.provenance.commit`: the physical_rosmaster commit whose `tools/physical_contract_probe.py` CI fetches and runs against the simulator. See "The physical contract probe" |
+| `scripts/sensor_contract_probe.py` (frames) | also `topics./joint_states.frame_id`, which `config/ros2_control.yaml` sets and `test/real_robot_contract_test.py` ties to the ledger |
 | `test/real_robot_contract_test.py` | Every parity flag (a `true` one must be verifiable), the provenance commits and `step_measurements` records, the legacy `superseded_by` references, the `/joint_states` rate in `config/ros2_control.yaml` (the broadcaster's `update_rate`, a whole division of the loop's), and that the cloud's timing entries (`rate_hz`, `period_p95_ms`, `latency_ms`, `gap_frames`, `worst_gap_s`) and the depth entries (`scale_error`, `noise_model`, `min_range_m`) are what `config/sensor_profiles.yaml`'s physical profile implies, `render_settings`, the range comparison, and that no measured key is in two `step_measurements` records |
 
 `sensor_contract_ci` still runs with `performance_checks:=false`, so it reads
@@ -132,6 +134,33 @@ the whole range from its floor. A correct simulator failed this check in none of
 1,500 seeded trials of an independent model of the camera; each departure a test
 introduces (no scale, a wrong exponent, no noise floor, no cutoff, a leaked
 infinity) fails it and is named.
+
+## The physical contract probe
+
+physical_rosmaster's own `tools/physical_contract_probe.py` is the contract both
+platforms are graded against (#43 step 9), so a consumer written for one runs on
+the other without remaps. `test/sensor_contract.launch.py` starts it when
+`sensor_contract_probe` exits, on all four `sensor_contract_*` targets, with
+`-p target:=simulator -p use_sim_time:=true -p samples:=10`. `target:=simulator`
+differs from the robot's checks in exactly two ways, because the simulator has no
+driver: no `/diagnostics` checks, and one `/tf_static` message instead of two.
+Everything else is graded as on the robot: types, QoS, publisher counts, the
+frames, header stamps, the rate limits (3-40 Hz for the cameras, the cloud and the
+scan's 3-20 Hz among them), intrinsics, depth units, the cloud's layout, the IMU's
+gravity, the wheel joints, and that every sensor frame resolves in TF at a recent
+stamp. Ten samples, not the default five, because at five the cloud's 3 Hz floor
+(a median over four gaps of a heavy-tailed distribution) fails by chance about
+1.8% of the time.
+
+The probe is not vendored and not a second pin: CI reads
+`physical.provenance.commit`, fetches `tools/physical_contract_probe.py` at exactly
+that commit into a sparse checkout, and the tests read it with `git show`
+(`tools/physical_probe.py`). A pin that is not a full SHA, a missing checkout or a
+missing commit fails the gate. `test/physical_probe_pin_test.py` pins this, and that
+the fetched file declares the `target` parameter. Moving the pin therefore moves
+the probe the gate runs; re-read the cited sources first (below), and run
+`tools/measure_physical_probe.py` to see what the new probe says about the
+simulator before relying on it.
 
 ## Closing a gap
 
@@ -180,7 +209,10 @@ git -C ../physical_rosmaster show origin/main:docs/sensor_capabilities.md
 After copying:
 
 1. Set `physical.provenance.commit` to the full SHA and `read_on` to the date.
-   Update `sources` if a file moved.
+   Update `sources` if a file moved. This commit is also the one CI fetches the
+   contract probe at, so bump the guard constant in
+   `test/real_robot_contract_test.py` with it, and show that nothing you cite
+   moved: `git diff --stat <old>..<new> -- <every path in sources>`.
 2. Keep each group's `confidence` honest. A value read from a parameter file is
    `inferred` until a capture observes it.
 3. When a newer capture replaces a pipeline the ledger still describes, keep
