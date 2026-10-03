@@ -108,12 +108,12 @@ def joint_state_frame(environment):
     completed = subprocess.run(
         ["bash", "-c", command], env=merged, capture_output=True, text=True)
     lines = [line for line in completed.stdout.splitlines()
-             if line and line != "---"]
+             if line and line != "---" and not line.startswith("WARNING")]
     return lines[0].strip("'\"") if lines else None
 
 
 def joint_state_frame_retrying(environment, attempts=3):
-    """Return the /joint_states frame_id; the echo CLI sometimes prints a loss notice instead."""
+    """Return the /joint_states frame_id; the echo CLI sometimes prints a notice instead."""
     for _ in range(attempts):
         frame = joint_state_frame(environment)
         if frame and "lost" not in frame:
