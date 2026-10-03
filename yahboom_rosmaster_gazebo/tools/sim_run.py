@@ -23,7 +23,7 @@ import time
 CLEANUP_PATTERNS = (
     "[/]usr/bin/ign gazebo",
     "[r]os2 launch",
-    "[r]osmaster_ws(_step7)?/install/",
+    "[r]osmaster_ws(_step[0-9a-z]+)?/install/",
 )
 LLVMPIPE_ENV = {
     "LIBGL_ALWAYS_SOFTWARE": "1",
