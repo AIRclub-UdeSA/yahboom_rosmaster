@@ -61,6 +61,32 @@ PASSED = re.compile(r"Physical contract PASSED", re.MULTILINE)
 NUMBER = re.compile(r"-?\d+\.\d+")
 
 
+def real_time_factor(window_s=5.0):
+    """Return sim seconds per wall second over ``window_s`` of /clock, or None."""
+    import rclpy
+    from rclpy.node import Node
+    from rosgraph_msgs.msg import Clock
+
+    rclpy.init()
+    node = Node("measure_physical_probe_clock")
+    seen = []
+    node.create_subscription(
+        Clock, "/clock",
+        lambda message: seen.append((
+            time.monotonic(), message.clock.sec + message.clock.nanosec * 1e-9)),
+        10)
+    try:
+        deadline = time.monotonic() + window_s
+        while time.monotonic() < deadline:
+            rclpy.spin_once(node, timeout_sec=0.2)
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+    if len(seen) < 2 or seen[-1][0] <= seen[0][0]:
+        return None
+    return (seen[-1][1] - seen[0][1]) / (seen[-1][0] - seen[0][0])
+
+
 def error_key(error):
     """Return an error with its varying numbers blanked, so equal faults tally together."""
     return NUMBER.sub("N", error)
@@ -138,6 +164,8 @@ def one_run(index, args, probe, work_dir):
             return record
         time.sleep(args.start_delay)
         record["joint_states_frame_id"] = joint_state_frame_retrying(environment)
+        factor = real_time_factor()
+        record["real_time_factor"] = None if factor is None else round(factor, 3)
         code, wall, output = run_probe(
             probe, args.samples, args.timeout, args.param, environment,
             work_dir / f"probe_{index}.log")
@@ -156,6 +184,25 @@ def one_run(index, args, probe, work_dir):
     return record
 
 
+def spread(values):
+    """Return n, median and range of ``values``, or None when there are none."""
+    values = sorted(value for value in values if value is not None)
+    if not values:
+        return None
+    return {"n": len(values), "median": values[len(values) // 2],
+            "min": values[0], "max": values[-1]}
+
+
+def wall_summary(records):
+    """Return the spread of the probe's wall time over the runs."""
+    return spread(record.get("wall_s") for record in records)
+
+
+def rtf_summary(records):
+    """Return the spread of the real-time factor over the runs."""
+    return spread(record.get("real_time_factor") for record in records)
+
+
 def tally(records):
     """Return the report: runs, passes and each distinct error with its run count."""
     errors = collections.Counter()
@@ -170,6 +217,8 @@ def tally(records):
         "passed": sum(1 for record in records if record.get("passed")),
         "exit_codes": dict(collections.Counter(str(r.get("code")) for r in records)),
         "shutdown": dict(collections.Counter(r.get("shutdown") for r in records)),
+        "probe_wall_s": wall_summary(records),
+        "real_time_factor": rtf_summary(records),
         "joint_states_frame_id": dict(
             collections.Counter(str(r.get("joint_states_frame_id")) for r in records)),
         "errors": [

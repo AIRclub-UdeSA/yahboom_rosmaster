@@ -20,10 +20,12 @@ PERFORMANCE_PROBE_START_DELAY = 15.0
 # sensors are publishing and TF is flowing. It grades the simulator with
 # target:=simulator, on sim time. Ten samples, not the default five: at five the
 # cloud's 3 Hz floor (median period of four gaps) fails by chance about 1.8% of
-# the time, and at ten about 6e-5 (#43 step 9). The timeout is wall seconds.
+# the time, and at ten about 6e-5 (#43 step 9). The timeout is wall seconds: the
+# probe took 4.2 to 5.5 s under the CI gate's llvmpipe recipe (5 runs) and 2.5 to
+# 4.3 s on the GPU (30 runs), so 30 s is a hang guard five times the slowest run.
 PHYSICAL_PROBE_PARAMETERS = {
     "target": "simulator",
     "use_sim_time": True,
     "samples": 10,
-    "timeout": 45.0,
+    "timeout": 30.0,
 }
