@@ -21,8 +21,9 @@ PERFORMANCE_PROBE_START_DELAY = 15.0
 # target:=simulator, on sim time. Ten samples, not the default five: at five the
 # cloud's 3 Hz floor (median period of four gaps) fails by chance about 1.8% of
 # the time, and at ten about 6e-5 (#43 step 9). The timeout is wall seconds: the
-# probe took 4.2 to 5.5 s under the CI gate's llvmpipe recipe (5 runs) and 2.5 to
-# 4.3 s on the GPU (30 runs), so 30 s is a hang guard five times the slowest run.
+# probe took 3.7 to 7.4 s under the CI gate's llvmpipe recipe (real-time factor
+# 0.47-0.49; 5 fresh launches, and 4.2 to 5.5 s inside 5 gate runs) and 2.5 to
+# 5.6 s on the GPU (30 launches), so 30 s is a hang guard four times the slowest.
 PHYSICAL_PROBE_PARAMETERS = {
     "target": "simulator",
     "use_sim_time": True,

@@ -721,7 +721,7 @@ simulator:
         note: >
           #43 step 9 (parity check in CI). The simulator code under test is
           1584209; the commits after it change only the harness (a CLI warning
-          filter) and this record.
+          filter), a comment in test/sim_timing.py and this record.
         keys:
           - topics./joint_states.frame_id
         method: >
@@ -734,10 +734,11 @@ simulator:
           The same runs ran physical_rosmaster's tools/physical_contract_probe.py at
           fa56a87 (git blob 02d4e5c, target:=simulator, use_sim_time, samples:=10):
           30 of 30 passed on the GPU (real-time factor 0.996, 0.936-1.067; the
-          probe took 3.4 s, 2.5-5.6 s). On the CI gate's llvmpipe recipe it
-          passed in 5 of 5 fresh launches, and in the gate itself, five runs
-          alternating with main, it added 3.1 s to a median of 164.5 s (range
-          163.0-167.6 to 166.1-169.3). The full suite on the GPU, five
+          probe took 3.4 s, 2.5-5.6 s). On the CI gate's llvmpipe recipe (four
+          CPUs) it passed in 10 of 10 fresh launches (the last five at 1584209:
+          real-time factor 0.486, 0.471-0.487; the probe took 5.0 s, 3.7-7.4 s),
+          and in the gate itself, five runs alternating with main, it added 3.1 s
+          to a median of 164.5 s (range 163.0-167.6 to 166.1-169.3). The full suite on the GPU, five
           sequential passes, ran the probe in each of the four sensor_contract_*
           targets, 20 of 20 passed.
   frames:
