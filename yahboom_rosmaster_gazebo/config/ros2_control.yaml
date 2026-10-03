@@ -25,3 +25,7 @@ joint_state_broadcaster:
     # controller does honour its own update_rate, which is what sets the rate.
     # The loop steps are 34 ms, so the stamps come 102 ms apart (9.80 Hz).
     update_rate: 10  # Hz
+    # The broadcaster's frame_id defaults to base_link. The robot's driver
+    # publishes "joint_states" (Mcnamu_driver_X3.py:508), and so does the
+    # simulator now (#43 step 9; the physical contract probe needs it non-empty).
+    frame_id: joint_states

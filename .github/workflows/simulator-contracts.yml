@@ -43,6 +43,7 @@ jobs:
             ignition-fortress \
             libgl1-mesa-dri \
             mesa-utils \
+            git \
             python3-colcon-common-extensions \
             python3-rosdep \
             ros-humble-gz-ros2-control \
@@ -82,9 +83,38 @@ jobs:
             --event-handlers console_direct+ \
             --cmake-args -DBUILD_TESTING=ON
 
+      # The gate runs physical_rosmaster's own contract probe against the
+      # simulator (#43 step 9). The pin is the ledger's, so there is one place
+      # to move it. git is installed above so that the checkout below is a real
+      # repository the tests can `git show` the probe from.
+      - name: Read the physical_rosmaster pin
+        id: physical_pin
+        shell: bash
+        run: |
+          sha="$(python3 -c "import yaml; print(yaml.safe_load(open('yahboom_rosmaster_gazebo/config/real_robot_contract.yaml'))['physical']['provenance']['commit'])")"
+          if [[ ! "${sha}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "The ledger's physical commit is not a full SHA: '${sha}'" >&2
+            exit 1
+          fi
+          echo "physical_rosmaster pin: ${sha}"
+          echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
+
+      # After the build, so colcon never scans it. Only the probe is checked out.
+      - name: Fetch the physical contract probe at the pin
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: AIRclub-UdeSA/physical_rosmaster
+          ref: ${{ steps.physical_pin.outputs.sha }}
+          path: physical_rosmaster
+          sparse-checkout: tools/physical_contract_probe.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - name: Run representative headless contracts
         shell: bash
         timeout-minutes: 14
+        env:
+          PHYSICAL_ROSMASTER_REPO: ${{ github.workspace }}/physical_rosmaster
         run: |
           xvfb-run \
             --auto-servernum \

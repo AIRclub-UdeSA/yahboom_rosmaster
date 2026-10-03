@@ -135,6 +135,10 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/classic_launch_contract_test.py
   )
   add_test(
+    NAME physical_probe_pin_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/physical_probe_pin_test.py
+  )
+  add_test(
     NAME real_robot_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/real_robot_contract_test.py
   )
