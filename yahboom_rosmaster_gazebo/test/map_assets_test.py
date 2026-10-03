@@ -7,16 +7,23 @@ valid image, that every map has a matching world, and that the map lines up
 with that world. The alignment check rasterizes the world's collision boxes
 (following nested model:// includes) at the LiDAR's scan height, slides the
 map's occupied cells over them, and requires the best fit to sit at the
-declared origin -- not shifted, rotated, or mirrored.
+declared origin -- not shifted, rotated, or mirrored. "At the declared
+origin" means within MAX_OFFSET_CELLS (0.1 m at 0.05 m/cell), so an origin
+off by 0.2 m is always caught and one off by 0.1 m is not.
 """
 
 from pathlib import Path
 import math
+import sys
 import unittest
 import xml.etree.ElementTree as ET
 
 import numpy as np
 import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from real_robot_contract import RealRobotContract  # noqa: E402
 
 
 PACKAGE = Path(__file__).resolve().parents[1]
@@ -27,10 +34,13 @@ MODELS_DIR = PACKAGE / "models"
 # Map basenames that don't match their world file 1:1.
 WORLD_NAME_OVERRIDES = {}
 
-# Only geometry crossing this height band can show up in a LiDAR-built map:
-# above the floor slabs (the cafe's floor tops out at 0.19 m) and below the
-# top of the lowest walls (the mazes' 0.5-0.6 m panels).
-SCAN_BAND_M = (0.2, 0.45)
+# A LiDAR-built map only shows geometry crossing the scan plane, so only
+# collision boxes spanning this height are rasterized. Floor slabs end at
+# z = 0 and the lowest walls (the mazes' panels) top out at 0.5 m.
+LEDGER = RealRobotContract.load()
+SCAN_HEIGHT_M = (
+    LEDGER.nominal("frames.base_footprint_to_base_link_z_m")
+    + LEDGER.nominal("frames.mounts.laser_link")["xyz"][2])
 
 # An occupied map cell counts as "on a wall" within this distance of one.
 WALL_TOLERANCE_M = 0.05
@@ -46,8 +56,9 @@ MAX_OFFSET_CELLS = 2
 MIN_ORIENTATION_MARGIN = 0.05
 
 # Fraction of occupied cells that must land on a wall at the best fit. The
-# mazes score 0.85 or more; the cafe scores 0.64 because its counter and
-# kitchen are mesh collisions, which this check doesn't rasterize.
+# mazes score 0.85 or more; the cafe scores 0.64 because its kitchen and
+# counter exist only in the visual mesh (cafe.dae), with no collision:
+# gpu_lidar renders visuals, so they show up in the map but not here.
 MIN_ALIGNMENT = 0.5
 
 REQUIRED_KEYS = (
@@ -135,7 +146,9 @@ def included_model(uri):
         return None
     path = MODELS_DIR / uri[len("model://"):] / "model.sdf"
     if not path.exists():
-        return None
+        # Skipping it would drop its walls and surface as a confusing
+        # alignment failure; every mapped world's models live in models/.
+        raise FileNotFoundError(f"{uri} not found: no {path}")
     return ET.parse(path).getroot().find("model")
 
 
@@ -189,7 +202,7 @@ def convex_hull(points):
 
 
 def wall_mask(world_path, doc, shape, tolerance):
-    """Cells within `tolerance` of a collision box crossing the scan band."""
+    """Cells within `tolerance` of a collision box crossing the scan plane."""
     height, width = shape
     resolution = doc["resolution"]
     origin_x, origin_y = doc["origin"][0], doc["origin"][1]
@@ -202,8 +215,7 @@ def wall_mask(world_path, doc, shape, tolerance):
                       for sz in (-1, 1)])
     for transform, size in world_boxes(world_path):
         corners = (signs * size / 2.0) @ transform[:3, :3].T + transform[:3, 3]
-        if (corners[:, 2].max() < SCAN_BAND_M[0]
-                or corners[:, 2].min() > SCAN_BAND_M[1]):
+        if not corners[:, 2].min() <= SCAN_HEIGHT_M <= corners[:, 2].max():
             continue
         hull = convex_hull(corners[:, :2])
         if len(hull) < 3:
@@ -274,6 +286,9 @@ class TestMapReferences(unittest.TestCase):
                 self.assertGreater(grid.size, 0)
                 self.assertGreater(doc["resolution"], 0.0)
                 self.assertEqual(len(doc["origin"]), 3)
+                # The alignment check ignores yaw; a rotated origin would fail
+                # it with a misleading message instead of here.
+                self.assertEqual(doc["origin"][2], 0, "origin yaw must be 0")
                 self.assertLess(doc["free_thresh"], doc["occupied_thresh"])
 
     def test_every_map_has_a_world(self):
@@ -304,7 +319,12 @@ class TestMapAlignment(unittest.TestCase):
             if not image.exists() or not world_for(yaml_path).exists():
                 continue  # TestMapReferences reports these.
             world = world_for(yaml_path).name
-            (score, rows, columns), variants = alignment(yaml_path)
+            try:
+                (score, rows, columns), variants = alignment(yaml_path)
+            except FileNotFoundError as error:
+                with self.subTest(map=yaml_path.name, check="models"):
+                    self.fail(f"{world} includes a missing model: {error}")
+                continue
             with self.subTest(map=yaml_path.name, check="overlap"):
                 self.assertGreaterEqual(
                     score, MIN_ALIGNMENT,
