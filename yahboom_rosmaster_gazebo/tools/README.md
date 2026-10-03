@@ -10,7 +10,9 @@ running.
 |---|---|---|
 | `measure_cloud_timing.py` | physical_rosmaster's own `sensor_capability_probe.py`, run against the simulator on the camera group (default) or, with `--group stationary`, on the non-camera groups (LiDAR, IMU, odometry and health: rate, period, latency and reliability per topic, the scan's `scan_time` and `time_increment`, and the IMU and odometry series' spread). The camera group measures: the cloud's rate, gaps, latency and worst gap, the depth image's rate and latency, and the depth image's valid and NaN fractions | The `step_measurements` records of `config/real_robot_contract.yaml` |
 | `measure_adapter_cost.py` | The camera adapter's CPU, the Gazebo server's, that of any node named with `--node`, the depth image's latency and rate, and the real-time factor, alternating two or more workspaces | Comparing a branch with `main` (#43 step 7, review item R5) |
-| `sim_run.py` | (library) cleanup, detached launch, stop | Both |
+| `measure_physical_probe.py` | physical_rosmaster's own `physical_contract_probe.py` (`target:=simulator`), run once per fresh simulator launch, N times: its exit code, every error it prints with a count, its wall time, and the `/joint_states` frame_id | #43 step 9: the start-up behavior and flake rate of the parity check that CI runs (see "The contract probe in CI") |
+| `physical_probe.py` | (library) the ledger's physical pin, and the `git show` fetch of the contract probe at it | The harness, the launch tests and CI |
+| `sim_run.py` | (library) cleanup, detached launch, stop | All |
 
 ## What `sim_run.py` does, and why
 
@@ -49,8 +51,9 @@ but the stamp-based and sim-time figures hold. `--no-user-site` hides numpy in
 ### What it pins
 
 The probe is not vendored. `fetch_probe()` reads two files from the pinned
-physical_rosmaster commit (`PHYSICAL_PIN`, a full SHA, the merge commit of #45)
-with `git show`, and never checks the repository out:
+physical_rosmaster commit (`PHYSICAL_PIN`, which is the ledger's
+`physical.provenance.commit`, a full SHA: since #43 step 9 the merge commit of
+physical_rosmaster#47) with `git show`, and never checks the repository out:
 
 * `tools/sensor_capability_probe.py`
 * `tools/physical_contract_probe.py`, which the first imports, so they sit side
@@ -63,8 +66,35 @@ stamped with the ROS clock, so `latency_ms` is sim time at receipt minus
 wall epoch minus sim time, which is meaningless against sim-time stamps (#43
 step 2). The copy keeps physical_rosmaster's Apache-2.0 header. A patch that no
 longer applies stops the run, so a change upstream cannot silently change what is
-measured. To move the pin, change `PHYSICAL_PIN`, re-run
-`test/measurement_tools_test.py`, and re-measure.
+measured. To move the pin, change the ledger's `physical.provenance.commit`
+(and the guard constant in `test/real_robot_contract_test.py`), re-run
+`test/measurement_tools_test.py`, and re-measure. The `step_measurements` records
+taken before step 9 name 468662c, where they were measured; they stay.
+
+## The contract probe in CI
+
+physical_rosmaster's `tools/physical_contract_probe.py` grades the simulator
+with `-p target:=simulator`, which differs from the robot's checks in two ways:
+no `/diagnostics`, and one `/tf_static` message instead of two. The launch
+tests (`test/sensor_contract.launch.py`) start it when `sensor_contract_probe`
+exits, with `use_sim_time` and `samples:=10`; CI fetches it at the ledger's pin
+into a sparse checkout (`PHYSICAL_ROSMASTER_REPO`). To run it by hand, in the
+same way, many times:
+
+```bash
+python3 tools/measure_physical_probe.py --workspace ~/Documents/rosmaster_ws \
+  --runs 20 --samples 10 --output probe_gpu.json
+python3 tools/measure_physical_probe.py --workspace ~/Documents/rosmaster_ws \
+  --runs 5 --render llvmpipe --output probe_llvmpipe.json
+```
+
+Each run is a fresh launch, so start-up counts. The report lists every distinct
+error with the number of runs it appeared in. Step 9's discovery run, with the
+probe at 27f5528 and only `/diagnostics` and the `/tf_static` count patched out,
+found one error: a TF lookup of the probe's frozen first sample, which predated
+the TF listener's history (6 of 40 GPU runs, 0 of 5 under llvmpipe). The
+probe's TF check was fixed upstream (physical_rosmaster#47) instead of being
+worked around here.
 
 ## Measuring the stationary sensors
 

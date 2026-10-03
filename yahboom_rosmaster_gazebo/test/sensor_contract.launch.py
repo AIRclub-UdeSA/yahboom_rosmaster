@@ -2,16 +2,22 @@
 """Launch the standalone simulator and require its sensor contract to pass."""
 
 import os
+from pathlib import Path
 import sys
+import tempfile
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    ExecuteProcess,
     IncludeLaunchDescription,
+    LogInfo,
+    RegisterEventHandler,
     SetEnvironmentVariable,
     TimerAction,
 )
+from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import (
     LaunchConfiguration,
@@ -31,8 +37,31 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from shutdown_asserts import assert_clean_shutdown  # noqa: E402
 from sim_timing import (  # noqa: E402
     PERFORMANCE_PROBE_START_DELAY,
+    PHYSICAL_PROBE_PARAMETERS,
     PROBE_START_DELAY,
 )
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+
+from physical_probe import fetch_contract_probe, ledger_pin, repository  # noqa: E402
+
+
+def physical_probe_command():
+    """
+    Fetch physical_rosmaster's contract probe at the ledger's pin; return its command.
+
+    Raises, so the launch test errors, when the pin or the checkout is unusable:
+    the parity check never silently stops running. Returns the command, the
+    commit and the blob id of the probe that will run.
+    """
+    commit = ledger_pin()
+    probe, blob = fetch_contract_probe(
+        repository(), commit, tempfile.mkdtemp(prefix="physical_contract_probe_"))
+    parameters = []
+    for name, value in PHYSICAL_PROBE_PARAMETERS.items():
+        text = str(value).lower() if isinstance(value, bool) else str(value)
+        parameters += ["-p", f"{name}:={text}"]
+    return ["python3", str(probe), "--ros-args", *parameters], commit, blob
 
 
 @pytest.mark.launch_test
@@ -90,6 +119,16 @@ def generate_test_description():
         output="screen",
     )
 
+    # physical_rosmaster's contract probe, once the simulator's own has finished
+    # (so only one probe subscribes to the cloud at a time), however it ended.
+    command, physical_commit, physical_blob = physical_probe_command()
+    banner = (
+        f"physical_contract_probe from physical_rosmaster {physical_commit}, blob "
+        f"{physical_blob}, {' '.join(command[3:])}")
+    print(banner, flush=True)
+    physical_probe = ExecuteProcess(
+        cmd=command, name="physical_contract_probe", output="screen")
+
     return LaunchDescription([
         DeclareLaunchArgument("world", default_value="empty.world"),
         DeclareLaunchArgument(
@@ -107,8 +146,13 @@ def generate_test_description():
         SetEnvironmentVariable("ROS_DOMAIN_ID", str(10 + os.getpid() % 211)),
         simulator,
         TimerAction(period=probe_delay, actions=[probe, timing_probe]),
+        RegisterEventHandler(OnProcessExit(
+            target_action=probe,
+            on_exit=[LogInfo(msg=banner), physical_probe])),
         launch_testing.actions.ReadyToTest(),
-    ]), {"probe": probe, "timing_probe": timing_probe}
+    ]), {
+        "probe": probe, "timing_probe": timing_probe,
+        "physical_probe": physical_probe}
 
 
 class TestSensorContract(unittest.TestCase):
@@ -118,6 +162,13 @@ class TestSensorContract(unittest.TestCase):
         proc_info.assertWaitForStartup(probe, timeout=30)
         proc_info.assertWaitForShutdown(probe, timeout=55)
         launch_testing.asserts.assertExitCodes(proc_info, process=probe)
+
+    def test_physical_contract_passes(self, proc_info, physical_probe):
+        """physical_rosmaster's own probe, target:=simulator, must pass."""
+        proc_info.assertWaitForStartup(physical_probe, timeout=90)
+        proc_info.assertWaitForShutdown(
+            physical_probe, timeout=PHYSICAL_PROBE_PARAMETERS["timeout"] + 30)
+        launch_testing.asserts.assertExitCodes(proc_info, process=physical_probe)
 
     def test_cloud_timing_passes(self, proc_info, timing_probe):
         proc_info.assertWaitForStartup(timing_probe, timeout=30)

@@ -61,10 +61,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from cloud_timing import gap_statistics  # noqa: E402
+from physical_probe import ledger_pin  # noqa: E402
 from sim_run import ROS_SETUP, Simulator, isolated_environment  # noqa: E402
 
-# physical_rosmaster main after #44 and #45 merged (#45's merge commit).
-PHYSICAL_PIN = "468662ca25a52515a218dd944fc031ca85266244"
+# The commit the parity ledger pins (physical.provenance.commit), so there is one
+# pin to move. The figures recorded in step_measurements before step 9 were taken
+# at 468662c; the patch below must apply at whatever the pin is.
+PHYSICAL_PIN = ledger_pin()
 # The probe imports the contract probe, so the two are fetched side by side.
 PROBE_FILES = ("tools/sensor_capability_probe.py", "tools/physical_contract_probe.py")
 PATCH = Path(__file__).resolve().parent / "patches" / "sensor_capability_probe_sim_time.patch"
