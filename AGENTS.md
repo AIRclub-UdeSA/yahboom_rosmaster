@@ -27,7 +27,8 @@ CONTRIBUTING.md. This file only covers the traps that cost agents time here.
   - Use anchored patterns only: `pkill -f ign` also matches Firefox and system
     services.
   - Bracket the first character so the pattern doesn't match the shell running it:
-    `pkill -9 -f '[/]usr/bin/ign gazebo'`, `'[r]os2 launch'`,
+    `pkill -9 -f '(^|[ /])[i]gn gazebo( |$)'` (the server's command line is
+    `ign gazebo -r -s …`, with no `/usr/bin/`), `'[r]os2 launch'`,
     `'[r]osmaster_ws/install/'`.
   - Then `rm -f /dev/shm/fastrtps_* /dev/shm/sem.fastrtps_*` and
     `ros2 daemon stop` (with ROS sourced).
