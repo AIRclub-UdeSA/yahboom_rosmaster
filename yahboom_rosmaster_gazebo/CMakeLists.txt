@@ -142,6 +142,11 @@ if(BUILD_TESTING)
     NAME physical_probe_pin_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/physical_probe_pin_test.py
   )
+  # Installed code must find its data without the source tree (copy installs).
+  add_test(
+    NAME installed_paths_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/installed_paths_test.py
+  )
   add_test(
     NAME real_robot_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/real_robot_contract_test.py

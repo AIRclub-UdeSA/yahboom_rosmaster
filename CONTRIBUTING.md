@@ -135,10 +135,14 @@ CI builds without `--symlink-install`: it installs once and never edits, and
 symlinking the gazebo package's ~2,500 model files takes about 20 s longer than
 copying them. Only the install layout differs, so a failure that shows up with
 one build mode and not the other points at a path that depends on symlinks.
+The CI gate runs a subset, so a probe that only the full suite launches can
+still break on a copy install. The `installed_paths_contract` target reads the
+installed scripts and launch files and rejects `SOURCE_PATH`, `__file__`-relative
+and `parents[...]` paths there; use `default_path()` to find a data file.
 
 The script runs the description contract; the motion-profile, practice-world,
 launch-shutdown, sensor-probe, sensor-profile, point-cloud timing and camera
-adapter, and real-robot ledger unit contracts; the
+adapter, installed-paths, and real-robot ledger unit contracts; the
 empty-world sensor-correctness, base-feedback, ground-truth, ideal-motion, and
 wheel-odometry-resilience launch contracts. It also selects the ideal-yaw
 contract when that target is present, plus the ament `flake8`, `pep257`,
