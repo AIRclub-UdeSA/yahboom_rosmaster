@@ -16,7 +16,7 @@ from sensor_msgs.msg import Imu
 from tf2_ros import Buffer, TransformException, TransformListener
 
 from real_robot_contract import RealRobotContract
-from sensor_profiles import SOURCE_PATH as PROFILES_PATH, load_sensor_profile
+from sensor_profiles import default_path as profiles_path, load_sensor_profile
 
 
 # imu_link is mounted at rpy (0, pi, pi/2) relative to base_link (real-robot
@@ -159,7 +159,7 @@ class ImuMotionProbe(Node):
         # The physical profile's noise is the ledger's; the ideal profile has none.
         physical = contract.nominal("imu.gyro_noise_stddev_rad_s"), contract.nominal(
             "imu.accel_noise_stddev_mps2")
-        profile = load_sensor_profile(PROFILES_PATH, "imu", self.sensor_profile)
+        profile = load_sensor_profile(profiles_path(), "imu", self.sensor_profile)
         self.gyro_noise = (
             physical[0] if self.sensor_profile == "physical"
             else profile["gyro_noise_stddev_rad_s"])
