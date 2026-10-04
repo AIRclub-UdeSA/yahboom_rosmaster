@@ -13,6 +13,7 @@ sys.path.insert(0, str(PACKAGE_DIR / "tools"))
 sys.path.insert(0, str(PACKAGE_DIR / "scripts"))
 
 import measure_cloud_timing  # noqa: E402
+import measure_python_node_cpu  # noqa: E402
 import sim_run  # noqa: E402
 
 PHYSICAL_REPOSITORY = Path("~/Documents/air-club/physical_rosmaster").expanduser()
@@ -183,6 +184,34 @@ class TestSimulatorRunner(unittest.TestCase):
     def test_a_session_lists_its_own_processes(self):
         found = sim_run.session_processes(os.getsid(0))
         self.assertIn(os.getpid(), found)
+
+
+class TestPythonNodeCpuTool(unittest.TestCase):
+    """measure_python_node_cpu.py labels processes and reads threads without a simulator."""
+
+    def test_labels_name_the_script_not_the_interpreter(self):
+        label = measure_python_node_cpu.label_of
+        self.assertEqual(
+            label("python3 /ws/lib/camera_adapter.py --ros-args -r __node:=x"),
+            "camera_adapter.py")
+        self.assertEqual(
+            label("/opt/ros/humble/lib/ros_gz_bridge/parameter_bridge /clock@a"),
+            "parameter_bridge")
+
+    def test_the_two_idle_nodes_get_different_labels(self):
+        label = measure_python_node_cpu.label_of
+        self.assertNotEqual(
+            label("python3 /t/idle_node.py --sim-time true --name a"),
+            label("python3 /t/idle_node.py --sim-time false --name b"))
+
+    def test_this_process_has_threads_with_ticks(self):
+        found = measure_python_node_cpu.thread_ticks(os.getpid())
+        self.assertTrue(found)
+        self.assertTrue(all(ticks >= 0 for ticks in found.values()))
+
+    def test_percent_is_ticks_over_wall_time(self):
+        ticks = os.sysconf("SC_CLK_TCK") * 3
+        self.assertAlmostEqual(measure_python_node_cpu.percent(ticks, 6.0), 50.0)
 
 
 if __name__ == "__main__":
