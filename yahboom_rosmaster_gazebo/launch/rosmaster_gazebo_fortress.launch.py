@@ -237,28 +237,46 @@ def _camera_adapter(context, pkg_gz):
 
     render_sensors = LaunchConfiguration("render_sensors")
     use_sim_time = LaunchConfiguration("use_sim_time").perform(context)
+    adapter_clock = LaunchConfiguration("adapter_clock").perform(context)
+    cloud_parameters = point_cloud_parameters(profile)
+    extra, remap, actions = {}, [], []
+    if adapter_clock == "throttle":
+        remap = [("/clock", "/clock_throttled")]
+    if adapter_clock == "delay_node":
+        extra = {"use_sim_time": False, "cloud_topic": "/internal/cam_1/depth/color/points"}
+        actions.append(Node(
+            package="yahboom_rosmaster_gazebo", executable="cloud_delay",
+            name="cloud_delay", output="screen",
+            parameters=[{"latency_s": cloud_parameters["latency_s"]}]))
+        cloud_parameters = dict(cloud_parameters, latency_s=0.0)
+    if "throttle" in (adapter_clock, LaunchConfiguration("calc_clock").perform(context)):
+        raw = LaunchConfiguration("throttle_impl").perform(context) == "raw"
+        actions.append(Node(
+            package="yahboom_rosmaster_gazebo",
+            executable="clock_throttle_raw" if raw else "clock_throttle",
+            name="clock_throttle", output="screen",
+            parameters=[{"rate_hz": float(LaunchConfiguration("clock_throttle_hz").perform(
+                context))}]))
     camera_adapter = Node(
         package="yahboom_rosmaster_gazebo",
         executable="camera_adapter.py",
         name="camera_adapter",
         output="screen",
+        remappings=remap,
         parameters=[{
-            "use_sim_time": use_sim_time.lower() in ("true", "1", "yes"),
+            "use_sim_time": adapter_clock in ("stock", "throttle"),
             "cloud_decimation": decimation,
             "cloud_strip_nan": LaunchConfiguration("cloud_strip_nan").perform(
                 context).lower() in ("true", "1", "yes"),
             "seed": seed,
-            **point_cloud_parameters(profile),
+            **cloud_parameters,
             **depth_parameters(depth_profile),
+            **extra,
         }],
-        # The adapter does its arithmetic element-wise. Should any call reach
-        # BLAS, its spinning threads would take cores from the Gazebo server:
-        # in #49 a multithreaded product took 8.5 cores and cut the real-time
-        # factor to 0.77.
         additional_env={"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"},
         condition=IfCondition(render_sensors),
     )
-    return [camera_adapter]
+    return [camera_adapter, *actions]
 
 
 def _scan_relay(context, pkg_gz):
@@ -618,6 +636,16 @@ def generate_launch_description():
 
     declare_use_sim_time = DeclareLaunchArgument(
         "use_sim_time", default_value="true", description="Use simulation clock")
+    declare_adapter_clock = DeclareLaunchArgument(
+        "adapter_clock", default_value="stock",
+        choices=["stock", "wall", "throttle", "delay_node"])
+    declare_calc_clock = DeclareLaunchArgument(
+        "calc_clock", default_value="stock", choices=["stock", "throttle"])
+    declare_gt_clock = DeclareLaunchArgument(
+        "gt_clock", default_value="stock", choices=["stock", "wall"])
+    declare_throttle_impl = DeclareLaunchArgument(
+        "throttle_impl", default_value="msg", choices=["msg", "raw"])
+    declare_clock_hz = DeclareLaunchArgument("clock_throttle_hz", default_value="200")
     declare_world = DeclareLaunchArgument("world", default_value=default_world)
     declare_rviz = DeclareLaunchArgument(
         "rviz", default_value="true", description="Launch RViz (true/false)")
@@ -900,6 +928,9 @@ def generate_launch_description():
         package="yahboom_rosmaster_gazebo",
         executable="calculated_odometry.py",
         output="screen",
+        remappings=[("/clock", PythonExpression([
+            "'/clock_throttled' if '", LaunchConfiguration("calc_clock"),
+            "' == 'throttle' else '/clock'"]))],
         parameters=[{
             "use_sim_time": LaunchConfiguration("use_sim_time"),
             "publish_rate": 50.0,
@@ -918,7 +949,9 @@ def generate_launch_description():
         executable="ground_truth_tf.py",
         output="screen",
         parameters=[{
-            "use_sim_time": LaunchConfiguration("use_sim_time"),
+            "use_sim_time": PythonExpression([
+                "'", LaunchConfiguration("gt_clock"), "' == 'stock' and '",
+                LaunchConfiguration("use_sim_time"), "' == 'true'"]),
             "frame_id": LaunchConfiguration("ground_truth_frame"),
         }],
     )
@@ -949,6 +982,11 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_use_sim_time,
+        declare_adapter_clock,
+        declare_calc_clock,
+        declare_gt_clock,
+        declare_throttle_impl,
+        declare_clock_hz,
         declare_world,
         declare_rviz,
         declare_gui,

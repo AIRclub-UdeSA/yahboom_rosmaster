@@ -7,6 +7,17 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rosgraph_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+
+add_executable(clock_throttle src/clock_throttle.cpp)
+ament_target_dependencies(clock_throttle rclcpp rosgraph_msgs)
+add_executable(cloud_delay src/cloud_delay.cpp)
+ament_target_dependencies(cloud_delay rclcpp rosgraph_msgs sensor_msgs)
+add_executable(clock_throttle_raw src/clock_throttle_raw.cpp)
+ament_target_dependencies(clock_throttle_raw rclcpp)
+install(TARGETS clock_throttle clock_throttle_raw cloud_delay DESTINATION lib/${PROJECT_NAME})
 
 # Copy necessary files to designated locations in the project
 install(
