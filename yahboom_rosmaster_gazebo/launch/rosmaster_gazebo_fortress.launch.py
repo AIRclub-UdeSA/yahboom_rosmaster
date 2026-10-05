@@ -242,12 +242,26 @@ def _camera_adapter(context, pkg_gz):
     extra, remap, actions = {}, [], []
     if adapter_clock == "throttle":
         remap = [("/clock", "/clock_throttled")]
+        # The timer fires on the first clock tick at or after its target, so
+        # a cloud leaves half a clock period late on average: trim the target
+        # by that. "auto" derives it from clock_throttle's rate_hz; a number
+        # (milliseconds) overrides it, and 0 gives the untrimmed behavior.
+        trim = LaunchConfiguration("latency_trim_ms").perform(context)
+        trim_s = 0.5 / float(LaunchConfiguration("clock_throttle_hz").perform(context)) \
+            if trim == "auto" else float(trim) / 1000.0
+        if cloud_parameters["latency_s"] > 0.0:
+            cloud_parameters = dict(
+                cloud_parameters, latency_s=max(cloud_parameters["latency_s"] - trim_s, 0.0))
     if adapter_clock == "delay_node":
-        extra = {"use_sim_time": False, "cloud_topic": "/internal/cam_1/depth/color/points"}
+        extra = {"use_sim_time": False, "cloud_topic": "/internal/cam_1/depth/color/points",
+                 "cloud_reliable": LaunchConfiguration("hop_reliable").perform(
+                     context) == "true"}
         actions.append(Node(
             package="yahboom_rosmaster_gazebo", executable="cloud_delay",
             name="cloud_delay", output="screen",
-            parameters=[{"latency_s": cloud_parameters["latency_s"]}]))
+            parameters=[{"latency_s": cloud_parameters["latency_s"],
+                         "reliable_input": LaunchConfiguration("hop_reliable").perform(
+                             context) == "true"}]))
         cloud_parameters = dict(cloud_parameters, latency_s=0.0)
     if "throttle" in (adapter_clock, LaunchConfiguration("calc_clock").perform(context)):
         raw = LaunchConfiguration("throttle_impl").perform(context) == "raw"
@@ -645,6 +659,8 @@ def generate_launch_description():
         "gt_clock", default_value="stock", choices=["stock", "wall"])
     declare_throttle_impl = DeclareLaunchArgument(
         "throttle_impl", default_value="msg", choices=["msg", "raw"])
+    declare_hop_reliable = DeclareLaunchArgument("hop_reliable", default_value="false")
+    declare_latency_trim = DeclareLaunchArgument("latency_trim_ms", default_value="auto")
     declare_clock_hz = DeclareLaunchArgument("clock_throttle_hz", default_value="200")
     declare_world = DeclareLaunchArgument("world", default_value=default_world)
     declare_rviz = DeclareLaunchArgument(
@@ -987,6 +1003,8 @@ def generate_launch_description():
         declare_gt_clock,
         declare_throttle_impl,
         declare_clock_hz,
+        declare_latency_trim,
+        declare_hop_reliable,
         declare_world,
         declare_rviz,
         declare_gui,

@@ -21,11 +21,17 @@ public:
     const auto input = declare_parameter("input_topic", std::string("/internal/cam_1/depth/color/points"));
     const auto output = declare_parameter("output_topic", std::string("/cam_1/depth/color/points"));
     pub_ = create_publisher<PointCloud2>(output, rclcpp::SensorDataQoS());
+    rclcpp::QoS input_qos = rclcpp::SensorDataQoS();
+    if (declare_parameter("reliable_input", false)) {
+      input_qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
+    }
     cloud_sub_ = create_subscription<PointCloud2>(
-      input, rclcpp::SensorDataQoS(),
+      input, input_qos,
       [this](PointCloud2::UniquePtr msg) {
+        ++received_;
         const int64_t due = stamp_ns(*msg) + latency_ns_;
         if (latency_ns_ <= 0 || sim_now_ >= due) {
+          ++published_;
           pub_->publish(std::move(msg));
           return;
         }
@@ -36,6 +42,7 @@ public:
       [this](rosgraph_msgs::msg::Clock::ConstSharedPtr msg) {
         sim_now_ = static_cast<int64_t>(msg->clock.sec) * 1000000000LL + msg->clock.nanosec;
         while (!held_.empty() && held_.front().first <= sim_now_) {
+          ++published_;
           pub_->publish(std::move(held_.front().second));
           held_.pop_front();
         }
@@ -48,6 +55,16 @@ private:
     return static_cast<int64_t>(m.header.stamp.sec) * 1000000000LL + m.header.stamp.nanosec;
   }
 
+public:
+  ~CloudDelay() override
+  {
+    RCLCPP_INFO(get_logger(), "cloud_delay: received %lu, published %lu, still held %zu",
+      received_, published_, held_.size());
+  }
+
+private:
+  uint64_t received_{0};
+  uint64_t published_{0};
   int64_t latency_ns_{50000000};
   int64_t sim_now_{0};
   std::deque<std::pair<int64_t, PointCloud2::UniquePtr>> held_;

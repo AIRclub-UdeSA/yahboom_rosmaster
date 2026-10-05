@@ -599,6 +599,7 @@ class CameraAdapter(Node):
         # passes the selected profile from config/sensor_profiles.yaml.
         self.declare_parameter("latency_s", 0.0)
         self.declare_parameter("cloud_topic", "/cam_1/depth/color/points")
+        self.declare_parameter("cloud_reliable", False)
         self.declare_parameter("frame_period_s", 0.033)
         self.declare_parameter("gap_frames", [1])
         self.declare_parameter("gap_probabilities", [1.0])
@@ -656,7 +657,9 @@ class CameraAdapter(Node):
         self.depth_publisher = self.create_publisher(
             Image, "/cam_1/depth/image_raw", qos_profile_sensor_data)
         self.cloud_publisher = self.create_publisher(
-            PointCloud2, str(parameter("cloud_topic")), qos_profile_sensor_data)
+            PointCloud2, str(parameter("cloud_topic")),
+            QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
+            if parameter("cloud_reliable") else qos_profile_sensor_data)
 
         # Both frames hang off cam_1_link on fixed joints, so the transform is
         # static. Feed a buffer from /tf_static only rather than a full
