@@ -1,0 +1,2328 @@
+{
+  "render": "llvmpipe",
+  "world": "empty.world",
+  "profile": "ideal",
+  "numpy": [
+    "1.21.5"
+  ],
+  "cpus": 12,
+  "runs": [
+    {
+      "variant": "main",
+      "run": 0,
+      "render": "llvmpipe",
+      "world": "empty.world",
+      "profile": "ideal",
+      "numpy": "1.21.5",
+      "launch_arguments": [
+        "headless:=true",
+        "rviz:=false",
+        "use_sim_time:=true",
+        "world:=empty.world",
+        "sensor_profile:=ideal",
+        "sensor_seed:=1000",
+        "motion_bias:=false"
+      ],
+      "clock_subscribers": [
+        "camera_adapter",
+        "cmd_vel_odometry",
+        "controller_manager",
+        "ground_truth_tf",
+        "idle_sim_true",
+        "joint_state_broadcaster",
+        "python_node_cpu_probe",
+        "robot_state_publisher"
+      ],
+      "processes_cpu_percent": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 152.73098140913922,
+        "robot_state_publisher": 2.199006276833156,
+        "wheel_state_odometry.py": 0.3998193230605739,
+        "ground_truth_tf.py": 17.692005045430395,
+        "parameter_bridge": 5.9306532920651795,
+        "image_bridge": 2.765416984502303,
+        "camera_adapter.py": 21.65687999911442,
+        "sensor_qos_relay.py": 2.7987352614240173,
+        "imu_raw_relay.py": 0.29986449229543044,
+        "imu_filter_madgwick_node": 0.09995483076514347,
+        "cmd_vel_watchdog.py": 1.3327310768685796,
+        "calculated_odometry.py": 15.326407383988666,
+        "idle_node(sim_time=true)": 13.7937666455898,
+        "idle_node(sim_time=false)": 0.06663655384342898
+      },
+      "processes_cpu_percent_per_sim_s": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 218.41052029731276,
+        "robot_state_publisher": 3.1446540880503147,
+        "wheel_state_odometry.py": 0.5717552887364208,
+        "ground_truth_tf.py": 25.30017152658662,
+        "parameter_bridge": 8.481036782923576,
+        "image_bridge": 3.954640747093577,
+        "camera_adapter.py": 30.970078139889463,
+        "sensor_qos_relay.py": 4.002287021154946,
+        "imu_raw_relay.py": 0.42881646655231564,
+        "imu_filter_madgwick_node": 0.1429388221841052,
+        "cmd_vel_watchdog.py": 1.9058509624547362,
+        "calculated_odometry.py": 21.917286068229465,
+        "idle_node(sim_time=true)": 19.725557461406517,
+        "idle_node(sim_time=false)": 0.0952925481227368
+      },
+      "threads_cpu_percent": {
+        "wheel_state_odometry.py": {
+          "main": 0.3331827692171449,
+          "others_sum": 0.03331827692171449,
+          "others_max": 0.03331827692171449,
+          "others_count": 11.0
+        },
+        "ground_truth_tf.py": {
+          "main": 16.725775014700673,
+          "others_sum": 0.9329117538080057,
+          "others_max": 0.9329117538080057,
+          "others_count": 11.0
+        },
+        "camera_adapter.py": {
+          "main": 20.490740306854413,
+          "others_sum": 1.1661396922600071,
+          "others_max": 1.0661848614948637,
+          "others_count": 11.0
+        },
+        "sensor_qos_relay.py": {
+          "main": 0.16659138460857245,
+          "others_sum": 0.06663655384342898,
+          "others_max": 0.03331827692171449,
+          "others_count": 11.0
+        },
+        "imu_raw_relay.py": {
+          "main": 0.2665462153737159,
+          "others_sum": 0.03331827692171449,
+          "others_max": 0.03331827692171449,
+          "others_count": 11.0
+        },
+        "cmd_vel_watchdog.py": {
+          "main": 1.2660945230251506,
+          "others_sum": 0.06663655384342898,
+          "others_max": 0.06663655384342898,
+          "others_count": 11.0
+        },
+        "calculated_odometry.py": {
+          "main": 14.32685907633723,
+          "others_sum": 0.9995483076514348,
+          "others_max": 0.9329117538080057,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=true)": {
+          "main": 12.727581784094935,
+          "others_sum": 0.9995483076514348,
+          "others_max": 0.9662300307297202,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=false)": {
+          "main": 0.0,
+          "others_sum": 0.06663655384342898,
+          "others_max": 0.03331827692171449,
+          "others_count": 11.0
+        }
+      },
+      "session_cpu_percent": 237.0928585749203,
+      "real_time_factor": 0.6992839960329437,
+      "window_sim_s": 20.988,
+      "window_wall_s": 30.01355689400225,
+      "cloud_latency_ms_median": 38.000000000000256,
+      "cloud_latency_ms_p95": 45.00000000000526,
+      "cloud_latency_ms_min": 4.000000000001336,
+      "cloud_latency_ms_max": 199.00000000000162,
+      "cloud_count": 435,
+      "cloud_rate_hz_on_stamps": 30.231262190025074,
+      "topic_counts": {},
+      "shutdown": "clean"
+    },
+    {
+      "variant": "wall",
+      "run": 0,
+      "render": "llvmpipe",
+      "world": "empty.world",
+      "profile": "ideal",
+      "numpy": "1.21.5",
+      "launch_arguments": [
+        "headless:=true",
+        "rviz:=false",
+        "use_sim_time:=true",
+        "world:=empty.world",
+        "sensor_profile:=ideal",
+        "sensor_seed:=1000",
+        "motion_bias:=false",
+        "camera_adapter_sim_time:=false"
+      ],
+      "clock_subscribers": [
+        "cmd_vel_odometry",
+        "controller_manager",
+        "ground_truth_tf",
+        "idle_sim_true",
+        "joint_state_broadcaster",
+        "python_node_cpu_probe",
+        "robot_state_publisher"
+      ],
+      "processes_cpu_percent": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.03333315582205356,
+        "ign": 153.93251358624335,
+        "robot_state_publisher": 2.133321972611428,
+        "wheel_state_odometry.py": 0.4333310256866963,
+        "ground_truth_tf.py": 18.26656939048535,
+        "parameter_bridge": 5.766635957215266,
+        "image_bridge": 2.733318777408392,
+        "camera_adapter.py": 8.666620513733925,
+        "sensor_qos_relay.py": 2.8999845565186595,
+        "imu_raw_relay.py": 0.299998402398482,
+        "imu_filter_madgwick_node": 0.09999946746616067,
+        "cmd_vel_watchdog.py": 1.3333262328821425,
+        "calculated_odometry.py": 15.36658483396669,
+        "idle_node(sim_time=true)": 16.3665795086283,
+        "idle_node(sim_time=false)": 0.03333315582205356
+      },
+      "processes_cpu_percent_per_sim_s": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.04706768332862656,
+        "ign": 217.35856161159745,
+        "robot_state_publisher": 3.0123317330321,
+        "wheel_state_odometry.py": 0.6118798832721453,
+        "ground_truth_tf.py": 25.793090464087356,
+        "parameter_bridge": 8.142709215852395,
+        "image_bridge": 3.8595500329473778,
+        "camera_adapter.py": 12.237597665442905,
+        "sensor_qos_relay.py": 4.094888449590511,
+        "imu_raw_relay.py": 0.42360914995763904,
+        "imu_filter_madgwick_node": 0.14120304998587968,
+        "cmd_vel_watchdog.py": 1.8827073331450623,
+        "calculated_odometry.py": 21.698202014496843,
+        "idle_node(sim_time=true)": 23.11023251435564,
+        "idle_node(sim_time=false)": 0.04706768332862656
+      },
+      "threads_cpu_percent": {
+        "wheel_state_odometry.py": {
+          "main": 0.36666471404258916,
+          "others_sum": 0.06666631164410712,
+          "others_max": 0.06666631164410712,
+          "others_count": 11.0
+        },
+        "ground_truth_tf.py": {
+          "main": 17.23324156000169,
+          "others_sum": 0.9999946746616067,
+          "others_max": 0.9666615188395532,
+          "others_count": 11.0
+        },
+        "camera_adapter.py": {
+          "main": 8.266622643869283,
+          "others_sum": 0.4333310256866963,
+          "others_max": 0.299998402398482,
+          "others_count": 11.0
+        },
+        "sensor_qos_relay.py": {
+          "main": 0.1666657791102678,
+          "others_sum": 0.09999946746616067,
+          "others_max": 0.03333315582205356,
+          "others_count": 11.0
+        },
+        "imu_raw_relay.py": {
+          "main": 0.2666652465764285,
+          "others_sum": 0.03333315582205356,
+          "others_max": 0.03333315582205356,
+          "others_count": 11.0
+        },
+        "cmd_vel_watchdog.py": {
+          "main": 1.2666599212380352,
+          "others_sum": 0.06666631164410712,
+          "others_max": 0.06666631164410712,
+          "others_count": 11.0
+        },
+        "calculated_odometry.py": {
+          "main": 14.399923315127138,
+          "others_sum": 0.9999946746616067,
+          "others_max": 0.9666615188395532,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=true)": {
+          "main": 15.333251678144638,
+          "others_sum": 1.0333278304836604,
+          "others_max": 0.9999946746616067,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=false)": {
+          "main": 0.0,
+          "others_sum": 0.03333315582205356,
+          "others_max": 0.03333315582205356,
+          "others_count": 11.0
+        }
+      },
+      "session_cpu_percent": 228.36545053688894,
+      "real_time_factor": 0.70819622859535,
+      "window_sim_s": 21.246000000000002,
+      "window_wall_s": 30.00015976100258,
+      "cloud_latency_ms_median": 38.00000000000381,
+      "cloud_latency_ms_p95": 48.00000000000182,
+      "cloud_latency_ms_min": 4.999999999999005,
+      "cloud_latency_ms_max": 173.00000000000182,
+      "cloud_count": 438,
+      "cloud_rate_hz_on_stamps": 30.30513176144244,
+      "topic_counts": {},
+      "shutdown": "clean"
+    },
+    {
+      "variant": "main",
+      "run": 1,
+      "render": "llvmpipe",
+      "world": "empty.world",
+      "profile": "ideal",
+      "numpy": "1.21.5",
+      "launch_arguments": [
+        "headless:=true",
+        "rviz:=false",
+        "use_sim_time:=true",
+        "world:=empty.world",
+        "sensor_profile:=ideal",
+        "sensor_seed:=1001",
+        "motion_bias:=false"
+      ],
+      "clock_subscribers": [
+        "camera_adapter",
+        "cmd_vel_odometry",
+        "controller_manager",
+        "ground_truth_tf",
+        "idle_sim_true",
+        "joint_state_broadcaster",
+        "python_node_cpu_probe",
+        "robot_state_publisher"
+      ],
+      "processes_cpu_percent": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 152.83282145034985,
+        "robot_state_publisher": 2.2666590749452102,
+        "wheel_state_odometry.py": 0.43333188197481964,
+        "ground_truth_tf.py": 18.36660515139428,
+        "parameter_bridge": 5.999979904266733,
+        "image_bridge": 2.733324178610401,
+        "camera_adapter.py": 22.39992497592914,
+        "sensor_qos_relay.py": 2.8333238436815127,
+        "imu_raw_relay.py": 0.29999899521333667,
+        "imu_filter_madgwick_node": 0.06666644338074149,
+        "cmd_vel_watchdog.py": 1.3666620893052004,
+        "calculated_odometry.py": 15.633280972783878,
+        "idle_node(sim_time=true)": 13.699954114742374,
+        "idle_node(sim_time=false)": 0.03333322169037074
+      },
+      "processes_cpu_percent_per_sim_s": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 220.3055929271574,
+        "robot_state_publisher": 3.2673457620603497,
+        "wheel_state_odometry.py": 0.6246396309821257,
+        "ground_truth_tf.py": 26.47511051316548,
+        "parameter_bridge": 8.648856428983278,
+        "image_bridge": 3.9400345954257157,
+        "camera_adapter.py": 32.289064001537575,
+        "sensor_qos_relay.py": 4.084182202575437,
+        "imu_raw_relay.py": 0.4324428214491639,
+        "imu_filter_madgwick_node": 0.09609840476648088,
+        "cmd_vel_watchdog.py": 1.9700172977128578,
+        "calculated_odometry.py": 22.535075917739764,
+        "idle_node(sim_time=true)": 19.74822217951182,
+        "idle_node(sim_time=false)": 0.04804920238324044
+      },
+      "threads_cpu_percent": {
+        "wheel_state_odometry.py": {
+          "main": 0.3333322169037074,
+          "others_sum": 0.0,
+          "others_max": 0.0,
+          "others_count": 11.0
+        },
+        "ground_truth_tf.py": {
+          "main": 17.299942057302413,
+          "others_sum": 1.0666630940918638,
+          "others_max": 1.0666630940918638,
+          "others_count": 11.0
+        },
+        "camera_adapter.py": {
+          "main": 21.19992899507579,
+          "others_sum": 1.2333292025437175,
+          "others_max": 1.1333295374726051,
+          "others_count": 11.0
+        },
+        "sensor_qos_relay.py": {
+          "main": 0.1666661084518537,
+          "others_sum": 0.0,
+          "others_max": 0.0,
+          "others_count": 11.0
+        },
+        "imu_raw_relay.py": {
+          "main": 0.29999899521333667,
+          "others_sum": 0.0,
+          "others_max": 0.0,
+          "others_count": 11.0
+        },
+        "cmd_vel_watchdog.py": {
+          "main": 1.2333292025437175,
+          "others_sum": 0.03333322169037074,
+          "others_max": 0.03333322169037074,
+          "others_count": 11.0
+        },
+        "calculated_odometry.py": {
+          "main": 14.633284322072754,
+          "others_sum": 0.9666634290207514,
+          "others_max": 0.9333302073303807,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=true)": {
+          "main": 12.66662424234088,
+          "others_sum": 0.9999966507111222,
+          "others_max": 0.9666634290207514,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=false)": {
+          "main": 0.0,
+          "others_sum": 0.0,
+          "others_max": 0.0,
+          "others_count": 11.0
+        }
+      },
+      "session_cpu_percent": 238.96586629826785,
+      "real_time_factor": 0.6937310098199959,
+      "window_sim_s": 20.812,
+      "window_wall_s": 30.000100479002867,
+      "cloud_latency_ms_median": 38.00000000000381,
+      "cloud_latency_ms_p95": 44.00000000000048,
+      "cloud_latency_ms_min": 3.0000000000001137,
+      "cloud_latency_ms_max": 198.99999999999807,
+      "cloud_count": 433,
+      "cloud_rate_hz_on_stamps": 30.230930720783775,
+      "topic_counts": {},
+      "shutdown": "clean"
+    },
+    {
+      "variant": "wall",
+      "run": 1,
+      "render": "llvmpipe",
+      "world": "empty.world",
+      "profile": "ideal",
+      "numpy": "1.21.5",
+      "launch_arguments": [
+        "headless:=true",
+        "rviz:=false",
+        "use_sim_time:=true",
+        "world:=empty.world",
+        "sensor_profile:=ideal",
+        "sensor_seed:=1001",
+        "motion_bias:=false",
+        "camera_adapter_sim_time:=false"
+      ],
+      "clock_subscribers": [
+        "cmd_vel_odometry",
+        "controller_manager",
+        "ground_truth_tf",
+        "idle_sim_true",
+        "joint_state_broadcaster",
+        "python_node_cpu_probe",
+        "robot_state_publisher"
+      ],
+      "processes_cpu_percent": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 155.49603215594044,
+        "robot_state_publisher": 2.1999438632994788,
+        "wheel_state_odometry.py": 0.39998979332717793,
+        "ground_truth_tf.py": 18.69952283804557,
+        "parameter_bridge": 5.833184486021345,
+        "image_bridge": 2.7665960705129806,
+        "camera_adapter.py": 9.033102832638768,
+        "sensor_qos_relay.py": 2.89992600162204,
+        "imu_raw_relay.py": 0.29999234499538346,
+        "imu_filter_madgwick_node": 0.09999744833179448,
+        "cmd_vel_watchdog.py": 1.333299311090593,
+        "calculated_odometry.py": 16.266251595305235,
+        "idle_node(sim_time=true)": 15.53293697420541,
+        "idle_node(sim_time=false)": 0.03333248277726483
+      },
+      "processes_cpu_percent_per_sim_s": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 221.6467905164631,
+        "robot_state_publisher": 3.135838836888867,
+        "wheel_state_odometry.py": 0.5701525157979759,
+        "ground_truth_tf.py": 26.65463011355537,
+        "parameter_bridge": 8.314724188720481,
+        "image_bridge": 3.943554900936,
+        "camera_adapter.py": 12.875944315104288,
+        "sensor_qos_relay.py": 4.133605739535325,
+        "imu_raw_relay.py": 0.4276143868484819,
+        "imu_filter_madgwick_node": 0.14253812894949397,
+        "cmd_vel_watchdog.py": 1.9005083859932528,
+        "calculated_odometry.py": 23.186202309117686,
+        "idle_node(sim_time=true)": 22.140922696821395,
+        "idle_node(sim_time=false)": 0.04751270964983132
+      },
+      "threads_cpu_percent": {
+        "wheel_state_odometry.py": {
+          "main": 0.36665731054991313,
+          "others_sum": 0.03333248277726483,
+          "others_max": 0.03333248277726483,
+          "others_count": 11.0
+        },
+        "ground_truth_tf.py": {
+          "main": 17.699548354727625,
+          "others_sum": 1.0666394488724746,
+          "others_max": 1.0333069660952097,
+          "others_count": 11.0
+        },
+        "camera_adapter.py": {
+          "main": 8.63311303931159,
+          "others_sum": 0.4333222761044428,
+          "others_max": 0.29999234499538346,
+          "others_count": 11.0
+        },
+        "sensor_qos_relay.py": {
+          "main": 0.16666241388632413,
+          "others_sum": 0.06666496555452966,
+          "others_max": 0.03333248277726483,
+          "others_count": 11.0
+        },
+        "imu_raw_relay.py": {
+          "main": 0.29999234499538346,
+          "others_sum": 0.03333248277726483,
+          "others_max": 0.03333248277726483,
+          "others_count": 11.0
+        },
+        "cmd_vel_watchdog.py": {
+          "main": 1.2333018627587986,
+          "others_sum": 0.06666496555452966,
+          "others_max": 0.06666496555452966,
+          "others_count": 11.0
+        },
+        "calculated_odometry.py": {
+          "main": 15.232944629210026,
+          "others_sum": 1.0999719316497394,
+          "others_max": 1.0333069660952097,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=true)": {
+          "main": 14.43296504255567,
+          "others_sum": 1.0333069660952097,
+          "others_max": 0.9666420005406801,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=false)": {
+          "main": 0.0,
+          "others_sum": 0.0,
+          "others_max": 0.0,
+          "others_count": 11.0
+        }
+      },
+      "session_cpu_percent": 230.89410819811346,
+      "real_time_factor": 0.701548765013093,
+      "window_sim_s": 21.047000000000004,
+      "window_wall_s": 30.000765519995184,
+      "cloud_latency_ms_median": 38.00000000000381,
+      "cloud_latency_ms_p95": 47.0000000000006,
+      "cloud_latency_ms_min": 4.999999999999005,
+      "cloud_latency_ms_max": 198.0000000000004,
+      "cloud_count": 443,
+      "cloud_rate_hz_on_stamps": 30.166530166530173,
+      "topic_counts": {},
+      "shutdown": "clean"
+    },
+    {
+      "variant": "main",
+      "run": 2,
+      "render": "llvmpipe",
+      "world": "empty.world",
+      "profile": "ideal",
+      "numpy": "1.21.5",
+      "launch_arguments": [
+        "headless:=true",
+        "rviz:=false",
+        "use_sim_time:=true",
+        "world:=empty.world",
+        "sensor_profile:=ideal",
+        "sensor_seed:=1002",
+        "motion_bias:=false"
+      ],
+      "clock_subscribers": [
+        "camera_adapter",
+        "cmd_vel_odometry",
+        "controller_manager",
+        "ground_truth_tf",
+        "idle_sim_true",
+        "joint_state_broadcaster",
+        "python_node_cpu_probe",
+        "robot_state_publisher"
+      ],
+      "processes_cpu_percent": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 152.54163216649528,
+        "robot_state_publisher": 2.199158524025489,
+        "wheel_state_odometry.py": 0.4331675880656266,
+        "ground_truth_tf.py": 17.62658877590127,
+        "parameter_bridge": 5.8977433144319935,
+        "image_bridge": 2.7322878631831835,
+        "camera_adapter.py": 21.7583411543734,
+        "sensor_qos_relay.py": 2.832249614275251,
+        "imu_raw_relay.py": 0.33320583697355893,
+        "imu_filter_madgwick_node": 0.13328233478942358,
+        "cmd_vel_watchdog.py": 1.3328233478942357,
+        "calculated_odometry.py": 15.327468500783711,
+        "idle_node(sim_time=true)": 13.661439315915917,
+        "idle_node(sim_time=false)": 0.06664116739471179
+      },
+      "processes_cpu_percent_per_sim_s": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 220.2126124392708,
+        "robot_state_publisher": 3.1747558805137337,
+        "wheel_state_odometry.py": 0.6253307037375536,
+        "ground_truth_tf.py": 25.446149405935834,
+        "parameter_bridge": 8.514118043195921,
+        "image_bridge": 3.944393669729184,
+        "camera_adapter.py": 31.410842272355577,
+        "sensor_qos_relay.py": 4.088700755207081,
+        "imu_raw_relay.py": 0.4810236182596566,
+        "imu_filter_madgwick_node": 0.19240944730386264,
+        "cmd_vel_watchdog.py": 1.9240944730386265,
+        "calculated_odometry.py": 22.127086439944204,
+        "idle_node(sim_time=true)": 19.72196834864592,
+        "idle_node(sim_time=false)": 0.09620472365193132
+      },
+      "threads_cpu_percent": {
+        "wheel_state_odometry.py": {
+          "main": 0.36652642067091484,
+          "others_sum": 0.09996175109206769,
+          "others_max": 0.06664116739471179,
+          "others_count": 11.0
+        },
+        "ground_truth_tf.py": {
+          "main": 16.660291848677947,
+          "others_sum": 1.0329380946180327,
+          "others_max": 0.9996175109206769,
+          "others_count": 11.0
+        },
+        "camera_adapter.py": {
+          "main": 20.558800141268588,
+          "others_sum": 1.2328615968021681,
+          "others_max": 1.0662586783153887,
+          "others_count": 11.0
+        },
+        "sensor_qos_relay.py": {
+          "main": 0.16660291848677947,
+          "others_sum": 0.06664116739471179,
+          "others_max": 0.033320583697355896,
+          "others_count": 11.0
+        },
+        "imu_raw_relay.py": {
+          "main": 0.23324408588149126,
+          "others_sum": 0.09996175109206769,
+          "others_max": 0.06664116739471179,
+          "others_count": 11.0
+        },
+        "cmd_vel_watchdog.py": {
+          "main": 1.2328615968021681,
+          "others_sum": 0.06664116739471179,
+          "others_max": 0.033320583697355896,
+          "others_count": 11.0
+        },
+        "calculated_odometry.py": {
+          "main": 14.36117157356039,
+          "others_sum": 0.932976343525965,
+          "others_max": 0.8996557598286091,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=true)": {
+          "main": 12.595180637600528,
+          "others_sum": 0.9996175109206769,
+          "others_max": 0.9996175109206769,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=false)": {
+          "main": 0.0,
+          "others_sum": 0.0,
+          "others_max": 0.0,
+          "others_count": 11.0
+        }
+      },
+      "session_cpu_percent": 236.87602950450304,
+      "real_time_factor": 0.6927016144843317,
+      "window_sim_s": 20.788999999999998,
+      "window_wall_s": 30.01147906299593,
+      "cloud_latency_ms_median": 38.000000000000256,
+      "cloud_latency_ms_p95": 43.000000000002814,
+      "cloud_latency_ms_min": 5.000000000002558,
+      "cloud_latency_ms_max": 181.00000000000094,
+      "cloud_count": 433,
+      "cloud_rate_hz_on_stamps": 30.23304639932816,
+      "topic_counts": {},
+      "shutdown": "clean"
+    },
+    {
+      "variant": "wall",
+      "run": 2,
+      "render": "llvmpipe",
+      "world": "empty.world",
+      "profile": "ideal",
+      "numpy": "1.21.5",
+      "launch_arguments": [
+        "headless:=true",
+        "rviz:=false",
+        "use_sim_time:=true",
+        "world:=empty.world",
+        "sensor_profile:=ideal",
+        "sensor_seed:=1002",
+        "motion_bias:=false",
+        "camera_adapter_sim_time:=false"
+      ],
+      "clock_subscribers": [
+        "cmd_vel_odometry",
+        "controller_manager",
+        "ground_truth_tf",
+        "idle_sim_true",
+        "joint_state_broadcaster",
+        "python_node_cpu_probe",
+        "robot_state_publisher"
+      ],
+      "processes_cpu_percent": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 153.43048007877707,
+        "robot_state_publisher": 2.166626375216274,
+        "wheel_state_odometry.py": 0.4333252750432548,
+        "ground_truth_tf.py": 17.96633255756264,
+        "parameter_bridge": 5.7665594294217755,
+        "image_bridge": 2.7666152175838574,
+        "camera_adapter.py": 8.799836354724558,
+        "sensor_qos_relay.py": 2.8999460714433205,
+        "imu_raw_relay.py": 0.33332713464865754,
+        "imu_filter_madgwick_node": 0.09999814039459726,
+        "cmd_vel_watchdog.py": 1.3666412520594957,
+        "calculated_odometry.py": 15.433046334232843,
+        "idle_node(sim_time=true)": 13.333085385946301,
+        "idle_node(sim_time=false)": 0.0666654269297315
+      },
+      "processes_cpu_percent_per_sim_s": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 217.60506783907715,
+        "robot_state_publisher": 3.0728501867347413,
+        "wheel_state_odometry.py": 0.6145700373469483,
+        "ground_truth_tf.py": 25.481019240769623,
+        "parameter_bridge": 8.178508958540158,
+        "image_bridge": 3.9237933153689775,
+        "camera_adapter.py": 12.480499219968795,
+        "sensor_qos_relay.py": 4.112891788398808,
+        "imu_raw_relay.py": 0.47274618257457557,
+        "imu_filter_madgwick_node": 0.14182385477237267,
+        "cmd_vel_watchdog.py": 1.93825934855576,
+        "calculated_odometry.py": 21.88814825320285,
+        "idle_node(sim_time=true)": 18.909847302983025,
+        "idle_node(sim_time=false)": 0.09454923651491512
+      },
+      "threads_cpu_percent": {
+        "wheel_state_odometry.py": {
+          "main": 0.33332713464865754,
+          "others_sum": 0.0666654269297315,
+          "others_max": 0.0666654269297315,
+          "others_count": 11.0
+        },
+        "ground_truth_tf.py": {
+          "main": 16.966351153616667,
+          "others_sum": 1.066646830875704,
+          "others_max": 1.0333141174108382,
+          "others_count": 11.0
+        },
+        "camera_adapter.py": {
+          "main": 8.433176506611035,
+          "others_sum": 0.399992561578389,
+          "others_max": 0.266661707718926,
+          "others_count": 11.0
+        },
+        "sensor_qos_relay.py": {
+          "main": 0.1999962807891945,
+          "others_sum": 0.03333271346486575,
+          "others_max": 0.03333271346486575,
+          "others_count": 11.0
+        },
+        "imu_raw_relay.py": {
+          "main": 0.266661707718926,
+          "others_sum": 0.03333271346486575,
+          "others_max": 0.03333271346486575,
+          "others_count": 11.0
+        },
+        "cmd_vel_watchdog.py": {
+          "main": 1.2999758251297644,
+          "others_sum": 0.0666654269297315,
+          "others_max": 0.0666654269297315,
+          "others_count": 11.0
+        },
+        "calculated_odometry.py": {
+          "main": 14.499730357216603,
+          "others_sum": 0.9999814039459726,
+          "others_max": 0.9666486904811068,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=true)": {
+          "main": 12.333103982000328,
+          "others_sum": 0.9999814039459726,
+          "others_max": 0.9666486904811068,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=false)": {
+          "main": 0.0,
+          "others_sum": 0.09999814039459726,
+          "others_max": 0.03333271346486575,
+          "others_count": 11.0
+        }
+      },
+      "session_cpu_percent": 224.86248503398443,
+      "real_time_factor": 0.7050868879223054,
+      "window_sim_s": 21.153000000000006,
+      "window_wall_s": 30.000557891995413,
+      "cloud_latency_ms_median": 38.000000000000256,
+      "cloud_latency_ms_p95": 45.000000000001705,
+      "cloud_latency_ms_min": 6.000000000000227,
+      "cloud_latency_ms_max": 171.00000000000293,
+      "cloud_count": 439,
+      "cloud_rate_hz_on_stamps": 30.234002899150966,
+      "topic_counts": {},
+      "shutdown": "clean"
+    },
+    {
+      "variant": "main",
+      "run": 3,
+      "render": "llvmpipe",
+      "world": "empty.world",
+      "profile": "ideal",
+      "numpy": "1.21.5",
+      "launch_arguments": [
+        "headless:=true",
+        "rviz:=false",
+        "use_sim_time:=true",
+        "world:=empty.world",
+        "sensor_profile:=ideal",
+        "sensor_seed:=1003",
+        "motion_bias:=false"
+      ],
+      "clock_subscribers": [
+        "camera_adapter",
+        "cmd_vel_odometry",
+        "controller_manager",
+        "ground_truth_tf",
+        "idle_sim_true",
+        "joint_state_broadcaster",
+        "python_node_cpu_probe",
+        "robot_state_publisher"
+      ],
+      "processes_cpu_percent": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 152.87728463769352,
+        "robot_state_publisher": 2.199193719722705,
+        "wheel_state_odometry.py": 0.43317452055144195,
+        "ground_truth_tf.py": 17.626870874747137,
+        "parameter_bridge": 5.9644799368237,
+        "image_bridge": 2.798973825101625,
+        "camera_adapter.py": 21.825331612399573,
+        "sensor_qos_relay.py": 2.8322949420671204,
+        "imu_raw_relay.py": 0.2998900526894598,
+        "imu_filter_madgwick_node": 0.0999633508964866,
+        "cmd_vel_watchdog.py": 1.3661657955853168,
+        "calculated_odometry.py": 15.560961622886413,
+        "idle_node(sim_time=true)": 13.694979072818665,
+        "idle_node(sim_time=false)": 0.06664223393099107
+      },
+      "processes_cpu_percent_per_sim_s": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 217.57480912410495,
+        "robot_state_publisher": 3.1298904538341166,
+        "wheel_state_odometry.py": 0.6164935742400532,
+        "ground_truth_tf.py": 25.086546213306782,
+        "parameter_bridge": 8.488642291459195,
+        "image_bridge": 3.9834969412434207,
+        "camera_adapter.py": 31.061791625171914,
+        "sensor_qos_relay.py": 4.030919523877271,
+        "imu_raw_relay.py": 0.4268032437046522,
+        "imu_filter_madgwick_node": 0.14226774790155075,
+        "cmd_vel_watchdog.py": 1.9443258879878602,
+        "calculated_odometry.py": 22.146346090008066,
+        "idle_node(sim_time=true)": 19.490681462512452,
+        "idle_node(sim_time=false)": 0.0948451652677005
+      },
+      "threads_cpu_percent": {
+        "wheel_state_odometry.py": {
+          "main": 0.36653228662045084,
+          "others_sum": 0.0999633508964866,
+          "others_max": 0.06664223393099107,
+          "others_count": 11.0
+        },
+        "ground_truth_tf.py": {
+          "main": 16.56059513185128,
+          "others_sum": 1.0995968598613526,
+          "others_max": 1.0329546259303615,
+          "others_count": 11.0
+        },
+        "camera_adapter.py": {
+          "main": 20.625771401641735,
+          "others_sum": 1.1995602107578391,
+          "others_max": 1.0995968598613526,
+          "others_count": 11.0
+        },
+        "sensor_qos_relay.py": {
+          "main": 0.16660558482747767,
+          "others_sum": 0.033321116965495536,
+          "others_max": 0.033321116965495536,
+          "others_count": 11.0
+        },
+        "imu_raw_relay.py": {
+          "main": 0.2665689357239643,
+          "others_sum": 0.06664223393099107,
+          "others_max": 0.033321116965495536,
+          "others_count": 11.0
+        },
+        "cmd_vel_watchdog.py": {
+          "main": 1.2662024446888303,
+          "others_sum": 0.06664223393099107,
+          "others_max": 0.033321116965495536,
+          "others_count": 11.0
+        },
+        "calculated_odometry.py": {
+          "main": 14.594649230887043,
+          "others_sum": 0.9663123919993705,
+          "others_max": 0.9329912750338749,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=true)": {
+          "main": 12.728666680819293,
+          "others_sum": 0.999633508964866,
+          "others_max": 0.9663123919993705,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=false)": {
+          "main": 0.0,
+          "others_sum": 0.033321116965495536,
+          "others_max": 0.033321116965495536,
+          "others_count": 11.0
+        }
+      },
+      "session_cpu_percent": 237.6462061979141,
+      "real_time_factor": 0.7026423934514042,
+      "window_sim_s": 21.086999999999996,
+      "window_wall_s": 30.01099876200169,
+      "cloud_latency_ms_median": 38.00000000000381,
+      "cloud_latency_ms_p95": 44.00000000000048,
+      "cloud_latency_ms_min": 6.000000000000227,
+      "cloud_latency_ms_max": 206.00000000000307,
+      "cloud_count": 438,
+      "cloud_rate_hz_on_stamps": 30.30513176144244,
+      "topic_counts": {},
+      "shutdown": "clean"
+    },
+    {
+      "variant": "wall",
+      "run": 3,
+      "render": "llvmpipe",
+      "world": "empty.world",
+      "profile": "ideal",
+      "numpy": "1.21.5",
+      "launch_arguments": [
+        "headless:=true",
+        "rviz:=false",
+        "use_sim_time:=true",
+        "world:=empty.world",
+        "sensor_profile:=ideal",
+        "sensor_seed:=1003",
+        "motion_bias:=false",
+        "camera_adapter_sim_time:=false"
+      ],
+      "clock_subscribers": [
+        "cmd_vel_odometry",
+        "controller_manager",
+        "ground_truth_tf",
+        "idle_sim_true",
+        "joint_state_broadcaster",
+        "python_node_cpu_probe",
+        "robot_state_publisher"
+      ],
+      "processes_cpu_percent": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 154.47323882477153,
+        "robot_state_publisher": 2.163957009398739,
+        "wheel_state_odometry.py": 0.3994997555813057,
+        "ground_truth_tf.py": 17.91090570856187,
+        "parameter_bridge": 5.792746455928932,
+        "image_bridge": 2.79649828906914,
+        "camera_adapter.py": 8.85557791538561,
+        "sensor_qos_relay.py": 2.896373227964466,
+        "imu_raw_relay.py": 0.2996248166859793,
+        "imu_filter_madgwick_node": 0.06658329259688428,
+        "cmd_vel_watchdog.py": 1.3316658519376856,
+        "calculated_odometry.py": 15.746948699163132,
+        "idle_node(sim_time=true)": 13.250075226779972,
+        "idle_node(sim_time=false)": 0.06658329259688428
+      },
+      "processes_cpu_percent_per_sim_s": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 221.40573555375292,
+        "robot_state_publisher": 3.101588967886625,
+        "wheel_state_odometry.py": 0.5726010402252231,
+        "ground_truth_tf.py": 25.671613303430835,
+        "parameter_bridge": 8.302715083265735,
+        "image_bridge": 4.008207281576562,
+        "camera_adapter.py": 12.692656391659112,
+        "sensor_qos_relay.py": 4.151357541632867,
+        "imu_raw_relay.py": 0.4294507801689173,
+        "imu_filter_madgwick_node": 0.09543350670420385,
+        "cmd_vel_watchdog.py": 1.9086701340840768,
+        "calculated_odometry.py": 22.570024335544208,
+        "idle_node(sim_time=true)": 18.991267834136565,
+        "idle_node(sim_time=false)": 0.09543350670420385
+      },
+      "threads_cpu_percent": {
+        "wheel_state_odometry.py": {
+          "main": 0.3329164629844214,
+          "others_sum": 0.0,
+          "others_max": 0.0,
+          "others_count": 11.0
+        },
+        "ground_truth_tf.py": {
+          "main": 16.912156319608606,
+          "others_sum": 1.0653326815501485,
+          "others_max": 1.0320410352517064,
+          "others_count": 11.0
+        },
+        "camera_adapter.py": {
+          "main": 8.456078159804303,
+          "others_sum": 0.3329164629844214,
+          "others_max": 0.23304152408909498,
+          "others_count": 11.0
+        },
+        "sensor_qos_relay.py": {
+          "main": 0.1664582314922107,
+          "others_sum": 0.03329164629844214,
+          "others_max": 0.03329164629844214,
+          "others_count": 11.0
+        },
+        "imu_raw_relay.py": {
+          "main": 0.2663331703875371,
+          "others_sum": 0.0,
+          "others_max": 0.0,
+          "others_count": 11.0
+        },
+        "cmd_vel_watchdog.py": {
+          "main": 1.2650825593408013,
+          "others_sum": 0.09987493889532642,
+          "others_max": 0.06658329259688428,
+          "others_count": 11.0
+        },
+        "calculated_odometry.py": {
+          "main": 14.78149095650831,
+          "others_sum": 0.9987493889532643,
+          "others_max": 0.9321660963563799,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=true)": {
+          "main": 12.251325837826707,
+          "others_sum": 0.9321660963563799,
+          "others_max": 0.9321660963563799,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=false)": {
+          "main": 0.0,
+          "others_sum": 0.06658329259688428,
+          "others_max": 0.03329164629844214,
+          "others_count": 11.0
+        }
+      },
+      "session_cpu_percent": 226.05027836642213,
+      "real_time_factor": 0.697693031476452,
+      "window_sim_s": 20.957,
+      "window_wall_s": 30.037565310994978,
+      "cloud_latency_ms_median": 38.00000000000381,
+      "cloud_latency_ms_p95": 48.00000000000182,
+      "cloud_latency_ms_min": 4.999999999999005,
+      "cloud_latency_ms_max": 198.0000000000004,
+      "cloud_count": 438,
+      "cloud_rate_hz_on_stamps": 30.303030303030305,
+      "topic_counts": {},
+      "shutdown": "clean"
+    },
+    {
+      "variant": "main",
+      "run": 4,
+      "render": "llvmpipe",
+      "world": "empty.world",
+      "profile": "ideal",
+      "numpy": "1.21.5",
+      "launch_arguments": [
+        "headless:=true",
+        "rviz:=false",
+        "use_sim_time:=true",
+        "world:=empty.world",
+        "sensor_profile:=ideal",
+        "sensor_seed:=1004",
+        "motion_bias:=false"
+      ],
+      "clock_subscribers": [
+        "camera_adapter",
+        "cmd_vel_odometry",
+        "controller_manager",
+        "ground_truth_tf",
+        "idle_sim_true",
+        "joint_state_broadcaster",
+        "python_node_cpu_probe",
+        "robot_state_publisher"
+      ],
+      "processes_cpu_percent": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 153.65632768107372,
+        "robot_state_publisher": 2.2322146475784774,
+        "wheel_state_odometry.py": 0.4331162749032867,
+        "ground_truth_tf.py": 17.924350453689865,
+        "parameter_bridge": 6.0303112121149915,
+        "image_bridge": 2.7985974686058523,
+        "camera_adapter.py": 21.789080291288425,
+        "sensor_qos_relay.py": 2.8319141051368746,
+        "imu_raw_relay.py": 0.29984972877919847,
+        "imu_filter_madgwick_node": 0.06663327306204411,
+        "cmd_vel_watchdog.py": 1.3326654612408821,
+        "calculated_odometry.py": 15.458919350394233,
+        "idle_node(sim_time=true)": 14.026303979560284,
+        "idle_node(sim_time=false)": 0.033316636531022056
+      },
+      "processes_cpu_percent_per_sim_s": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 221.26271349069276,
+        "robot_state_publisher": 3.2143542506236806,
+        "wheel_state_odometry.py": 0.623680675494147,
+        "ground_truth_tf.py": 25.81078487814239,
+        "parameter_bridge": 8.683554020341585,
+        "image_bridge": 4.029936672423719,
+        "camera_adapter.py": 31.37593552101324,
+        "sensor_qos_relay.py": 4.0779121090001915,
+        "imu_raw_relay.py": 0.4317789291882556,
+        "imu_filter_madgwick_node": 0.09595087315294569,
+        "cmd_vel_watchdog.py": 1.9190174630589136,
+        "calculated_odometry.py": 22.2606025714834,
+        "idle_node(sim_time=true)": 20.197658798695066,
+        "idle_node(sim_time=false)": 0.047975436576472845
+      },
+      "threads_cpu_percent": {
+        "wheel_state_odometry.py": {
+          "main": 0.33316636531022054,
+          "others_sum": 0.06663327306204411,
+          "others_max": 0.06663327306204411,
+          "others_count": 11.0
+        },
+        "ground_truth_tf.py": {
+          "main": 16.924851357759202,
+          "others_sum": 1.0328157324616836,
+          "others_max": 0.9661824593996395,
+          "others_count": 11.0
+        },
+        "camera_adapter.py": {
+          "main": 20.58968137617163,
+          "others_sum": 1.2327155516478159,
+          "others_max": 1.0994490055237278,
+          "others_count": 11.0
+        },
+        "sensor_qos_relay.py": {
+          "main": 0.16658318265511027,
+          "others_sum": 0.0,
+          "others_max": 0.0,
+          "others_count": 11.0
+        },
+        "imu_raw_relay.py": {
+          "main": 0.26653309224817645,
+          "others_sum": 0.06663327306204411,
+          "others_max": 0.033316636531022056,
+          "others_count": 11.0
+        },
+        "cmd_vel_watchdog.py": {
+          "main": 1.2660321881788381,
+          "others_sum": 0.06663327306204411,
+          "others_max": 0.06663327306204411,
+          "others_count": 11.0
+        },
+        "calculated_odometry.py": {
+          "main": 14.492736890994593,
+          "others_sum": 0.9661824593996395,
+          "others_max": 0.9328658228686175,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=true)": {
+          "main": 12.96017161056758,
+          "others_sum": 1.0661323689927058,
+          "others_max": 0.9661824593996395,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=false)": {
+          "main": 0.0,
+          "others_sum": 0.033316636531022056,
+          "others_max": 0.033316636531022056,
+          "others_count": 11.0
+        }
+      },
+      "session_cpu_percent": 238.9136005639592,
+      "real_time_factor": 0.6944519718526238,
+      "window_sim_s": 20.844,
+      "window_wall_s": 30.01503465299902,
+      "cloud_latency_ms_median": 38.000000000000256,
+      "cloud_latency_ms_p95": 45.000000000001705,
+      "cloud_latency_ms_min": 6.000000000000227,
+      "cloud_latency_ms_max": 164.00000000000148,
+      "cloud_count": 437,
+      "cloud_rate_hz_on_stamps": 30.3030303030303,
+      "topic_counts": {},
+      "shutdown": "clean"
+    },
+    {
+      "variant": "wall",
+      "run": 4,
+      "render": "llvmpipe",
+      "world": "empty.world",
+      "profile": "ideal",
+      "numpy": "1.21.5",
+      "launch_arguments": [
+        "headless:=true",
+        "rviz:=false",
+        "use_sim_time:=true",
+        "world:=empty.world",
+        "sensor_profile:=ideal",
+        "sensor_seed:=1004",
+        "motion_bias:=false",
+        "camera_adapter_sim_time:=false"
+      ],
+      "clock_subscribers": [
+        "cmd_vel_odometry",
+        "controller_manager",
+        "ground_truth_tf",
+        "idle_sim_true",
+        "joint_state_broadcaster",
+        "python_node_cpu_probe",
+        "robot_state_publisher"
+      ],
+      "processes_cpu_percent": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 153.85678664842666,
+        "robot_state_publisher": 2.2988562751713815,
+        "wheel_state_odometry.py": 0.43311784894533273,
+        "ground_truth_tf.py": 18.25758317092633,
+        "parameter_bridge": 5.730482309122864,
+        "image_bridge": 2.6986573665055347,
+        "camera_adapter.py": 8.595723463684296,
+        "sensor_qos_relay.py": 2.898557912172611,
+        "imu_raw_relay.py": 0.26653406088943554,
+        "imu_filter_madgwick_node": 0.09995027283353831,
+        "cmd_vel_watchdog.py": 1.365987062058357,
+        "calculated_odometry.py": 15.725509592476696,
+        "idle_node(sim_time=true)": 15.259074985920183,
+        "idle_node(sim_time=false)": 0.03331675761117944
+      },
+      "processes_cpu_percent_per_sim_s": {
+        "0": 0.0,
+        "Xvfb": 0.0,
+        "ros2": 0.0,
+        "ign": 220.38751551016512,
+        "robot_state_publisher": 3.2929273647036363,
+        "wheel_state_odometry.py": 0.6204066049441634,
+        "ground_truth_tf.py": 26.152524577646272,
+        "parameter_bridge": 8.208456619261238,
+        "image_bridge": 3.865610384652095,
+        "camera_adapter.py": 12.312684928891859,
+        "sensor_qos_relay.py": 4.1519518946263245,
+        "imu_raw_relay.py": 0.38178867996563903,
+        "imu_filter_madgwick_node": 0.14317075498711462,
+        "cmd_vel_watchdog.py": 1.9566669848239,
+        "calculated_odometry.py": 22.525532117972702,
+        "idle_node(sim_time=true)": 21.857401928032832,
+        "idle_node(sim_time=false)": 0.04772358499570488
+      },
+      "threads_cpu_percent": {
+        "wheel_state_odometry.py": {
+          "main": 0.36648433372297384,
+          "others_sum": 0.03331675761117944,
+          "others_max": 0.03331675761117944,
+          "others_count": 11.0
+        },
+        "ground_truth_tf.py": {
+          "main": 17.22476368497977,
+          "others_sum": 1.0328194859465627,
+          "others_max": 1.0328194859465627,
+          "others_count": 11.0
+        },
+        "camera_adapter.py": {
+          "main": 8.195922372350141,
+          "others_sum": 0.36648433372297384,
+          "others_max": 0.26653406088943554,
+          "others_count": 11.0
+        },
+        "sensor_qos_relay.py": {
+          "main": 0.23321730327825607,
+          "others_sum": 0.03331675761117944,
+          "others_max": 0.03331675761117944,
+          "others_count": 11.0
+        },
+        "imu_raw_relay.py": {
+          "main": 0.23321730327825607,
+          "others_sum": 0.03331675761117944,
+          "others_max": 0.03331675761117944,
+          "others_count": 11.0
+        },
+        "cmd_vel_watchdog.py": {
+          "main": 1.2660367892248188,
+          "others_sum": 0.06663351522235889,
+          "others_max": 0.06663351522235889,
+          "others_count": 11.0
+        },
+        "calculated_odometry.py": {
+          "main": 14.792640379363672,
+          "others_sum": 1.0328194859465627,
+          "others_max": 0.9661859707242038,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=true)": {
+          "main": 14.2595722575848,
+          "others_sum": 0.9328692131130243,
+          "others_max": 0.9328692131130243,
+          "others_count": 11.0
+        },
+        "idle_node(sim_time=false)": {
+          "main": 0.0,
+          "others_sum": 0.0,
+          "others_max": 0.0,
+          "others_count": 11.0
+        }
+      },
+      "session_cpu_percent": 227.52013772674437,
+      "real_time_factor": 0.698119338984654,
+      "window_sim_s": 20.954,
+      "window_wall_s": 30.01492557200254,
+      "cloud_latency_ms_median": 38.000000000000256,
+      "cloud_latency_ms_p95": 47.0000000000006,
+      "cloud_latency_ms_min": 4.000000000001336,
+      "cloud_latency_ms_max": 174.00000000000304,
+      "cloud_count": 437,
+      "cloud_rate_hz_on_stamps": 30.231590625433366,
+      "topic_counts": {},
+      "shutdown": "clean"
+    }
+  ],
+  "summary": {
+    "main": {
+      "cloud_count": {
+        "n": 5,
+        "median": 435.0,
+        "min": 433.0,
+        "max": 438.0
+      },
+      "cloud_latency_ms_max": {
+        "n": 5,
+        "median": 199.0,
+        "min": 164.0,
+        "max": 206.0
+      },
+      "cloud_latency_ms_median": {
+        "n": 5,
+        "median": 38.0,
+        "min": 38.0,
+        "max": 38.0
+      },
+      "cloud_latency_ms_min": {
+        "n": 5,
+        "median": 5.0,
+        "min": 3.0,
+        "max": 6.0
+      },
+      "cloud_latency_ms_p95": {
+        "n": 5,
+        "median": 44.0,
+        "min": 43.0,
+        "max": 45.0
+      },
+      "cloud_rate_hz_on_stamps": {
+        "n": 5,
+        "median": 30.233,
+        "min": 30.231,
+        "max": 30.305
+      },
+      "processes_cpu_percent.0": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "processes_cpu_percent.Xvfb": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "processes_cpu_percent.calculated_odometry.py": {
+        "n": 5,
+        "median": 15.459,
+        "min": 15.326,
+        "max": 15.633
+      },
+      "processes_cpu_percent.camera_adapter.py": {
+        "n": 5,
+        "median": 21.789,
+        "min": 21.657,
+        "max": 22.4
+      },
+      "processes_cpu_percent.cmd_vel_watchdog.py": {
+        "n": 5,
+        "median": 1.333,
+        "min": 1.333,
+        "max": 1.367
+      },
+      "processes_cpu_percent.ground_truth_tf.py": {
+        "n": 5,
+        "median": 17.692,
+        "min": 17.627,
+        "max": 18.367
+      },
+      "processes_cpu_percent.idle_node(sim_time=false)": {
+        "n": 5,
+        "median": 0.067,
+        "min": 0.033,
+        "max": 0.067
+      },
+      "processes_cpu_percent.idle_node(sim_time=true)": {
+        "n": 5,
+        "median": 13.7,
+        "min": 13.661,
+        "max": 14.026
+      },
+      "processes_cpu_percent.ign": {
+        "n": 5,
+        "median": 152.833,
+        "min": 152.542,
+        "max": 153.656
+      },
+      "processes_cpu_percent.image_bridge": {
+        "n": 5,
+        "median": 2.765,
+        "min": 2.732,
+        "max": 2.799
+      },
+      "processes_cpu_percent.imu_filter_madgwick_node": {
+        "n": 5,
+        "median": 0.1,
+        "min": 0.067,
+        "max": 0.133
+      },
+      "processes_cpu_percent.imu_raw_relay.py": {
+        "n": 5,
+        "median": 0.3,
+        "min": 0.3,
+        "max": 0.333
+      },
+      "processes_cpu_percent.parameter_bridge": {
+        "n": 5,
+        "median": 5.964,
+        "min": 5.898,
+        "max": 6.03
+      },
+      "processes_cpu_percent.robot_state_publisher": {
+        "n": 5,
+        "median": 2.199,
+        "min": 2.199,
+        "max": 2.267
+      },
+      "processes_cpu_percent.ros2": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "processes_cpu_percent.sensor_qos_relay.py": {
+        "n": 5,
+        "median": 2.832,
+        "min": 2.799,
+        "max": 2.833
+      },
+      "processes_cpu_percent.wheel_state_odometry.py": {
+        "n": 5,
+        "median": 0.433,
+        "min": 0.4,
+        "max": 0.433
+      },
+      "processes_cpu_percent_per_sim_s.0": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "processes_cpu_percent_per_sim_s.Xvfb": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "processes_cpu_percent_per_sim_s.calculated_odometry.py": {
+        "n": 5,
+        "median": 22.146,
+        "min": 21.917,
+        "max": 22.535
+      },
+      "processes_cpu_percent_per_sim_s.camera_adapter.py": {
+        "n": 5,
+        "median": 31.376,
+        "min": 30.97,
+        "max": 32.289
+      },
+      "processes_cpu_percent_per_sim_s.cmd_vel_watchdog.py": {
+        "n": 5,
+        "median": 1.924,
+        "min": 1.906,
+        "max": 1.97
+      },
+      "processes_cpu_percent_per_sim_s.ground_truth_tf.py": {
+        "n": 5,
+        "median": 25.446,
+        "min": 25.087,
+        "max": 26.475
+      },
+      "processes_cpu_percent_per_sim_s.idle_node(sim_time=false)": {
+        "n": 5,
+        "median": 0.095,
+        "min": 0.048,
+        "max": 0.096
+      },
+      "processes_cpu_percent_per_sim_s.idle_node(sim_time=true)": {
+        "n": 5,
+        "median": 19.726,
+        "min": 19.491,
+        "max": 20.198
+      },
+      "processes_cpu_percent_per_sim_s.ign": {
+        "n": 5,
+        "median": 220.213,
+        "min": 217.575,
+        "max": 221.263
+      },
+      "processes_cpu_percent_per_sim_s.image_bridge": {
+        "n": 5,
+        "median": 3.955,
+        "min": 3.94,
+        "max": 4.03
+      },
+      "processes_cpu_percent_per_sim_s.imu_filter_madgwick_node": {
+        "n": 5,
+        "median": 0.142,
+        "min": 0.096,
+        "max": 0.192
+      },
+      "processes_cpu_percent_per_sim_s.imu_raw_relay.py": {
+        "n": 5,
+        "median": 0.432,
+        "min": 0.427,
+        "max": 0.481
+      },
+      "processes_cpu_percent_per_sim_s.parameter_bridge": {
+        "n": 5,
+        "median": 8.514,
+        "min": 8.481,
+        "max": 8.684
+      },
+      "processes_cpu_percent_per_sim_s.robot_state_publisher": {
+        "n": 5,
+        "median": 3.175,
+        "min": 3.13,
+        "max": 3.267
+      },
+      "processes_cpu_percent_per_sim_s.ros2": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "processes_cpu_percent_per_sim_s.sensor_qos_relay.py": {
+        "n": 5,
+        "median": 4.078,
+        "min": 4.002,
+        "max": 4.089
+      },
+      "processes_cpu_percent_per_sim_s.wheel_state_odometry.py": {
+        "n": 5,
+        "median": 0.624,
+        "min": 0.572,
+        "max": 0.625
+      },
+      "real_time_factor": {
+        "n": 5,
+        "median": 0.694,
+        "min": 0.693,
+        "max": 0.703
+      },
+      "session_cpu_percent": {
+        "n": 5,
+        "median": 237.646,
+        "min": 236.876,
+        "max": 238.966
+      },
+      "threads_cpu_percent.calculated_odometry.py.main": {
+        "n": 5,
+        "median": 14.493,
+        "min": 14.327,
+        "max": 14.633
+      },
+      "threads_cpu_percent.calculated_odometry.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.calculated_odometry.py.others_max": {
+        "n": 5,
+        "median": 0.933,
+        "min": 0.9,
+        "max": 0.933
+      },
+      "threads_cpu_percent.calculated_odometry.py.others_sum": {
+        "n": 5,
+        "median": 0.966,
+        "min": 0.933,
+        "max": 1.0
+      },
+      "threads_cpu_percent.camera_adapter.py.main": {
+        "n": 5,
+        "median": 20.59,
+        "min": 20.491,
+        "max": 21.2
+      },
+      "threads_cpu_percent.camera_adapter.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.camera_adapter.py.others_max": {
+        "n": 5,
+        "median": 1.099,
+        "min": 1.066,
+        "max": 1.133
+      },
+      "threads_cpu_percent.camera_adapter.py.others_sum": {
+        "n": 5,
+        "median": 1.233,
+        "min": 1.166,
+        "max": 1.233
+      },
+      "threads_cpu_percent.cmd_vel_watchdog.py.main": {
+        "n": 5,
+        "median": 1.266,
+        "min": 1.233,
+        "max": 1.266
+      },
+      "threads_cpu_percent.cmd_vel_watchdog.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.cmd_vel_watchdog.py.others_max": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.033,
+        "max": 0.067
+      },
+      "threads_cpu_percent.cmd_vel_watchdog.py.others_sum": {
+        "n": 5,
+        "median": 0.067,
+        "min": 0.033,
+        "max": 0.067
+      },
+      "threads_cpu_percent.ground_truth_tf.py.main": {
+        "n": 5,
+        "median": 16.726,
+        "min": 16.561,
+        "max": 17.3
+      },
+      "threads_cpu_percent.ground_truth_tf.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.ground_truth_tf.py.others_max": {
+        "n": 5,
+        "median": 1.0,
+        "min": 0.933,
+        "max": 1.067
+      },
+      "threads_cpu_percent.ground_truth_tf.py.others_sum": {
+        "n": 5,
+        "median": 1.033,
+        "min": 0.933,
+        "max": 1.1
+      },
+      "threads_cpu_percent.idle_node(sim_time=false).main": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "threads_cpu_percent.idle_node(sim_time=false).others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.idle_node(sim_time=false).others_max": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.0,
+        "max": 0.033
+      },
+      "threads_cpu_percent.idle_node(sim_time=false).others_sum": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.0,
+        "max": 0.067
+      },
+      "threads_cpu_percent.idle_node(sim_time=true).main": {
+        "n": 5,
+        "median": 12.728,
+        "min": 12.595,
+        "max": 12.96
+      },
+      "threads_cpu_percent.idle_node(sim_time=true).others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.idle_node(sim_time=true).others_max": {
+        "n": 5,
+        "median": 0.966,
+        "min": 0.966,
+        "max": 1.0
+      },
+      "threads_cpu_percent.idle_node(sim_time=true).others_sum": {
+        "n": 5,
+        "median": 1.0,
+        "min": 1.0,
+        "max": 1.066
+      },
+      "threads_cpu_percent.imu_raw_relay.py.main": {
+        "n": 5,
+        "median": 0.267,
+        "min": 0.233,
+        "max": 0.3
+      },
+      "threads_cpu_percent.imu_raw_relay.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.imu_raw_relay.py.others_max": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.0,
+        "max": 0.067
+      },
+      "threads_cpu_percent.imu_raw_relay.py.others_sum": {
+        "n": 5,
+        "median": 0.067,
+        "min": 0.0,
+        "max": 0.1
+      },
+      "threads_cpu_percent.sensor_qos_relay.py.main": {
+        "n": 5,
+        "median": 0.167,
+        "min": 0.167,
+        "max": 0.167
+      },
+      "threads_cpu_percent.sensor_qos_relay.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.sensor_qos_relay.py.others_max": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.0,
+        "max": 0.033
+      },
+      "threads_cpu_percent.sensor_qos_relay.py.others_sum": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.0,
+        "max": 0.067
+      },
+      "threads_cpu_percent.wheel_state_odometry.py.main": {
+        "n": 5,
+        "median": 0.333,
+        "min": 0.333,
+        "max": 0.367
+      },
+      "threads_cpu_percent.wheel_state_odometry.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.wheel_state_odometry.py.others_max": {
+        "n": 5,
+        "median": 0.067,
+        "min": 0.0,
+        "max": 0.067
+      },
+      "threads_cpu_percent.wheel_state_odometry.py.others_sum": {
+        "n": 5,
+        "median": 0.067,
+        "min": 0.0,
+        "max": 0.1
+      },
+      "window_sim_s": {
+        "n": 5,
+        "median": 20.844,
+        "min": 20.789,
+        "max": 21.087
+      },
+      "window_wall_s": {
+        "n": 5,
+        "median": 30.011,
+        "min": 30.0,
+        "max": 30.015
+      },
+      "failed_runs": 0,
+      "clock_subscribers": [
+        "camera_adapter",
+        "cmd_vel_odometry",
+        "controller_manager",
+        "ground_truth_tf",
+        "idle_sim_true",
+        "joint_state_broadcaster",
+        "python_node_cpu_probe",
+        "robot_state_publisher"
+      ]
+    },
+    "wall": {
+      "cloud_count": {
+        "n": 5,
+        "median": 438.0,
+        "min": 437.0,
+        "max": 443.0
+      },
+      "cloud_latency_ms_max": {
+        "n": 5,
+        "median": 174.0,
+        "min": 171.0,
+        "max": 198.0
+      },
+      "cloud_latency_ms_median": {
+        "n": 5,
+        "median": 38.0,
+        "min": 38.0,
+        "max": 38.0
+      },
+      "cloud_latency_ms_min": {
+        "n": 5,
+        "median": 5.0,
+        "min": 4.0,
+        "max": 6.0
+      },
+      "cloud_latency_ms_p95": {
+        "n": 5,
+        "median": 47.0,
+        "min": 45.0,
+        "max": 48.0
+      },
+      "cloud_rate_hz_on_stamps": {
+        "n": 5,
+        "median": 30.234,
+        "min": 30.167,
+        "max": 30.305
+      },
+      "processes_cpu_percent.0": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "processes_cpu_percent.Xvfb": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "processes_cpu_percent.calculated_odometry.py": {
+        "n": 5,
+        "median": 15.726,
+        "min": 15.367,
+        "max": 16.266
+      },
+      "processes_cpu_percent.camera_adapter.py": {
+        "n": 5,
+        "median": 8.8,
+        "min": 8.596,
+        "max": 9.033
+      },
+      "processes_cpu_percent.cmd_vel_watchdog.py": {
+        "n": 5,
+        "median": 1.333,
+        "min": 1.332,
+        "max": 1.367
+      },
+      "processes_cpu_percent.ground_truth_tf.py": {
+        "n": 5,
+        "median": 18.258,
+        "min": 17.911,
+        "max": 18.7
+      },
+      "processes_cpu_percent.idle_node(sim_time=false)": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.033,
+        "max": 0.067
+      },
+      "processes_cpu_percent.idle_node(sim_time=true)": {
+        "n": 5,
+        "median": 15.259,
+        "min": 13.25,
+        "max": 16.367
+      },
+      "processes_cpu_percent.ign": {
+        "n": 5,
+        "median": 153.933,
+        "min": 153.43,
+        "max": 155.496
+      },
+      "processes_cpu_percent.image_bridge": {
+        "n": 5,
+        "median": 2.767,
+        "min": 2.699,
+        "max": 2.796
+      },
+      "processes_cpu_percent.imu_filter_madgwick_node": {
+        "n": 5,
+        "median": 0.1,
+        "min": 0.067,
+        "max": 0.1
+      },
+      "processes_cpu_percent.imu_raw_relay.py": {
+        "n": 5,
+        "median": 0.3,
+        "min": 0.267,
+        "max": 0.333
+      },
+      "processes_cpu_percent.parameter_bridge": {
+        "n": 5,
+        "median": 5.767,
+        "min": 5.73,
+        "max": 5.833
+      },
+      "processes_cpu_percent.robot_state_publisher": {
+        "n": 5,
+        "median": 2.167,
+        "min": 2.133,
+        "max": 2.299
+      },
+      "processes_cpu_percent.ros2": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.033
+      },
+      "processes_cpu_percent.sensor_qos_relay.py": {
+        "n": 5,
+        "median": 2.9,
+        "min": 2.896,
+        "max": 2.9
+      },
+      "processes_cpu_percent.wheel_state_odometry.py": {
+        "n": 5,
+        "median": 0.433,
+        "min": 0.399,
+        "max": 0.433
+      },
+      "processes_cpu_percent_per_sim_s.0": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "processes_cpu_percent_per_sim_s.Xvfb": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "processes_cpu_percent_per_sim_s.calculated_odometry.py": {
+        "n": 5,
+        "median": 22.526,
+        "min": 21.698,
+        "max": 23.186
+      },
+      "processes_cpu_percent_per_sim_s.camera_adapter.py": {
+        "n": 5,
+        "median": 12.48,
+        "min": 12.238,
+        "max": 12.876
+      },
+      "processes_cpu_percent_per_sim_s.cmd_vel_watchdog.py": {
+        "n": 5,
+        "median": 1.909,
+        "min": 1.883,
+        "max": 1.957
+      },
+      "processes_cpu_percent_per_sim_s.ground_truth_tf.py": {
+        "n": 5,
+        "median": 25.793,
+        "min": 25.481,
+        "max": 26.655
+      },
+      "processes_cpu_percent_per_sim_s.idle_node(sim_time=false)": {
+        "n": 5,
+        "median": 0.048,
+        "min": 0.047,
+        "max": 0.095
+      },
+      "processes_cpu_percent_per_sim_s.idle_node(sim_time=true)": {
+        "n": 5,
+        "median": 21.857,
+        "min": 18.91,
+        "max": 23.11
+      },
+      "processes_cpu_percent_per_sim_s.ign": {
+        "n": 5,
+        "median": 220.388,
+        "min": 217.359,
+        "max": 221.647
+      },
+      "processes_cpu_percent_per_sim_s.image_bridge": {
+        "n": 5,
+        "median": 3.924,
+        "min": 3.86,
+        "max": 4.008
+      },
+      "processes_cpu_percent_per_sim_s.imu_filter_madgwick_node": {
+        "n": 5,
+        "median": 0.142,
+        "min": 0.095,
+        "max": 0.143
+      },
+      "processes_cpu_percent_per_sim_s.imu_raw_relay.py": {
+        "n": 5,
+        "median": 0.428,
+        "min": 0.382,
+        "max": 0.473
+      },
+      "processes_cpu_percent_per_sim_s.parameter_bridge": {
+        "n": 5,
+        "median": 8.208,
+        "min": 8.143,
+        "max": 8.315
+      },
+      "processes_cpu_percent_per_sim_s.robot_state_publisher": {
+        "n": 5,
+        "median": 3.102,
+        "min": 3.012,
+        "max": 3.293
+      },
+      "processes_cpu_percent_per_sim_s.ros2": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.047
+      },
+      "processes_cpu_percent_per_sim_s.sensor_qos_relay.py": {
+        "n": 5,
+        "median": 4.134,
+        "min": 4.095,
+        "max": 4.152
+      },
+      "processes_cpu_percent_per_sim_s.wheel_state_odometry.py": {
+        "n": 5,
+        "median": 0.612,
+        "min": 0.57,
+        "max": 0.62
+      },
+      "real_time_factor": {
+        "n": 5,
+        "median": 0.702,
+        "min": 0.698,
+        "max": 0.708
+      },
+      "session_cpu_percent": {
+        "n": 5,
+        "median": 227.52,
+        "min": 224.862,
+        "max": 230.894
+      },
+      "threads_cpu_percent.calculated_odometry.py.main": {
+        "n": 5,
+        "median": 14.781,
+        "min": 14.4,
+        "max": 15.233
+      },
+      "threads_cpu_percent.calculated_odometry.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.calculated_odometry.py.others_max": {
+        "n": 5,
+        "median": 0.967,
+        "min": 0.932,
+        "max": 1.033
+      },
+      "threads_cpu_percent.calculated_odometry.py.others_sum": {
+        "n": 5,
+        "median": 1.0,
+        "min": 0.999,
+        "max": 1.1
+      },
+      "threads_cpu_percent.camera_adapter.py.main": {
+        "n": 5,
+        "median": 8.433,
+        "min": 8.196,
+        "max": 8.633
+      },
+      "threads_cpu_percent.camera_adapter.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.camera_adapter.py.others_max": {
+        "n": 5,
+        "median": 0.267,
+        "min": 0.233,
+        "max": 0.3
+      },
+      "threads_cpu_percent.camera_adapter.py.others_sum": {
+        "n": 5,
+        "median": 0.4,
+        "min": 0.333,
+        "max": 0.433
+      },
+      "threads_cpu_percent.cmd_vel_watchdog.py.main": {
+        "n": 5,
+        "median": 1.266,
+        "min": 1.233,
+        "max": 1.3
+      },
+      "threads_cpu_percent.cmd_vel_watchdog.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.cmd_vel_watchdog.py.others_max": {
+        "n": 5,
+        "median": 0.067,
+        "min": 0.067,
+        "max": 0.067
+      },
+      "threads_cpu_percent.cmd_vel_watchdog.py.others_sum": {
+        "n": 5,
+        "median": 0.067,
+        "min": 0.067,
+        "max": 0.1
+      },
+      "threads_cpu_percent.ground_truth_tf.py.main": {
+        "n": 5,
+        "median": 17.225,
+        "min": 16.912,
+        "max": 17.7
+      },
+      "threads_cpu_percent.ground_truth_tf.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.ground_truth_tf.py.others_max": {
+        "n": 5,
+        "median": 1.033,
+        "min": 0.967,
+        "max": 1.033
+      },
+      "threads_cpu_percent.ground_truth_tf.py.others_sum": {
+        "n": 5,
+        "median": 1.065,
+        "min": 1.0,
+        "max": 1.067
+      },
+      "threads_cpu_percent.idle_node(sim_time=false).main": {
+        "n": 5,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "threads_cpu_percent.idle_node(sim_time=false).others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.idle_node(sim_time=false).others_max": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.0,
+        "max": 0.033
+      },
+      "threads_cpu_percent.idle_node(sim_time=false).others_sum": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.0,
+        "max": 0.1
+      },
+      "threads_cpu_percent.idle_node(sim_time=true).main": {
+        "n": 5,
+        "median": 14.26,
+        "min": 12.251,
+        "max": 15.333
+      },
+      "threads_cpu_percent.idle_node(sim_time=true).others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.idle_node(sim_time=true).others_max": {
+        "n": 5,
+        "median": 0.967,
+        "min": 0.932,
+        "max": 1.0
+      },
+      "threads_cpu_percent.idle_node(sim_time=true).others_sum": {
+        "n": 5,
+        "median": 1.0,
+        "min": 0.932,
+        "max": 1.033
+      },
+      "threads_cpu_percent.imu_raw_relay.py.main": {
+        "n": 5,
+        "median": 0.267,
+        "min": 0.233,
+        "max": 0.3
+      },
+      "threads_cpu_percent.imu_raw_relay.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.imu_raw_relay.py.others_max": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.0,
+        "max": 0.033
+      },
+      "threads_cpu_percent.imu_raw_relay.py.others_sum": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.0,
+        "max": 0.033
+      },
+      "threads_cpu_percent.sensor_qos_relay.py.main": {
+        "n": 5,
+        "median": 0.167,
+        "min": 0.166,
+        "max": 0.233
+      },
+      "threads_cpu_percent.sensor_qos_relay.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.sensor_qos_relay.py.others_max": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.033,
+        "max": 0.033
+      },
+      "threads_cpu_percent.sensor_qos_relay.py.others_sum": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.033,
+        "max": 0.1
+      },
+      "threads_cpu_percent.wheel_state_odometry.py.main": {
+        "n": 5,
+        "median": 0.366,
+        "min": 0.333,
+        "max": 0.367
+      },
+      "threads_cpu_percent.wheel_state_odometry.py.others_count": {
+        "n": 5,
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0
+      },
+      "threads_cpu_percent.wheel_state_odometry.py.others_max": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.0,
+        "max": 0.067
+      },
+      "threads_cpu_percent.wheel_state_odometry.py.others_sum": {
+        "n": 5,
+        "median": 0.033,
+        "min": 0.0,
+        "max": 0.067
+      },
+      "window_sim_s": {
+        "n": 5,
+        "median": 21.047,
+        "min": 20.954,
+        "max": 21.246
+      },
+      "window_wall_s": {
+        "n": 5,
+        "median": 30.001,
+        "min": 30.0,
+        "max": 30.038
+      },
+      "failed_runs": 0,
+      "clock_subscribers": [
+        "cmd_vel_odometry",
+        "controller_manager",
+        "ground_truth_tf",
+        "idle_sim_true",
+        "joint_state_broadcaster",
+        "python_node_cpu_probe",
+        "robot_state_publisher"
+      ]
+    }
+  }
+}

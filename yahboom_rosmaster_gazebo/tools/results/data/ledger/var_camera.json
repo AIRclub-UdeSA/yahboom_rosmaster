@@ -1,0 +1,84 @@
+{
+  "/cam_1/depth/color/points": {
+    "runs": 3,
+    "gaps": 963,
+    "frames_per_gap": {
+      "1": 295,
+      "2": 189,
+      "3": 156,
+      "4": 76,
+      "5": 56,
+      "6": 42,
+      "7": 35,
+      "8": 23,
+      "9": 21,
+      "10": 12,
+      "11": 16,
+      "12": 6,
+      "13": 7,
+      "14": 4,
+      "15": 4,
+      "16": 2,
+      "17": 4,
+      "18": 6,
+      "19": 1,
+      "20": 1,
+      "23": 1,
+      "24": 1,
+      "25": 2,
+      "28": 1,
+      "32": 1,
+      "34": 1
+    },
+    "gap_frames": {
+      "median": 2,
+      "p95": 11,
+      "longest": 34,
+      "mean": 3.747
+    },
+    "off_grid_gaps": 0,
+    "rate_hz_pooled": 8.088,
+    "rate_hz_per_run_wall": [
+      8.911,
+      7.536,
+      7.699
+    ],
+    "period_p95_ms": 363.0,
+    "worst_gap_s": 1.122,
+    "latency_ms_median": 50.0,
+    "latency_ms_p95": 52.0,
+    "latency_ms_run_medians": [
+      50.0,
+      50.0,
+      50.0
+    ]
+  },
+  "/cam_1/depth/image_raw": {
+    "rate_hz_per_run_wall": [
+      30.161,
+      30.141,
+      30.173
+    ],
+    "rate_hz_on_stamps": 30.303,
+    "latency_ms_median": 9.0,
+    "latency_ms_p95": 11.0,
+    "valid_fraction": 0.1862,
+    "nan_fraction": 0.8138,
+    "valid_fraction_range": [
+      0.1861,
+      0.1863
+    ],
+    "content_samples": 6
+  },
+  "measurement": {
+    "group": "camera",
+    "physical_commit": "fa56a87beb186fab7545e650265eb43792acf827",
+    "probe_blob": "37430496ab57ed42c9cc34745f904b6684ea80b9",
+    "world": "empty.world",
+    "profile": "physical",
+    "render": "gpu",
+    "runs": 3,
+    "duration_s": 40.0,
+    "shutdown": "clean"
+  }
+}

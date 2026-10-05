@@ -1,0 +1,156 @@
+{
+  "/scan": {
+    "runs": 3,
+    "messages": 854,
+    "rate_hz_on_stamps": 7.194,
+    "period_ms_median": 139.0,
+    "period_ms_p95": 139.0,
+    "latency_ms_median": 144.0,
+    "latency_ms_p95": 149.0,
+    "reliability": [
+      "BEST_EFFORT"
+    ],
+    "publishers": [
+      1
+    ],
+    "scan_time": [
+      0.13429999351501465
+    ],
+    "time_increment": [
+      0.0
+    ]
+  },
+  "/scan_filtered": {
+    "runs": 3,
+    "messages": 0,
+    "absent": true
+  },
+  "/imu/data": {
+    "runs": 3,
+    "messages": 1195,
+    "rate_hz_on_stamps": 10.0,
+    "period_ms_median": 100.0,
+    "period_ms_p95": 100.0,
+    "latency_ms_median": 1.0,
+    "latency_ms_p95": 1.0,
+    "reliability": [
+      "RELIABLE"
+    ],
+    "publishers": [
+      1
+    ],
+    "series_stddev": {
+      "accel_magnitude": 0.10118,
+      "accel_x": 0.13673,
+      "accel_y": 0.1304,
+      "accel_z": 0.1012,
+      "gyro_x": 0.00557,
+      "gyro_y": 0.00517,
+      "gyro_z": 0.00527
+    }
+  },
+  "/imu/data_raw": {
+    "runs": 3,
+    "messages": 1176,
+    "rate_hz_on_stamps": 10.0,
+    "period_ms_median": 100.0,
+    "period_ms_p95": 100.0,
+    "latency_ms_median": 0.0,
+    "latency_ms_p95": 1.0,
+    "reliability": [
+      "RELIABLE"
+    ],
+    "publishers": [
+      0,
+      1
+    ],
+    "series_stddev": {
+      "accel_magnitude": 0.10143,
+      "accel_x": 0.13693,
+      "accel_y": 0.13046,
+      "accel_z": 0.10146,
+      "gyro_x": 0.00557,
+      "gyro_y": 0.00516,
+      "gyro_z": 0.00529
+    }
+  },
+  "/imu/mag": {
+    "runs": 3,
+    "messages": 0,
+    "absent": true
+  },
+  "/odom": {
+    "runs": 3,
+    "messages": 1172,
+    "rate_hz_on_stamps": 9.804,
+    "period_ms_median": 102.0,
+    "period_ms_p95": 102.0,
+    "latency_ms_median": 1.0,
+    "latency_ms_p95": 1.0,
+    "reliability": [
+      "RELIABLE"
+    ],
+    "publishers": [
+      1
+    ],
+    "series_stddev": {
+      "pose_x": 0.0,
+      "pose_y": 0.0,
+      "twist_x": 0.0,
+      "twist_y": 0.0,
+      "twist_yaw": 0.0
+    }
+  },
+  "/joint_states": {
+    "runs": 3,
+    "messages": 1166,
+    "rate_hz_on_stamps": 9.804,
+    "period_ms_median": 102.0,
+    "period_ms_p95": 102.0,
+    "latency_ms_median": 0.0,
+    "latency_ms_p95": 0.0,
+    "reliability": [
+      "RELIABLE"
+    ],
+    "publishers": [
+      0,
+      1
+    ],
+    "series_stddev": {
+      "position:back_left_wheel_joint": 0.0,
+      "position:back_right_wheel_joint": 0.0,
+      "position:front_left_wheel_joint": 0.0,
+      "position:front_right_wheel_joint": 0.0,
+      "velocity:back_left_wheel_joint": 0.0,
+      "velocity:back_right_wheel_joint": 0.0,
+      "velocity:front_left_wheel_joint": 0.0,
+      "velocity:front_right_wheel_joint": 0.0
+    }
+  },
+  "/vel_raw": {
+    "runs": 3,
+    "messages": 0,
+    "absent": true
+  },
+  "/voltage": {
+    "runs": 3,
+    "messages": 0,
+    "absent": true
+  },
+  "/diagnostics": {
+    "runs": 3,
+    "messages": 0,
+    "absent": true
+  },
+  "measurement": {
+    "group": "stationary",
+    "physical_commit": "fa56a87beb186fab7545e650265eb43792acf827",
+    "probe_blob": "37430496ab57ed42c9cc34745f904b6684ea80b9",
+    "world": "empty.world",
+    "profile": "physical",
+    "render": "gpu",
+    "runs": 3,
+    "duration_s": 40.0,
+    "shutdown": "clean"
+  }
+}
