@@ -918,7 +918,9 @@ def generate_launch_description():
         executable="ground_truth_tf.py",
         output="screen",
         parameters=[{
-            "use_sim_time": LaunchConfiguration("use_sim_time"),
+            # Wall time: every transform takes its stamp from /ground_truth/odom,
+            # so following the 1 kHz /clock only burned CPU (#75).
+            "use_sim_time": False,
             "frame_id": LaunchConfiguration("ground_truth_frame"),
         }],
     )
