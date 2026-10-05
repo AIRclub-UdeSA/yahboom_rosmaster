@@ -306,7 +306,8 @@ def measure(args):
     os.environ.update(environment)
     simulator = Simulator(
         Path(args.workspace).expanduser().resolve(), work_dir / "simulator.log",
-        [text.format(world=args.world, profile=args.profile) for text in LAUNCH_ARGUMENTS],
+        [text.format(world=args.world, profile=args.profile) for text in LAUNCH_ARGUMENTS]
+        + list(args.launch_arg),
         environment, render=args.render)
     results, outcome = [], "not started"
     try:
@@ -355,6 +356,8 @@ def main():
     parser.add_argument("--world", default="empty.world")
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--duration", type=float, default=40.0)
+    parser.add_argument("--launch-arg", action="append", default=[], metavar="ARG:=VALUE",
+                        help="an extra launch argument (repeatable), for a prototype's switches")
     parser.add_argument("--no-user-site", action="store_true",
                         help="hide ~/.local packages: use the distribution's numpy")
     parser.add_argument("--work-dir", default="cloud_timing_work")

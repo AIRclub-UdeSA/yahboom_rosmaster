@@ -11,14 +11,22 @@ one core. It reports:
   appear beside Gazebo's server and the bridges;
 * which nodes subscribe to ``/clock`` (``ros2 topic info /clock -v``), the
   ones that pay the sim-time tax;
-* the camera adapter's CPU split by thread name (the executor thread that runs
-  Python and numpy, against the Fast DDS threads), and its CPU per sim second;
+* every Python node's CPU split into its main thread (the executor, Python and
+  numpy) and its other threads (Fast DDS), and each process's CPU per sim
+  second;
 * with ``--idle-nodes``, two bare rclpy nodes (``idle_node.py``), one on sim
   time and one on wall time, whose difference is the tax with no callback and
   no numpy in the way;
 * the point cloud's latency (sim time at receipt minus ``header.stamp``) and its
   rate on stamps, and the number of messages on each ``--count-topic`` over the
   same window, so a hop that drops messages shows as a shortfall;
+* with ``--streams``, the output of the nodes a fix could touch: the
+  ``ground_truth_base`` transforms on ``/tf`` against the ``/ground_truth/odom``
+  stamps they are made from (count, rate, the share whose stamp equals an odom
+  stamp, the frame ids) and ``/calc_odom`` (count, rate on stamps, the 1 ms
+  residue of its stamps), so that a clock change can be shown not to change them;
+* with ``--trace``, every cloud's wall time in the window, stamp and latency, to
+  say when the large latencies happen;
 * the real-time factor, as sim seconds over wall seconds.
 
 Variants are built workspaces, optionally with extra launch arguments, and they
@@ -102,17 +110,38 @@ def label_of(command):
 
 
 def thread_ticks(pid):
-    """Return {thread name: CPU ticks} for a process, summed over same-named threads."""
-    found = collections.Counter()
-    for task in Path(f"/proc/{pid}/task").iterdir():
+    """
+    Return {thread id: CPU ticks} for a process.
+
+    rclpy and Fast DDS name none of their threads, so every thread reads
+    "python3" in /proc: threads are told apart by id, and the thread whose id is
+    the pid is the main thread, the one that runs the executor and the callbacks.
+    """
+    found = {}
+    try:
+        tasks = list(Path(f"/proc/{pid}/task").iterdir())
+    except OSError:
+        return found
+    for task in tasks:
         try:
             stat = (task / "stat").read_text()
-            name = stat[stat.index("(") + 1:stat.rindex(")")]
             fields = stat[stat.rindex(")") + 2:].split()
-            found[name] += int(fields[11]) + int(fields[12])
+            found[int(task.name)] = int(fields[11]) + int(fields[12])
         except (OSError, ValueError, IndexError):
             continue
     return found
+
+
+def thread_split(pid, before, after, wall_s):
+    """Return the main thread's CPU, the others' sum and the busiest other, in percent."""
+    used = {tid: ticks - before.get(tid, 0) for tid, ticks in after.items()}
+    main = used.pop(pid, 0)
+    return {
+        "main": percent(main, wall_s),
+        "others_sum": percent(sum(used.values()), wall_s),
+        "others_max": percent(max(used.values(), default=0), wall_s),
+        "others_count": float(len(used)),
+    }
 
 
 def process_ticks(extra_pids):
@@ -145,28 +174,31 @@ def percent(ticks, wall_s):
 
 def clock_subscribers(environment, workspace):
     """Return the node names that subscribe to /clock, from the ROS graph."""
-    command = sim_run._ros_shell("ros2 topic info /clock -v", workspace)
+    command = sim_run._ros_shell(
+        "ros2 topic info /clock -v --no-daemon --spin-time 6", workspace)
     merged = dict(os.environ)
     merged.update(environment)
-    result = subprocess.run(
-        ["bash", "-c", command], env=merged, capture_output=True, text=True,
-        timeout=60, check=False)
-    names, current = [], None
-    for line in result.stdout.splitlines():
-        line = line.strip()
-        if line.startswith("Node name:"):
-            current = line.split(":", 1)[1].strip()
-        elif line.startswith("Endpoint type:") and current is not None:
-            if line.endswith("SUBSCRIPTION"):
-                names.append(current)
-            current = None
+    names = []
+    for _ in range(2):
+        result = subprocess.run(
+            ["bash", "-c", command], env=merged, capture_output=True, text=True,
+            timeout=90, check=False)
+        current = None
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("Node name:"):
+                current = line.split(":", 1)[1].strip()
+            elif line.startswith("Endpoint type:") and current is not None:
+                if line.endswith("SUBSCRIPTION"):
+                    names.append(current)
+                current = None
     return sorted(set(names))
 
 
 class CloudProbe:
     """Record the cloud's latency and stamps on sim time, and count other topics."""
 
-    def __init__(self, count_topics):
+    def __init__(self, count_topics, streams=False, trace=False):
         import rclpy
         from rclpy.node import Node
         from rclpy.parameter import Parameter
@@ -179,6 +211,9 @@ class CloudProbe:
             "python_node_cpu_probe",
             parameter_overrides=[Parameter("use_sim_time", Parameter.Type.BOOL, True)])
         self.latencies_s, self.stamps_s = [], []
+        self.trace = [] if trace else None
+        self.stream_stamps = {}
+        self.stream_frames = {}
         self.counts = {topic: 0 for topic in count_topics}
         self.window_open = False
         self.seen = 0
@@ -188,6 +223,16 @@ class CloudProbe:
         for topic in count_topics:
             self.node.create_subscription(
                 PointCloud2, topic, self._counter(topic), qos_profile_sensor_data)
+        if streams:
+            from nav_msgs.msg import Odometry
+            from tf2_msgs.msg import TFMessage
+            self.node.create_subscription(
+                Odometry, "/ground_truth/odom", self._stream("truth_odom"),
+                qos_profile_sensor_data)
+            self.node.create_subscription(
+                Odometry, "/calc_odom", self._stream("calc_odom"), qos_profile_sensor_data)
+            self.node.create_subscription(
+                TFMessage, "/tf", self._on_tf, qos_profile_sensor_data)
 
     def _now_s(self):
         return self.node.get_clock().now().nanoseconds * 1e-9
@@ -198,6 +243,27 @@ class CloudProbe:
                 self.counts[topic] += 1
         return count
 
+    def _stream(self, name):
+        def record(message):
+            if self.window_open:
+                stamp = message.header.stamp
+                self.stream_stamps.setdefault(name, []).append(
+                    stamp.sec * 1000000000 + stamp.nanosec)
+                self.stream_frames.setdefault(name, set()).add(
+                    (message.header.frame_id, message.child_frame_id))
+        return record
+
+    def _on_tf(self, message):
+        if not self.window_open:
+            return
+        for transform in message.transforms:
+            if transform.child_frame_id == "ground_truth_base":
+                stamp = transform.header.stamp
+                self.stream_stamps.setdefault("truth_tf", []).append(
+                    stamp.sec * 1000000000 + stamp.nanosec)
+                self.stream_frames.setdefault("truth_tf", set()).add(
+                    (transform.header.frame_id, transform.child_frame_id))
+
     def _on_cloud(self, message):
         self.seen += 1
         if not self.window_open:
@@ -205,6 +271,10 @@ class CloudProbe:
         stamp = message.header.stamp.sec + message.header.stamp.nanosec * 1e-9
         self.latencies_s.append(self._now_s() - stamp)
         self.stamps_s.append(stamp)
+        if self.trace is not None:
+            self.trace.append([
+                round(time.monotonic() - self.wall_start, 3), round(stamp - self.sim_start, 3),
+                round(1000.0 * self.latencies_s[-1], 1)])
 
     def spin_for(self, seconds):
         """Spin for ``seconds`` of wall time."""
@@ -225,6 +295,9 @@ class CloudProbe:
     def open_window(self):
         """Start recording."""
         self.latencies_s, self.stamps_s = [], []
+        self.stream_stamps, self.stream_frames = {}, {}
+        if self.trace is not None:
+            self.trace = []
         self.counts = dict.fromkeys(self.counts, 0)
         self.sim_start, self.wall_start = self._now_s(), time.monotonic()
         self.window_open = True
@@ -238,6 +311,26 @@ class CloudProbe:
         """Release the node."""
         self.node.destroy_node()
         self.rclpy.shutdown()
+
+
+def stream_summary(stamps_ns, frames, odom_ns=None):
+    """Return count, rate on stamps, worst gap and, against odom stamps, the exact-match share."""
+    if len(stamps_ns) < 2:
+        return {"count": float(len(stamps_ns))}
+    span_s = (stamps_ns[-1] - stamps_ns[0]) * 1e-9
+    gaps_ms = [(b - a) * 1e-6 for a, b in zip(stamps_ns, stamps_ns[1:])]
+    figures = {
+        "count": float(len(stamps_ns)),
+        "rate_hz_on_stamps": (len(stamps_ns) - 1) / span_s,
+        "max_gap_ms": max(gaps_ms),
+        "stamps_off_the_1ms_grid": float(sum(stamp % 1000000 != 0 for stamp in stamps_ns)),
+        "frames": sorted("->".join(pair) for pair in frames),
+    }
+    if odom_ns is not None:
+        known = set(odom_ns)
+        figures["share_stamped_like_an_odom_message"] = sum(
+            stamp in known for stamp in stamps_ns) / len(stamps_ns)
+    return figures
 
 
 def start_idle_nodes(workspace, environment):
@@ -291,7 +384,7 @@ def one_run(label, workspace, extra_arguments, args, index):
     probe, idle = None, {}
     try:
         simulator.start()
-        probe = CloudProbe(args.count_topic)
+        probe = CloudProbe(args.count_topic, args.streams, args.trace)
         if not probe.wait_for_clouds(FIRST_FRAME_TIMEOUT_S[args.render]):
             record["error"] = "no cloud within the start-up timeout"
             return record
@@ -299,32 +392,37 @@ def one_run(label, workspace, extra_arguments, args, index):
             idle = start_idle_nodes(workspace, environment)
         probe.spin_for(args.settle_s)
         record["clock_subscribers"] = clock_subscribers(environment, workspace)
+        # The probe did not spin during that call, so its sim clock and the
+        # queued clouds are seconds old. Drain them before the window opens:
+        # without this the window's first five clouds (the sensor QoS depth)
+        # read 100-500 ms late and the real-time factor reads about 1.45 on a
+        # GPU that runs at 1.0.
+        probe.spin_for(3.0)
 
         def snapshot():
             merged = {pid: value for pid, value in simulator.processes().items()}
             merged.update(process_ticks(idle))
             return merged
 
-        adapter_pids = [
-            pid for pid, (command, _) in simulator.processes().items()
-            if "camera_adapter" in command]
-        threads_before = {pid: thread_ticks(pid) for pid in adapter_pids}
+        python_pids = {
+            pid: label_of(command) for pid, (command, _) in snapshot().items()
+            if label_of(command).endswith(".py") or label_of(command).startswith("idle_node")}
+        threads_before = {pid: thread_ticks(pid) for pid in python_pids}
         before = by_label(snapshot())
         probe.open_window()
         probe.spin_for(args.window_s)
         sim_s, wall_s = probe.close_window()
         after = by_label(snapshot())
-        threads_after = {pid: thread_ticks(pid) for pid in adapter_pids}
+        threads_after = {pid: thread_ticks(pid) for pid in python_pids}
 
         record["processes_cpu_percent"] = {
             name: percent(after[name] - before.get(name, 0), wall_s) for name in after}
         record["processes_cpu_percent_per_sim_s"] = {
             name: percent(after[name] - before.get(name, 0), sim_s) for name in after}
-        record["camera_adapter_threads_cpu_percent"] = {
-            name: percent(
-                sum(threads_after[pid][name] - threads_before[pid].get(name, 0)
-                    for pid in adapter_pids), wall_s)
-            for name in {n for pid in adapter_pids for n in threads_after[pid]}}
+        record["threads_cpu_percent"] = {
+            python_pids[pid]: thread_split(
+                pid, threads_before[pid], threads_after[pid], wall_s)
+            for pid in python_pids}
         record["session_cpu_percent"] = sum(record["processes_cpu_percent"].values())
         record["real_time_factor"] = sim_s / wall_s
         record["window_sim_s"], record["window_wall_s"] = sim_s, wall_s
@@ -340,6 +438,15 @@ def one_run(label, workspace, extra_arguments, args, index):
                     probe.stamps_s[-1] - probe.stamps_s[0]),
             })
         record["topic_counts"] = dict(probe.counts)
+        if args.trace:
+            record["cloud_trace_wall_s_stamp_s_latency_ms"] = probe.trace
+        if args.streams:
+            truth = probe.stream_stamps.get("truth_odom")
+            record["streams"] = {
+                name: stream_summary(
+                    probe.stream_stamps.get(name, []), probe.stream_frames.get(name, ()),
+                    truth if name == "truth_tf" else None)
+                for name in ("truth_odom", "truth_tf", "calc_odom")}
     finally:
         if probe is not None:
             probe.shutdown()
@@ -351,10 +458,16 @@ def one_run(label, workspace, extra_arguments, args, index):
 def flat_figures(record):
     """Return a record's figures as one flat {name: number} mapping."""
     flat = {key: record[key] for key in record if isinstance(record[key], float)}
-    for group in ("processes_cpu_percent", "processes_cpu_percent_per_sim_s",
-                  "camera_adapter_threads_cpu_percent"):
+    for group in ("processes_cpu_percent", "processes_cpu_percent_per_sim_s"):
         for name, value in record.get(group, {}).items():
             flat[f"{group}.{name}"] = value
+    for name, split in record.get("threads_cpu_percent", {}).items():
+        for part, value in split.items():
+            flat[f"threads_cpu_percent.{name}.{part}"] = value
+    for name, figures in record.get("streams", {}).items():
+        for key, value in figures.items():
+            if isinstance(value, float):
+                flat[f"stream.{name}.{key}"] = value
     for topic, count in record.get("topic_counts", {}).items():
         flat[f"topic_count.{topic}"] = float(count)
     if "cloud_count" in record:
@@ -380,6 +493,10 @@ def main():
                         help="also run a sim-time and a wall-time idle rclpy node")
     parser.add_argument("--count-topic", action="append", default=[], metavar="TOPIC",
                         help="also count PointCloud2 messages on TOPIC in the window")
+    parser.add_argument("--streams", action="store_true",
+                        help="also record the ground-truth TF, /ground_truth/odom and /calc_odom")
+    parser.add_argument("--trace", action="store_true",
+                        help="keep every cloud's wall time, stamp and latency in the record")
     parser.add_argument("--no-user-site", action="store_true",
                         help="hide ~/.local packages: use the distribution's numpy")
     parser.add_argument("--output-dir", default="python_node_cpu_logs")
