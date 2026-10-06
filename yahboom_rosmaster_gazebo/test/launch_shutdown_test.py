@@ -295,7 +295,9 @@ class TestLaunchShutdown(unittest.TestCase):
         self.assertFalse(stopped)
         sleep.assert_called_once_with(LAUNCH_MODULE.PROCESS_STOP_POLL_INTERVAL)
 
-    def test_bridges_are_stopped_and_world_paused_before_gazebo_stop(self):
+    def test_world_is_paused_before_bridges_and_gazebo_are_stopped(self):
+        # image_bridge crashes if a camera frame arrives while it shuts down
+        # (issue #55), so nothing may be sent to it before the world is paused.
         calls = []
         context = SimpleNamespace(environment={})
         gazebo = FakeProcess(process_details={"pid": 456})
@@ -335,7 +337,7 @@ class TestLaunchShutdown(unittest.TestCase):
                 parameter_bridge)
 
         self.assertEqual(
-            calls, ["image bridge", "parameter bridge", "pause", "stop"])
+            calls, ["pause", "image bridge", "parameter bridge", "stop"])
         sleep.assert_called_once_with(LAUNCH_MODULE.GAZEBO_PAUSE_SETTLE)
         wait_for_stop.assert_called_once_with(
             gazebo, LAUNCH_MODULE.GAZEBO_CLEAN_STOP_TIMEOUT)
@@ -364,6 +366,51 @@ class TestLaunchShutdown(unittest.TestCase):
         self.assertIn("/server_control", run.call_args.args[0])
         self.assertTrue(any(
             "unknown world name" in message
+            for message in logger.warning_messages))
+        self.assertTrue(any(
+            "bridges with the world still running" in message
+            for message in logger.warning_messages))
+
+    def test_unacknowledged_pause_still_stops_the_bridges_and_gazebo(self):
+        calls = []
+        logger = RecordingLogger()
+        context = SimpleNamespace(environment={})
+        gazebo = FakeProcess(process_details={"pid": 456})
+
+        def fake_service(command, **kwargs):
+            del kwargs
+            service = command[command.index("-s") + 1]
+            calls.append(service)
+            acknowledged = service == "/server_control"
+            return SimpleNamespace(
+                returncode=0 if acknowledged else 1,
+                stdout="data: true" if acknowledged else "", stderr="timed out")
+
+        with (
+            patch.object(
+                LAUNCH_MODULE, "_stop_bridge_process",
+                side_effect=lambda process, label, *args: calls.append(label),
+            ),
+            patch.object(LAUNCH_MODULE.shutil, "which", return_value="/usr/bin/ign"),
+            patch.object(LAUNCH_MODULE.subprocess, "run", side_effect=fake_service),
+            patch.object(LAUNCH_MODULE.time, "sleep") as sleep,
+            patch.object(
+                LAUNCH_MODULE, "_wait_for_process_stop", return_value=True),
+            patch.object(LAUNCH_MODULE, "get_logger", return_value=logger),
+        ):
+            LAUNCH_MODULE._request_gazebo_stop(
+                None, context, gazebo, "empty_world", FakeProcess(), FakeProcess())
+
+        self.assertEqual(
+            calls,
+            ["/world/empty_world/control", "image bridge", "parameter bridge",
+             "/server_control"])
+        sleep.assert_not_called()
+        self.assertTrue(any(
+            "did not acknowledge the pause" in message
+            for message in logger.warning_messages))
+        self.assertTrue(any(
+            "bridges with the world still running" in message
             for message in logger.warning_messages))
 
     def test_world_name_is_read_from_the_sdf(self):
