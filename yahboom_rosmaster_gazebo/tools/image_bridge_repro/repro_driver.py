@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 Run the image_bridge shutdown race without Gazebo (#55).
 
 Each trial starts ``gz_image_publisher`` (two image topics on Gazebo transport,
@@ -10,7 +10,7 @@ seconds. One JSON line per trial goes to ``--out``; counts are printed at the en
 
     source /opt/ros/humble/setup.bash
     cmake -S tools/image_bridge_repro -B /tmp/ibr && cmake --build /tmp/ibr
-    python3 tools/image_bridge_repro/repro_driver.py --build /tmp/ibr \\
+    python3 tools/image_bridge_repro/repro_driver.py --build /tmp/ibr \
         --variant orig --rate 30 --trials 200 --out /tmp/ibr_orig.jsonl
 
 ``--trace`` preloads tools/segv_trace's library so a crash leaves a backtrace.

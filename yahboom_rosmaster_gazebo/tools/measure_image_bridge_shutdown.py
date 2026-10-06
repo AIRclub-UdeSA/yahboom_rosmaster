@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 Loop a simulator launch test and record how each process left (issue #55).
 
 Each run clears leftovers (``scripts/clean_sim.sh``), launches one launch test
@@ -11,8 +11,8 @@ OnShutdown handler with their wall-clock times, and any backtrace written by
 
     source /opt/ros/humble/setup.bash
     source <workspace>/install/setup.bash
-    python3 tools/measure_image_bridge_shutdown.py --workspace <workspace> \\
-        --out ~/Documents/rosmaster_ws/measurement_logs/55_image_bridge/gpu_base \\
+    python3 tools/measure_image_bridge_shutdown.py --workspace <workspace> \
+        --out ~/Documents/rosmaster_ws/measurement_logs/55_image_bridge/gpu_base \
         --runs 150 [--trace] [--render llvmpipe --cpus 0-3]
     python3 tools/measure_image_bridge_shutdown.py --summary <out> [<out> ...]
 

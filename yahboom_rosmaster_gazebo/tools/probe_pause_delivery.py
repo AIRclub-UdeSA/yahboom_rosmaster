@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 Check what the bridges still forward after the launch pauses the world (#55).
 
 Starts a headless simulator (``scripts/clean_sim.sh`` first), subscribes raw to
@@ -13,7 +13,7 @@ counts messages per topic in four windows:
   (the pause call itself is timed too)
 
     source /opt/ros/humble/setup.bash && source <workspace>/install/setup.bash
-    python3 tools/probe_pause_delivery.py --workspace <workspace> --runs 5 \\
+    python3 tools/probe_pause_delivery.py --workspace <workspace> --runs 5 \
         [--render llvmpipe --cpus 0-3] --out pause_delivery.jsonl
 
 One JSON object per run. A topic that still has messages in "after" is still
@@ -111,7 +111,6 @@ def one_run(args, number):
     os.environ.update(ROS_LOCALHOST_ONLY="1", ROS_DOMAIN_ID=str(domain))
     rclpy.init()
     node = rclpy.create_node("pause_probe")
-    counts = {}
     qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
     stamps = {}
     for bridge, topics in TOPICS.items():
