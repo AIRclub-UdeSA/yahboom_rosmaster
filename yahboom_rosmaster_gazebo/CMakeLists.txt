@@ -71,6 +71,10 @@ if(BUILD_TESTING)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/launch_argument_consistency_test.py
   )
   add_test(
+    NAME python_node_clock_contract
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/python_node_clock_test.py
+  )
+  add_test(
     NAME ground_truth_alignment_math
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/ground_truth_alignment_test.py
   )

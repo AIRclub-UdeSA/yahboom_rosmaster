@@ -838,6 +838,11 @@ lighter `world_smoke_*` launch test covering spawn validity, initial
 collisions, a forward-motion check, and core topic liveness -- see "Maze
 Worlds" above.
 
+`ground_truth_tf.py` runs on wall time (#75, first step) instead of following
+the 1 kHz `/clock`, which cut its CPU from about 47% to 12% of a core. Its
+output is unchanged; `ros2 param get /ground_truth_tf use_sim_time` now
+reports `False`.
+
 The robot frames follow the physical ROSMASTER X3: `base_footprint` is on the
 floor and `base_link` is 71.4 mm above it. Until #42 the simulator placed
 `base_footprint` at wheel-axle height (32.5 mm up) and `base_link` at 65 mm, so
