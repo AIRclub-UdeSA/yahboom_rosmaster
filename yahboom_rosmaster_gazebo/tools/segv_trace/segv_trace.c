@@ -31,7 +31,7 @@
 static char g_comm[32];
 static char g_dir[256];
 
-static void handler(int sig, siginfo_t *info, void *ctx)
+static void handler(int sig, siginfo_t * info, void * ctx)
 {
   (void)ctx;
   char path[400], pidstr[16], head[300];
@@ -57,8 +57,8 @@ static void handler(int sig, siginfo_t *info, void *ctx)
       cmd, sizeof cmd,
       "exec gdb -batch -p %s -ex 'info threads' -ex 'thread apply all bt 40' "
       "-ex 'info sharedlibrary' >> '%s' 2>&1", pidstr, path);
-    char *envp[] = {(char *)"PATH=/usr/bin:/bin", (char *)"HOME=/tmp", NULL};
-    char *argv[] = {(char *)"sh", (char *)"-c", cmd, NULL};
+    char * envp[] = {(char *)"PATH=/usr/bin:/bin", (char *)"HOME=/tmp", NULL};
+    char * argv[] = {(char *)"sh", (char *)"-c", cmd, NULL};
     execve("/bin/sh", argv, envp);
     _exit(127);
   }
@@ -76,9 +76,9 @@ static void handler(int sig, siginfo_t *info, void *ctx)
 
 __attribute__((constructor)) static void init(void)
 {
-  const char *comms = getenv("SEGV_TRACE_COMMS");
+  const char * comms = getenv("SEGV_TRACE_COMMS");
   if (!comms) {return;}
-  FILE *f = fopen("/proc/self/comm", "r");
+  FILE * f = fopen("/proc/self/comm", "r");
   if (!f) {return;}
   if (!fgets(g_comm, sizeof g_comm, f)) {fclose(f); return;}
   fclose(f);
@@ -88,7 +88,7 @@ __attribute__((constructor)) static void init(void)
   char key[48];
   snprintf(key, sizeof key, ",%s,", g_comm);
   if (!strstr(list, key)) {return;}
-  const char *dir = getenv("SEGV_TRACE_DIR");
+  const char * dir = getenv("SEGV_TRACE_DIR");
   snprintf(g_dir, sizeof g_dir, "%s", dir ? dir : "/tmp");
   struct sigaction sa;
   memset(&sa, 0, sizeof sa);

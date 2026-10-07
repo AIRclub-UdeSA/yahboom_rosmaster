@@ -13,7 +13,6 @@
 // limitations under the License.
 
 
-
 // Reproducer for AIRclub-UdeSA/yahboom_rosmaster#55. This is
 // ros_gz_image/src/image_bridge.cpp from ros_gz 0.244.26 (humble), unchanged
 // in the "orig" build. With GUARD_CALLBACK the Handler cannot be destroyed
