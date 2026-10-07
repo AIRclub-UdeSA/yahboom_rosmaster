@@ -14,6 +14,10 @@ running.
 | `measure_physical_probe.py` | physical_rosmaster's own `physical_contract_probe.py` (`target:=simulator`), run once per fresh simulator launch, N times: its exit code, every error it prints with a count, its wall time, and the `/joint_states` frame_id | #43 step 9: the start-up behavior and flake rate of the parity check that CI runs (see "The contract probe in CI") |
 | `physical_probe.py` | (library) the ledger's physical pin, and the `git show` fetch of the contract probe at it | The harness, the launch tests and CI |
 | `sim_run.py` | (library) cleanup, detached launch, stop | All |
+| `measure_image_bridge_shutdown.py` | Loops a launch test (`world_smoke_laberinto_simple` by default) and records every process's exit code, the shutdown phases' wall-clock times and any backtrace; `--summary` prints counts. Starts its own simulator (`scripts/clean_sim.sh`, not `sim_run.py`) | #55: the `image_bridge` -11 at shutdown |
+| `segv_trace/` | An `LD_PRELOAD` library that attaches gdb from the fault handler of a named process and writes every thread's backtrace, without changing how SIGINT reaches it | Same; `--trace` of the tool above |
+| `image_bridge_repro/` | `ros_gz_image`'s unmodified `image_bridge` against a synthetic Gazebo-transport camera, no simulator: SIGSEGV counts at a chosen frame rate, with the camera stopped first (`--pause`), and with a guarded build | Reproducing and proving the #55 mechanism |
+| `probe_pause_delivery.py` | Which bridged topics still deliver messages in the seconds after the launch's pause request | Checking the premise of the pause-before-bridges order (#55) |
 
 ## What `sim_run.py` does, and why
 

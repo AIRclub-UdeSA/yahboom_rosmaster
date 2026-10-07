@@ -406,8 +406,16 @@ def _stop_bridge_process(process, label, logger, timeout=2.0):
 
     ros_gz bridge processes (parameter_bridge, image_bridge) can segfault
     during their own SIGINT teardown if Gazebo's transport node vanishes out
-    from under them mid-shutdown. Stopping them first, while Gazebo is still
-    up, avoids that race entirely.
+    from under them mid-shutdown. Stopping them while Gazebo is still up
+    avoids that race.
+
+    The caller pauses the world first (see _request_gazebo_stop). image_bridge
+    has a second race of its own (issue #55): its main() destroys the handlers,
+    and with them the ROS publishers, before the Gazebo transport node, while
+    the transport's receive thread can still be inside a callback bound to a
+    handler by a raw pointer. A camera frame arriving in that window crashes
+    Publisher::publish (SIGSEGV). A paused world sends no frames, so with the
+    world paused first nothing is in flight when the bridge gets its SIGINT.
     """
     if _process_stopped(process):
         return
@@ -478,10 +486,15 @@ def _pause_gazebo(ign_executable, world_name, context, logger):
     join is only slow when a frame is being rendered, which a 30 Hz camera
     under software rendering makes common. A paused world starts no new sensor
     frames, so once the current one finishes the join returns at once.
+
+    The same pause also silences the camera before the bridges are stopped,
+    which closes the image_bridge shutdown race (issue #55).
+
+    Return True when Gazebo acknowledged the pause and it has settled.
     """
     if world_name is None:
         logger.warning("Cannot pause Gazebo before stopping: unknown world name")
-        return
+        return False
     try:
         result = subprocess.run(
             [
@@ -501,29 +514,45 @@ def _pause_gazebo(ign_executable, world_name, context, logger):
         )
     except (OSError, subprocess.TimeoutExpired) as exception:
         logger.warning(f"Could not pause Gazebo before stopping it: {exception}")
-        return
+        return False
     if result.returncode != 0 or "data: true" not in result.stdout:
         detail = result.stderr.strip() or result.stdout.strip() or "no response"
         logger.warning(f"Gazebo did not acknowledge the pause request: {detail}")
-        return
+        return False
     time.sleep(GAZEBO_PAUSE_SETTLE)
     logger.info("Paused Gazebo before stopping it")
+    return True
 
 
 def _request_gazebo_stop(
         event, context, gazebo_server, world_name, image_bridge, parameter_bridge):
-    """Stop transport consumers, then Gazebo, before launch signal fallback."""
+    """
+    Pause the world, stop the transport consumers, then Gazebo.
+
+    The pause comes first so that no camera frame is in flight when the image
+    bridge gets its SIGINT (issue #55). If the world cannot be paused (no
+    readable world name, no `ign`, or no acknowledgement) the bridges are
+    still stopped, with the world running, as before this ordering.
+    """
     del event
     logger = get_logger("rosmaster_gazebo_shutdown")
+
+    ign_executable = shutil.which("ign")
+    paused = False
+    if ign_executable is None:
+        logger.warning("Cannot pause or stop Gazebo: 'ign' is not available")
+    else:
+        paused = _pause_gazebo(ign_executable, world_name, context, logger)
+    if not paused:
+        logger.warning(
+            "Stopping the bridges with the world still running; the image "
+            "bridge can crash if a camera frame arrives while it shuts down")
+
     _stop_bridge_process(image_bridge, "image bridge", logger)
     _stop_bridge_process(parameter_bridge, "parameter bridge", logger)
 
-    ign_executable = shutil.which("ign")
     if ign_executable is None:
-        logger.warning("Cannot request Gazebo stop: 'ign' is not available")
         return None
-
-    _pause_gazebo(ign_executable, world_name, context, logger)
 
     try:
         result = subprocess.run(
