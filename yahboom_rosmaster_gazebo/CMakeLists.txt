@@ -25,6 +25,7 @@ install(
     scripts/imu_motion_probe.py
     scripts/imu_raw_relay.py
     scripts/lidar_geometry_probe.py
+    scripts/map_server_smoke_probe.py
     scripts/motion_profile_divergence_probe.py
     scripts/real_robot_bag_analyzer.py
     scripts/sensor_contract_probe.py
@@ -81,6 +82,16 @@ if(BUILD_TESTING)
   add_test(
     NAME map_assets_contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/map_assets_test.py
+  )
+  # Auto-discovers every maps/*.yaml at launch-generation time -- a single
+  # target covering all of them, not one target per map (see #40: the
+  # per-map world_smoke_* targets below never made it into the CI filter in
+  # scripts/test_simulator_contracts.sh, so a new map here would silently
+  # get zero coverage under that pattern).
+  add_launch_test(
+    test/map_server_smoke.launch.py
+    TARGET map_server_smoke
+    TIMEOUT 120
   )
   add_test(
     NAME practice_world_probe_contract
