@@ -16,9 +16,7 @@
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-  <exec_depend>lifecycle_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
-  <exec_depend>nav2_map_server</exec_depend>
   <depend>python3-numpy</depend>
   <exec_depend>python3-yaml</exec_depend>
   <exec_depend>rclpy</exec_depend>
@@ -48,6 +46,8 @@
   <test_depend>ament_lint_common</test_depend>
   <test_depend>launch_testing</test_depend>
   <test_depend>launch_testing_ament_cmake</test_depend>
+  <test_depend>lifecycle_msgs</test_depend>
+  <test_depend>nav2_map_server</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
