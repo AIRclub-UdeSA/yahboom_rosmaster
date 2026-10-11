@@ -1036,7 +1036,13 @@ The following simulator limitations remain:
   `maze_1_6x5_victimas.world`, `maze_2_6x5_victimas.world`,
   `maze_3_6x6_victimas.world`, and `maze_4_metal_6x6_victimas.world` have
   collision but are not part of any map either -- they are meant to be
-  detected live via camera/LiDAR, not pre-mapped.
+  detected live via camera/LiDAR, not pre-mapped. Every map under `maps/` is
+  checked two ways: `map_assets_contract` parses and aligns each one against
+  its world without touching ROS, and `map_server_smoke` auto-discovers every
+  `maps/*.yaml` and drives a real `nav2_map_server` lifecycle node through
+  configure and activate for each, so a map that passes the offline parser
+  but that the actual loader rejects still gets caught. A new map needs no
+  extra wiring for either.
 - Multi-robot operation and real-hardware bringup are not provided.
 
 The 0.5-second watchdog publishes zero on normal command loss and orderly
