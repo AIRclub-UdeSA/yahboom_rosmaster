@@ -6,6 +6,7 @@ import math
 import rclpy
 from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
+from rcl_interfaces.msg import SetParametersResult
 from rclpy.exceptions import ParameterUninitializedException
 from rclpy.node import Node
 from rclpy.parameter import Parameter
@@ -53,6 +54,10 @@ class WheelStateOdometry(Node):
         self.declare_parameter("max_wheel_position_jump", 2.0 * math.pi)
         self.declare_parameter("odom_frame_id", "odom")
         self.declare_parameter("base_frame_id", "base_footprint")
+        # Same name and default as the physical base_node: switchable at runtime
+        # (ros2 param set /wheel_state_odometry pub_odom_tf false) so a consumer
+        # that fuses its own odometry can own odom -> base_footprint.
+        self.declare_parameter("pub_odom_tf", True)
         # config/wheel_odometry.yaml supplies these; they have no default.
         for name in COVARIANCE_PARAMETERS:
             self.declare_parameter(name, Parameter.Type.DOUBLE)
@@ -76,6 +81,7 @@ class WheelStateOdometry(Node):
             self.get_parameter("max_wheel_position_jump").value)
         self.odom_frame_id = self.get_parameter("odom_frame_id").value
         self.base_frame_id = self.get_parameter("base_frame_id").value
+        self.pub_odom_tf = bool(self.get_parameter("pub_odom_tf").value)
 
         self.x = 0.0
         self.y = 0.0
@@ -96,6 +102,7 @@ class WheelStateOdometry(Node):
 
         self.odom_publisher = self.create_publisher(Odometry, "/odom", 10)
         self.tf_broadcaster = TransformBroadcaster(self)
+        self.add_on_set_parameters_callback(self.set_parameters_callback)
         self.subscription = self.create_subscription(
             JointState, "/joint_states", self.joint_state_callback, 10)
 
@@ -215,6 +222,18 @@ class WheelStateOdometry(Node):
             throttle_duration_sec=5.0)
         return None
 
+    def set_parameters_callback(self, parameters):
+        """Apply pub_odom_tf at runtime; other parameters keep startup-only behavior."""
+        for parameter in parameters:
+            if parameter.name == "pub_odom_tf":
+                enabled = bool(parameter.value)
+                if enabled != self.pub_odom_tf:
+                    self.get_logger().info(
+                        f"{'Publishing' if enabled else 'No longer publishing'} "
+                        f"{self.odom_frame_id} -> {self.base_frame_id} TF")
+                self.pub_odom_tf = enabled
+        return SetParametersResult(successful=True)
+
     def publish_odometry(self, stamp, linear_x, linear_y, angular_z):
         qx, qy, qz, qw = quaternion_from_yaw(self.heading)
 
@@ -245,7 +264,8 @@ class WheelStateOdometry(Node):
         transform.transform.rotation.y = qy
         transform.transform.rotation.z = qz
         transform.transform.rotation.w = qw
-        self.tf_broadcaster.sendTransform(transform)
+        if self.pub_odom_tf:
+            self.tf_broadcaster.sendTransform(transform)
 
 
 def main():

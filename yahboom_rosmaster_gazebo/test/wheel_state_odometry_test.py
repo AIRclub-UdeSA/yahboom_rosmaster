@@ -6,6 +6,7 @@ import sys
 import unittest
 
 import rclpy
+from rclpy.parameter import Parameter
 import yaml
 
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
@@ -79,6 +80,48 @@ class TestNode(unittest.TestCase):
         rclpy.shutdown()
         rclpy.init(args=["--ros-args", "-p", "pose_covariance_x:=0.0"])
         self.node = rclpy.create_node("placeholder")
+
+
+class TestOdomTfSwitch(unittest.TestCase):
+    """pub_odom_tf switches odom -> base_footprint at runtime, like base_node's."""
+
+    def setUp(self):
+        arguments = ["--ros-args"]
+        for name, value in configured().items():
+            arguments += ["-p", f"{name}:={value}"]
+        rclpy.init(args=arguments)
+        self.node = WheelStateOdometry()
+        self.odometry = []
+        self.transforms = []
+        self.node.odom_publisher.publish = self.odometry.append
+        self.node.tf_broadcaster.sendTransform = self.transforms.append
+
+    def tearDown(self):
+        self.node.destroy_node()
+        rclpy.shutdown()
+
+    def publish(self):
+        self.node.publish_odometry(self.node.get_clock().now().to_msg(), 0.0, 0.0, 0.0)
+
+    def test_on_by_default(self):
+        self.publish()
+        self.assertEqual(len(self.transforms), 1)
+
+    def test_off_and_back_on_at_runtime(self):
+        result = self.node.set_parameters([Parameter("pub_odom_tf", value=False)])[0]
+        self.assertTrue(result.successful)
+        self.publish()
+        self.assertEqual(self.transforms, [])
+        self.assertEqual(len(self.odometry), 1)
+        self.node.set_parameters([Parameter("pub_odom_tf", value=True)])
+        self.publish()
+        self.assertEqual(len(self.transforms), 1)
+
+    def test_non_boolean_is_rejected(self):
+        result = self.node.set_parameters([Parameter("pub_odom_tf", value=0)])[0]
+        self.assertFalse(result.successful)
+        self.publish()
+        self.assertEqual(len(self.transforms), 1)
 
 
 if __name__ == "__main__":

@@ -497,7 +497,12 @@ a physical ROSMASTER X3. See
   `wheel_state_odometry.py`, once per `/joint_states` message, so it is also
   10 Hz. Its covariance is the robot's: pose `0.001` and twist `0.0001` on x, y
   and yaw only, and zero elsewhere.
-- `odom -> base_footprint` is published by `wheel_state_odometry.py`.
+- `odom -> base_footprint` is published by `wheel_state_odometry.py`. As on the
+  physical robot's `base_node`, its `pub_odom_tf` parameter switches that
+  transform off and back on at runtime, for a consumer that publishes its own
+  (an EKF): `ros2 param set /wheel_state_odometry pub_odom_tf false`, and `true`
+  to restore it. `/odom` keeps publishing either way, and a relaunch brings the
+  transform back.
 - `/ground_truth/odom` is the timestamped Gazebo world pose of the simulated
   chassis. It is measurement-only and does not publish a TF edge.
 - `ground_truth_base` is a display-only diagnostic frame published by
